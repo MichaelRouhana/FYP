@@ -1,0 +1,168 @@
+declare module 'react-native-gifted-charts' {
+  import { ComponentType } from 'react';
+  import { ViewStyle, TextStyle } from 'react-native';
+
+  export interface BarDataItem {
+    value: number;
+    label?: string;
+    frontColor?: string;
+    sideColor?: string;
+    topColor?: string;
+    spacing?: number;
+    labelComponent?: () => React.ReactNode;
+    topLabelComponent?: () => React.ReactNode;
+    barWidth?: number;
+    onPress?: () => void;
+    disablePress?: boolean;
+    labelTextStyle?: TextStyle;
+    cappedBars?: boolean;
+    capColor?: string;
+    capRadius?: number;
+  }
+
+  export interface BarChartProps {
+    data: BarDataItem[];
+    width?: number;
+    height?: number;
+    barWidth?: number;
+    spacing?: number;
+    initialSpacing?: number;
+    endSpacing?: number;
+    barBorderRadius?: number;
+    barBorderTopLeftRadius?: number;
+    barBorderTopRightRadius?: number;
+    barBorderBottomLeftRadius?: number;
+    barBorderBottomRightRadius?: number;
+    frontColor?: string;
+    sideColor?: string;
+    topColor?: string;
+    showGradient?: boolean;
+    gradientColor?: string;
+    roundedTop?: boolean;
+    roundedBottom?: boolean;
+    activeOpacity?: number;
+    disablePress?: boolean;
+    noOfSections?: number;
+    maxValue?: number;
+    stepValue?: number;
+    stepHeight?: number;
+    showVerticalLines?: boolean;
+    verticalLinesColor?: string;
+    verticalLinesThickness?: number;
+    hideRules?: boolean;
+    rulesColor?: string;
+    rulesThickness?: number;
+    rulesType?: 'solid' | 'dashed' | 'dotted';
+    showYAxisIndices?: boolean;
+    yAxisIndicesColor?: string;
+    yAxisIndicesWidth?: number;
+    yAxisThickness?: number;
+    yAxisColor?: string;
+    yAxisTextStyle?: TextStyle;
+    yAxisLabelWidth?: number;
+    xAxisThickness?: number;
+    xAxisColor?: string;
+    xAxisLabelTextStyle?: TextStyle;
+    backgroundColor?: string;
+    isAnimated?: boolean;
+    animationDuration?: number;
+    onPress?: (item: BarDataItem, index: number) => void;
+    renderTooltip?: (item: BarDataItem, index: number) => React.ReactNode;
+    leftShiftForTooltip?: number;
+    leftShiftForLastIndexTooltip?: number;
+    scrollToEnd?: boolean;
+    scrollAnimation?: boolean;
+    stackData?: any[];
+  }
+
+  export interface LineDataItem {
+    value: number;
+    label?: string;
+    labelComponent?: () => React.ReactNode;
+    labelTextStyle?: TextStyle;
+    dataPointText?: string;
+    textShiftX?: number;
+    textShiftY?: number;
+    textColor?: string;
+    textFontSize?: number;
+    dataPointColor?: string;
+    dataPointRadius?: number;
+    hideDataPoint?: boolean;
+    showVerticalLine?: boolean;
+    verticalLineColor?: string;
+    verticalLineThickness?: number;
+  }
+
+  export interface LineChartProps {
+    data: LineDataItem[];
+    data2?: LineDataItem[];
+    data3?: LineDataItem[];
+    width?: number;
+    height?: number;
+    color?: string;
+    color2?: string;
+    color3?: string;
+    thickness?: number;
+    thickness2?: number;
+    thickness3?: number;
+    spacing?: number;
+    initialSpacing?: number;
+    endSpacing?: number;
+    hideDataPoints?: boolean;
+    hideDataPoints2?: boolean;
+    hideDataPoints3?: boolean;
+    dataPointsColor?: string;
+    dataPointsColor2?: string;
+    dataPointsColor3?: string;
+    dataPointsRadius?: number;
+    dataPointsRadius2?: number;
+    dataPointsRadius3?: number;
+    curved?: boolean;
+    curvature?: number;
+    areaChart?: boolean;
+    startFillColor?: string;
+    endFillColor?: string;
+    startFillColor2?: string;
+    endFillColor2?: string;
+    startFillColor3?: string;
+    endFillColor3?: string;
+    startOpacity?: number;
+    endOpacity?: number;
+    startOpacity2?: number;
+    endOpacity2?: number;
+    noOfSections?: number;
+    maxValue?: number;
+    stepValue?: number;
+    stepHeight?: number;
+    showVerticalLines?: boolean;
+    verticalLinesColor?: string;
+    verticalLinesThickness?: number;
+    hideRules?: boolean;
+    rulesColor?: string;
+    rulesThickness?: number;
+    rulesType?: 'solid' | 'dashed' | 'dotted';
+    showYAxisIndices?: boolean;
+    yAxisIndicesColor?: string;
+    yAxisThickness?: number;
+    yAxisColor?: string;
+    yAxisTextStyle?: TextStyle;
+    yAxisLabelWidth?: number;
+    hideYAxisText?: boolean;
+    xAxisThickness?: number;
+    xAxisColor?: string;
+    xAxisLabelTextStyle?: TextStyle;
+    backgroundColor?: string;
+    isAnimated?: boolean;
+    animationDuration?: number;
+    onPress?: (item: LineDataItem, index: number) => void;
+    scrollToEnd?: boolean;
+    scrollAnimation?: boolean;
+    hideAxesAndRules?: boolean;
+    disableScroll?: boolean;
+  }
+
+  export const BarChart: ComponentType<BarChartProps>;
+  export const LineChart: ComponentType<LineChartProps>;
+  export const PieChart: ComponentType<any>;
+}
+
