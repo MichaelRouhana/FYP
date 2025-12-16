@@ -1,0 +1,108 @@
+// types/chat.ts
+// Data architecture for Community & Chat features
+// Structured for future backend integration
+
+export type MessageType =
+  | 'text'
+  | 'image'
+  | 'system'
+  | 'match_bid';
+
+export interface User {
+  id: string;
+  name: string;
+  avatar: string; // URL
+}
+
+/**
+ * Specific data for the custom "Bid" widget seen in the chat screenshot
+ */
+export interface MatchBidData {
+  league: string;       // e.g. "Serie A"
+  leagueLogo?: string;  // URL for league logo
+  country: string;      // e.g. "Italy"
+  homeTeam: string;     // e.g. "PSG"
+  awayTeam: string;     // e.g. "Lorient"
+  matchTime: string;    // e.g. "02:00 PM"
+  homeLogo: string;     // URL
+  awayLogo: string;     // URL
+}
+
+export interface Message {
+  _id: string;
+  text: string;
+  createdAt: Date | number;
+  user: User;
+  messageType: MessageType;
+  /**
+   * Snapshot of the parent message (for UI performance)
+   */
+  replyTo?: {
+    id: string;
+    originalText: string;
+    senderName: string;
+  };
+  /**
+   * Payload for custom cards (e.g. match bid)
+   */
+  customData?: MatchBidData;
+}
+
+export interface Community {
+  id: string;
+  name: string;
+  lastMessage: string;       // For the list view
+  lastMessageTime: string;
+  logo: string;
+  unreadCount?: number;
+  memberCount?: string;      // e.g. "1.8M members"
+}
+
+/**
+ * Moderator/Admin user with role
+ */
+export interface Moderator {
+  id: string;
+  name: string;
+  avatar: string;
+  role: 'Admin' | 'Moderator';
+}
+
+/**
+ * Community member with points
+ */
+export interface Member {
+  id: string;
+  name: string;
+  avatar: string;
+  points: number;
+  joinedAt?: Date;
+}
+
+/**
+ * Leaderboard entry with rank
+ */
+export interface LeaderboardEntry {
+  id: string;
+  rank: number;
+  name: string;
+  avatar: string;
+  points: number;
+}
+
+/**
+ * Full community info for the info screen
+ */
+export interface CommunityInfo {
+  id: string;
+  name: string;
+  logo: string;
+  description: string;
+  location: string;
+  memberCount: string;
+  moderators: Moderator[];
+  rules: string[];
+  members: Member[];
+  leaderboard: LeaderboardEntry[];
+}
+

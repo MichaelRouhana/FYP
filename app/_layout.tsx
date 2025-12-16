@@ -87,6 +87,9 @@ function RootLayoutNav() {
           <Stack.Screen name="community/rooms" options={{ title: 'Community Rooms' }} />
           <Stack.Screen name="community/polls" options={{ title: 'Polls & Quizzes' }} />
           <Stack.Screen name="community/thread/[id]" options={{ title: 'Thread' }} />
+          <Stack.Screen name="community/chat/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="community/info/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="community/qr/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="admin/index" options={{ title: 'Admin Dashboard' }} />
           <Stack.Screen name="admin/users" options={{ title: 'Users' }} />
           <Stack.Screen name="admin/matches" options={{ title: 'Matches & Events' }} />
