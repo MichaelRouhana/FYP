@@ -72,13 +72,25 @@ export default function SearchScreen() {
     }
   };
 
+  // Handle item press - navigate based on type
+  const handleItemPress = useCallback((item: SearchResultItem) => {
+    if (item.type === 'player') {
+      router.push(`/player/${item.id}`);
+    }
+    // Team and league navigation can be added later
+  }, []);
+
   // Render search result item
   const renderResultItem = ({ item }: { item: SearchResultItem }) => {
     const isCircular = item.type === 'team' || item.type === 'player';
     const favorited = isFavorited(item.id);
 
     return (
-      <TouchableOpacity style={styles.resultCard} activeOpacity={0.7}>
+      <TouchableOpacity 
+        style={styles.resultCard} 
+        activeOpacity={0.7}
+        onPress={() => handleItemPress(item)}
+      >
         {/* Image/Logo */}
         <View style={[styles.resultImage, isCircular && styles.resultImageCircular]}>
           {item.imageUrl ? (

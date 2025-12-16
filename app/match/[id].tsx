@@ -336,14 +336,19 @@ export default function MatchDetailsScreen() {
   };
 
   const renderPlayerNode = (player: Player) => (
-    <View key={player.id} style={styles.playerNode}>
+    <TouchableOpacity 
+      key={player.id} 
+      style={styles.playerNode}
+      onPress={() => router.push(`/player/${player.id}` as any)}
+      activeOpacity={0.7}
+    >
       <View style={styles.playerPhoto}>
         <Text style={styles.playerInitial}>{player.name.charAt(0)}</Text>
       </View>
       <View style={[styles.playerRating, { backgroundColor: getRatingColor(player.rating) }]}>
         <Text style={styles.playerRatingText}>{player.rating.toFixed(1)}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderFormationRow = (players: Player[]) => (
@@ -353,7 +358,12 @@ export default function MatchDetailsScreen() {
   );
 
   const renderSubstituteCard = (player: Player) => (
-    <View key={player.id} style={styles.substituteCard}>
+    <TouchableOpacity 
+      key={player.id} 
+      style={styles.substituteCard}
+      onPress={() => router.push(`/player/${player.id}` as any)}
+      activeOpacity={0.7}
+    >
       <View style={styles.substitutePhoto}>
         <Text style={styles.substituteInitial}>{player.name.charAt(0)}</Text>
       </View>
@@ -361,7 +371,7 @@ export default function MatchDetailsScreen() {
         <Text style={styles.substituteName}>{player.name}</Text>
         <Text style={styles.substitutePosition}>{player.number} - {player.position}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderLineupsTab = () => {

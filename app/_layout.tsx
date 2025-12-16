@@ -82,6 +82,7 @@ function RootLayoutNav() {
           <Stack.Screen name="leaderboards" options={{ title: 'Leaderboards' }} />
           <Stack.Screen name="rewards" options={{ title: 'Rewards' }} />
           <Stack.Screen name="match/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="player/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="search" options={{ headerShown: false }} />
           <Stack.Screen name="community/rooms" options={{ title: 'Community Rooms' }} />
           <Stack.Screen name="community/polls" options={{ title: 'Polls & Quizzes' }} />
