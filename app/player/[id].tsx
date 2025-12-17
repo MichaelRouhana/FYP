@@ -1,4 +1,5 @@
 import { InfoCard, StatRow, StatSection } from '@/components/player';
+import { useTheme } from '@/context/ThemeContext';
 import { getPlayerData } from '@/mock/playerData';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -16,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function PlayerDetailsScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { theme, isDark } = useTheme();
   const playerId = typeof id === 'string' ? id : 'default';
   const [isFavorite, setIsFavorite] = useState(false);
   
@@ -24,11 +26,11 @@ export default function PlayerDetailsScreen() {
   const stats = statistics[0]; // Get first season stats
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-          <Feather name="chevron-left" size={24} color="#ffffff" />
+          <Feather name="chevron-left" size={24} color={theme.colors.icon} />
         </TouchableOpacity>
         <View style={styles.headerSpacer} />
         <TouchableOpacity 
@@ -38,7 +40,7 @@ export default function PlayerDetailsScreen() {
           <MaterialCommunityIcons 
             name={isFavorite ? "star" : "star-outline"} 
             size={24} 
-            color="#ffffff" 
+            color={isFavorite ? theme.colors.primary : theme.colors.icon} 
           />
         </TouchableOpacity>
       </View>
@@ -48,24 +50,27 @@ export default function PlayerDetailsScreen() {
         <View style={styles.playerHeader}>
           <Image
             source={{ uri: player.photo }}
-            style={styles.playerPhoto}
+            style={[styles.playerPhoto, { backgroundColor: isDark ? '#1A253D' : '#E5E7EB' }]}
             defaultSource={require('@/images/SerieA.jpg')}
           />
-          <Text style={styles.playerName}>{player.name.toUpperCase()}</Text>
+          <Text style={[styles.playerName, { color: theme.colors.text }]}>{player.name.toUpperCase()}</Text>
           <View style={styles.teamBadge}>
             <Image
               source={{ uri: stats.team.logo }}
               style={styles.teamLogo}
               defaultSource={require('@/images/SerieA.jpg')}
             />
-            <Text style={styles.teamName}>{stats.team.name}</Text>
+            <Text style={[styles.teamName, { color: theme.colors.textSecondary }]}>{stats.team.name}</Text>
           </View>
         </View>
 
         {/* Personal Details Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>PERSONAL DETAILS</Text>
-          <View style={styles.infoGridContainer}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>PERSONAL DETAILS</Text>
+          <View style={[styles.infoGridContainer, { 
+            borderColor: theme.colors.border,
+            backgroundColor: isDark ? 'transparent' : 'transparent'
+          }]}>
           <View style={styles.infoGrid}>
             <View style={styles.infoRow}>
               <View style={styles.infoCardWrapper}>
@@ -73,6 +78,8 @@ export default function PlayerDetailsScreen() {
                   icon="map-marker-outline"
                   label="Nationality"
                   value={player.nationality}
+                  isDark={isDark}
+                  theme={theme}
                 />
               </View>
               <View style={styles.infoCardWrapper}>
@@ -80,6 +87,8 @@ export default function PlayerDetailsScreen() {
                   icon="home-outline"
                   label="Birth Place"
                   value={player.birth.place}
+                  isDark={isDark}
+                  theme={theme}
                 />
               </View>
             </View>
@@ -89,6 +98,8 @@ export default function PlayerDetailsScreen() {
                   icon="account-outline"
                   label="Age"
                   value={String(player.age)}
+                  isDark={isDark}
+                  theme={theme}
                 />
               </View>
               <View style={styles.infoCardWrapper}>
@@ -96,6 +107,8 @@ export default function PlayerDetailsScreen() {
                   icon="calendar-outline"
                   label="Date Of Birth"
                   value={player.birth.date}
+                  isDark={isDark}
+                  theme={theme}
                 />
               </View>
             </View>
@@ -105,6 +118,8 @@ export default function PlayerDetailsScreen() {
                   icon="weight"
                   label="Weight"
                   value={player.weight}
+                  isDark={isDark}
+                  theme={theme}
                 />
               </View>
               <View style={styles.infoCardWrapper}>
@@ -112,6 +127,8 @@ export default function PlayerDetailsScreen() {
                   icon="human-male-height"
                   label="Height"
                   value={player.height}
+                  isDark={isDark}
+                  theme={theme}
                 />
               </View>
             </View>
@@ -121,6 +138,8 @@ export default function PlayerDetailsScreen() {
                   icon="soccer"
                   label="Position"
                   value={player.position}
+                  isDark={isDark}
+                  theme={theme}
                 />
               </View>
               <View style={styles.infoCardWrapper} />
@@ -130,64 +149,64 @@ export default function PlayerDetailsScreen() {
         </View>
 
         {/* Games Section */}
-        <StatSection title="GAMES">
-          <StatRow label="Rating" value={stats.games.rating} />
-          <StatRow label="Played" value={stats.games.appearences} />
-          <StatRow label="Line Ups" value={stats.games.lineups} />
-          <StatRow label="Total Minutes" value={stats.games.minutes} isLast />
+        <StatSection title="GAMES" isDark={isDark} theme={theme}>
+          <StatRow label="Rating" value={stats.games.rating} isDark={isDark} theme={theme} />
+          <StatRow label="Played" value={stats.games.appearences} isDark={isDark} theme={theme} />
+          <StatRow label="Line Ups" value={stats.games.lineups} isDark={isDark} theme={theme} />
+          <StatRow label="Total Minutes" value={stats.games.minutes} isLast isDark={isDark} theme={theme} />
         </StatSection>
 
         {/* Cards Section */}
-        <StatSection title="CARDS">
-          <StatRow label="Red Cards" value={stats.cards.red} />
-          <StatRow label="Yellow" value={stats.cards.yellow} />
-          <StatRow label="Second Yellow" value={stats.cards.yellowred} isLast />
+        <StatSection title="CARDS" isDark={isDark} theme={theme}>
+          <StatRow label="Red Cards" value={stats.cards.red} isDark={isDark} theme={theme} />
+          <StatRow label="Yellow" value={stats.cards.yellow} isDark={isDark} theme={theme} />
+          <StatRow label="Second Yellow" value={stats.cards.yellowred} isLast isDark={isDark} theme={theme} />
         </StatSection>
 
         {/* Duels Section */}
-        <StatSection title="DUELS">
-          <StatRow label="Total Duels" value={stats.duels.total} />
-          <StatRow label="Duels Won" value={stats.duels.won} isLast />
+        <StatSection title="DUELS" isDark={isDark} theme={theme}>
+          <StatRow label="Total Duels" value={stats.duels.total} isDark={isDark} theme={theme} />
+          <StatRow label="Duels Won" value={stats.duels.won} isLast isDark={isDark} theme={theme} />
         </StatSection>
 
         {/* Fouls Section */}
-        <StatSection title="FOULS">
-          <StatRow label="Fouls Commited" value={stats.fouls.committed} />
-          <StatRow label="Fouls Drawn" value={stats.fouls.drawn} />
-          <StatRow label="Line Ups" value={stats.games.lineups} />
-          <StatRow label="Total Minutes" value={stats.games.minutes} isLast />
+        <StatSection title="FOULS" isDark={isDark} theme={theme}>
+          <StatRow label="Fouls Commited" value={stats.fouls.committed} isDark={isDark} theme={theme} />
+          <StatRow label="Fouls Drawn" value={stats.fouls.drawn} isDark={isDark} theme={theme} />
+          <StatRow label="Line Ups" value={stats.games.lineups} isDark={isDark} theme={theme} />
+          <StatRow label="Total Minutes" value={stats.games.minutes} isLast isDark={isDark} theme={theme} />
         </StatSection>
 
         {/* Goals Section */}
-        <StatSection title="GOALS">
-          <StatRow label="Goals Scored" value={stats.goals.total} />
-          <StatRow label="Assists" value={stats.goals.assists} />
-          <StatRow label="Goals Canceled" value={stats.goals.conceded} />
-          <StatRow label="Saves" value={stats.goals.saves} isLast />
+        <StatSection title="GOALS" isDark={isDark} theme={theme}>
+          <StatRow label="Goals Scored" value={stats.goals.total} isDark={isDark} theme={theme} />
+          <StatRow label="Assists" value={stats.goals.assists} isDark={isDark} theme={theme} />
+          <StatRow label="Goals Canceled" value={stats.goals.conceded} isDark={isDark} theme={theme} />
+          <StatRow label="Saves" value={stats.goals.saves} isLast isDark={isDark} theme={theme} />
         </StatSection>
 
         {/* Passes Section */}
-        <StatSection title="PASSES">
-          <StatRow label="Total Passes" value={stats.passes.total} isLast />
+        <StatSection title="PASSES" isDark={isDark} theme={theme}>
+          <StatRow label="Total Passes" value={stats.passes.total} isLast isDark={isDark} theme={theme} />
         </StatSection>
 
         {/* Penalty Section */}
-        <StatSection title="PENALTY">
-          <StatRow label="Penalties Missed" value={stats.penalty.missed} />
-          <StatRow label="Penalties Saved" value={stats.penalty.saved} />
-          <StatRow label="Penalties Scored" value={stats.penalty.scored} isLast />
+        <StatSection title="PENALTY" isDark={isDark} theme={theme}>
+          <StatRow label="Penalties Missed" value={stats.penalty.missed} isDark={isDark} theme={theme} />
+          <StatRow label="Penalties Saved" value={stats.penalty.saved} isDark={isDark} theme={theme} />
+          <StatRow label="Penalties Scored" value={stats.penalty.scored} isLast isDark={isDark} theme={theme} />
         </StatSection>
 
         {/* Substitutes Section */}
-        <StatSection title="SUBSTITUTES">
-          <StatRow label="On Bench" value={stats.substitutes.bench} />
-          <StatRow label="Out" value={stats.substitutes.out} />
-          <StatRow label="In" value={stats.substitutes.in} isLast />
+        <StatSection title="SUBSTITUTES" isDark={isDark} theme={theme}>
+          <StatRow label="On Bench" value={stats.substitutes.bench} isDark={isDark} theme={theme} />
+          <StatRow label="Out" value={stats.substitutes.out} isDark={isDark} theme={theme} />
+          <StatRow label="In" value={stats.substitutes.in} isLast isDark={isDark} theme={theme} />
         </StatSection>
 
         {/* Tackles Section */}
-        <StatSection title="TACKLES">
-          <StatRow label="Total Tackles" value={stats.tackles.total} isLast />
+        <StatSection title="TACKLES" isDark={isDark} theme={theme}>
+          <StatRow label="Total Tackles" value={stats.tackles.total} isLast isDark={isDark} theme={theme} />
         </StatSection>
 
         <View style={styles.bottomSpacer} />
@@ -199,7 +218,6 @@ export default function PlayerDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080C17',
   },
   header: {
     flexDirection: 'row',

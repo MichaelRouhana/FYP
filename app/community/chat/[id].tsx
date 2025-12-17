@@ -1,29 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import {
-  View,
-  StyleSheet,
-  TextInput,
+  Dimensions,
   FlatList,
-  TouchableOpacity,
   Image,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { GradientBackground } from '@/components/GradientBackground';
-import { useChatMessages, useCommunityDetails, CURRENT_USER } from '@/hooks/useChat';
-import { Message, MatchBidData } from '@/types/chat';
+import { useTheme } from '@/context/ThemeContext';
+import { CURRENT_USER, useChatMessages, useCommunityDetails } from '@/hooks/useChat';
+import { MatchBidData, Message } from '@/types/chat';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.65, 240);
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
+  const { theme, isDark } = useTheme();
   const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
   const { messages, sendMessage } = useChatMessages(id);
   const { community } = useCommunityDetails(id);
@@ -74,7 +75,10 @@ export default function ChatScreen() {
   };
 
   const renderMatchBidCard = (data: MatchBidData) => (
-    <View style={styles.matchBidCard}>
+    <View style={[styles.matchBidCard, { 
+      backgroundColor: '#FFFFFF',
+      borderColor: '#18223A'
+    }]}>
       {/* League Header */}
       <View style={styles.leagueHeader}>
         <Image
@@ -115,7 +119,7 @@ export default function ChatScreen() {
       <Text style={styles.matchTime}>{data.matchTime}</Text>
 
       {/* Place Bid Button */}
-      <TouchableOpacity style={styles.placeBidButton} activeOpacity={0.8}>
+      <TouchableOpacity style={[styles.placeBidButton, { backgroundColor: '#18223A' }]} activeOpacity={0.8}>
         <Text style={styles.placeBidText}>PLACE YOUR BID</Text>
       </TouchableOpacity>
     </View>
@@ -128,7 +132,10 @@ export default function ChatScreen() {
     if (item.messageType === 'system') {
       return (
         <View style={styles.systemMessage}>
-          <Text style={styles.systemText}>{item.text}</Text>
+          <Text style={[styles.systemText, { 
+            color: isDark ? '#6b7280' : '#6B7280',
+            backgroundColor: isDark ? '#1f2937' : '#E5E7EB'
+          }]}>{item.text}</Text>
         </View>
       );
     }
@@ -140,7 +147,7 @@ export default function ChatScreen() {
           {renderMatchBidCard(item.customData)}
           <View style={styles.sharedInfo}>
             <Text style={styles.sharedTime}>{formatTime(item.createdAt)}</Text>
-            <Text style={styles.sharedLabel}>You Shared this match</Text>
+            <Text style={[styles.sharedLabel, { color: theme.colors.textSecondary }]}>You Shared this match</Text>
           </View>
         </View>
       );
@@ -156,8 +163,8 @@ export default function ChatScreen() {
       >
         {/* Avatar for others */}
         {!isMe && (
-          <View style={styles.avatarSmall}>
-            <Text style={styles.avatarLetter}>
+          <View style={[styles.avatarSmall, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
+            <Text style={[styles.avatarLetter, { color: isDark ? '#fff' : '#18223A' }]}>
               {item.user.name.charAt(0).toUpperCase()}
             </Text>
           </View>
@@ -166,16 +173,16 @@ export default function ChatScreen() {
         <View style={styles.messageContent}>
           {/* Username for others */}
           {!isMe && (
-            <Text style={styles.senderName}>{item.user.name}</Text>
+            <Text style={[styles.senderName, { color: theme.colors.textSecondary }]}>{item.user.name}</Text>
           )}
 
           {/* Reply preview */}
           {item.replyTo && (
-            <View style={styles.replyPreview}>
-              <View style={styles.replyBar} />
+            <View style={[styles.replyPreview, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+              <View style={[styles.replyBar, { backgroundColor: theme.colors.primary }]} />
               <View>
-                <Text style={styles.replyName}>{item.replyTo.senderName}</Text>
-                <Text style={styles.replyText} numberOfLines={1}>
+                <Text style={[styles.replyName, { color: theme.colors.primary }]}>{item.replyTo.senderName}</Text>
+                <Text style={[styles.replyText, { color: theme.colors.textSecondary }]} numberOfLines={1}>
                   {item.replyTo.originalText}
                 </Text>
               </View>
@@ -186,16 +193,22 @@ export default function ChatScreen() {
           <View
             style={[
               styles.messageBubble,
-              isMe ? styles.bubbleMe : styles.bubbleOther,
+              isMe 
+                ? [styles.bubbleMe, { backgroundColor: isDark ? '#1e3a5f' : '#18223A' }]
+                : [styles.bubbleOther, { backgroundColor: isDark ? '#1f2937' : '#FFFFFF' }],
             ]}
           >
-            <Text style={[styles.messageText, isMe && styles.messageTextMe]}>
+            <Text style={[styles.messageText, { 
+              color: isMe 
+                ? '#fff' 
+                : (isDark ? '#e5e7eb' : '#18223A')
+            }]}>
               {item.text}
             </Text>
           </View>
 
           {/* Time */}
-          <Text style={[styles.timeText, isMe && styles.timeTextMe]}>
+          <Text style={[styles.timeText, { color: theme.colors.textMuted }, isMe && styles.timeTextMe]}>
             {formatTime(item.createdAt)}
           </Text>
         </View>
@@ -204,7 +217,7 @@ export default function ChatScreen() {
   };
 
   return (
-    <GradientBackground>
+    <View style={[styles.background, { backgroundColor: theme.colors.background }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.select({ ios: 'padding', android: undefined })}
@@ -212,12 +225,12 @@ export default function ChatScreen() {
       >
         <View style={[styles.container, { paddingTop: insets.top }]}>
           {/* Header */}
-          <View style={styles.header}>
+          <View style={[styles.header, { borderBottomColor: theme.colors.separator, backgroundColor: theme.colors.headerBackground }]}>
             <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={28} color="#fff" />
+              <Ionicons name="chevron-back" size={28} color={theme.colors.icon} />
             </TouchableOpacity>
 
-            <View style={styles.headerAvatar}>
+            <View style={[styles.headerAvatar, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
               <Image
                 source={{ uri: community?.logo }}
                 style={styles.headerLogo}
@@ -226,16 +239,16 @@ export default function ChatScreen() {
             </View>
 
             <View style={styles.headerInfo}>
-              <Text style={styles.headerTitle}>
+              <Text style={[styles.headerTitle, { color: theme.colors.text }]}>
                 {community?.name ?? name ?? 'Community'}
               </Text>
-              <Text style={styles.headerSubtitle}>
+              <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
                 {community?.memberCount ?? '1.8M members'}
               </Text>
             </View>
 
             <TouchableOpacity onPress={handleInfo} style={styles.infoButton}>
-              <Ionicons name="information-circle-outline" size={26} color="#fff" />
+              <Ionicons name="information-circle-outline" size={26} color={theme.colors.icon} />
             </TouchableOpacity>
           </View>
 
@@ -255,32 +268,42 @@ export default function ChatScreen() {
 
           {/* Reply Preview */}
           {replyingTo && (
-            <View style={styles.replyingContainer}>
+            <View style={[styles.replyingContainer, { 
+              backgroundColor: isDark ? '#1f2937' : '#F3F4F6',
+              borderTopColor: theme.colors.separator
+            }]}>
               <View style={styles.replyingContent}>
                 <Text style={styles.replyingLabel}>
                   Replying to {replyingTo.user.name}
                 </Text>
-                <Text style={styles.replyingText} numberOfLines={1}>
+                <Text style={[styles.replyingText, { color: theme.colors.textSecondary }]} numberOfLines={1}>
                   {replyingTo.text}
                 </Text>
               </View>
               <TouchableOpacity onPress={() => setReplyingTo(null)}>
-                <Ionicons name="close" size={20} color="#9ca3af" />
+                <Ionicons name="close" size={20} color={theme.colors.iconMuted} />
               </TouchableOpacity>
             </View>
           )}
 
           {/* Input Area */}
-          <View style={[styles.inputContainer, { paddingBottom: insets.bottom + 8 }]}>
+          <View style={[styles.inputContainer, { 
+            paddingBottom: insets.bottom + 8,
+            borderTopColor: theme.colors.separator,
+            backgroundColor: theme.colors.headerBackground
+          }]}>
             <TouchableOpacity style={styles.addButton}>
-              <Ionicons name="add" size={24} color="#9ca3af" />
+              <Ionicons name="add" size={24} color={theme.colors.iconMuted} />
             </TouchableOpacity>
 
-            <View style={styles.inputWrapper}>
+            <View style={[styles.inputWrapper, { 
+              borderColor: theme.colors.border,
+              backgroundColor: isDark ? 'transparent' : '#FFFFFF'
+            }]}>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, { color: theme.colors.text }]}
                 placeholder="Enter your message"
-                placeholderTextColor="#6b7280"
+                placeholderTextColor={theme.colors.textMuted}
                 value={inputText}
                 onChangeText={setInputText}
                 multiline
@@ -288,28 +311,31 @@ export default function ChatScreen() {
             </View>
 
             {inputText.trim() ? (
-              <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
+              <TouchableOpacity style={[styles.sendButton, { backgroundColor: theme.colors.primary }]} onPress={handleSend}>
                 <Ionicons name="send" size={20} color="#fff" />
               </TouchableOpacity>
             ) : (
               <>
                 <TouchableOpacity style={styles.emojiButton}>
-                  <Ionicons name="happy-outline" size={24} color="#9ca3af" />
+                  <Ionicons name="happy-outline" size={24} color={theme.colors.iconMuted} />
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.cameraButton}>
-                  <Ionicons name="camera-outline" size={24} color="#9ca3af" />
+                  <Ionicons name="camera-outline" size={24} color={theme.colors.iconMuted} />
                 </TouchableOpacity>
               </>
             )}
           </View>
         </View>
       </KeyboardAvoidingView>
-    </GradientBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+  },
   container: {
     flex: 1,
   },
@@ -319,7 +345,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1f2937',
   },
   backButton: {
     padding: 4,
@@ -361,6 +386,7 @@ const styles = StyleSheet.create({
   messagesContent: {
     padding: 16,
     paddingBottom: 8,
+    backgroundColor: 'transparent',
   },
   messageWrapper: {
     flexDirection: 'row',
@@ -466,10 +492,12 @@ const styles = StyleSheet.create({
   },
   // Match Bid Card Styles - Smaller and more compact
   matchBidCard: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 12,
     width: CARD_WIDTH,
+    borderWidth: 1,
+    borderColor: '#18223A',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -552,12 +580,12 @@ const styles = StyleSheet.create({
   },
   sharedTime: {
     fontSize: 11,
-    color: '#22c55e',
+    color: '#32A95D',
     fontFamily: 'Inter_400Regular',
   },
   sharedLabel: {
     fontSize: 11,
-    color: '#6b7280',
+    color: '#6B7280',
     fontFamily: 'Inter_400Regular',
   },
   replyingContainer: {

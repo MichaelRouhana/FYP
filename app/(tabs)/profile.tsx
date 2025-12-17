@@ -1,12 +1,12 @@
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React from 'react';
 import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
   Image,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,43 +41,48 @@ export default function ProfileScreen() {
   };
 
   const renderTeamChip = (team: FavoriteTeam) => (
-    <View key={team.id} style={styles.teamChip}>
-      <Text style={styles.teamChipText}>{team.name}</Text>
+    <View key={team.id} style={[styles.teamChip, { backgroundColor: theme.colors.primary }]}>
+      <Text style={[styles.teamChipText, { color: theme.colors.primaryText }]}>{team.name}</Text>
     </View>
   );
 
   const renderCommunityCard = (community: UserCommunity) => (
-    <View key={community.id} style={styles.communityCard}>
+    <View key={community.id} style={[styles.communityCard, { backgroundColor: theme.colors.cardBackground }]}>
       <View style={styles.communityInfo}>
-        <Text style={styles.communityName}>{community.name}</Text>
-        <Text style={styles.communityMembers}>{community.memberCount}</Text>
+        <Text style={[styles.communityName, { color: theme.colors.text }]}>{community.name}</Text>
+        <Text style={[styles.communityMembers, { color: theme.colors.textSecondary }]}>{community.memberCount}</Text>
       </View>
 
       <View style={styles.communityStats}>
-        <Text style={styles.communityRank}>#{community.rank}</Text>
-        <Text style={styles.communityRankLabel}>Rank</Text>
+        <Text style={[styles.communityRank, { color: theme.colors.primary }]}>#{community.rank}</Text>
+        <Text style={[styles.communityRankLabel, { color: theme.colors.textSecondary }]}>Rank</Text>
       </View>
 
       <View style={styles.communityStats}>
-        <Text style={styles.communityPoints}>{community.points.toLocaleString()}</Text>
-        <Text style={styles.communityPointsLabel}>Points</Text>
+        <Text style={[styles.communityPoints, { color: theme.colors.text }]}>{community.points.toLocaleString()}</Text>
+        <Text style={[styles.communityPointsLabel, { color: theme.colors.textSecondary }]}>Points</Text>
       </View>
 
       <TouchableOpacity
-        style={styles.viewButton}
+        // Fix: Use a light gray background ('#E5E7EB') in light mode instead of the dark border color
+        style={[styles.viewButton, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}
         onPress={() => handleViewCommunity(community.id)}
       >
-        <Text style={styles.viewButtonText}>VIEW</Text>
-        <Ionicons name="chevron-forward" size={16} color="#fff" />
+        {/* Fix: Use dark text ('#111827') in light mode so it stands out against the light gray */}
+        <Text style={[styles.viewButtonText, { color: isDark ? '#fff' : '#111827' }]}>VIEW</Text>
+        <Ionicons name="chevron-forward" size={16} color={isDark ? '#fff' : '#111827'} />
       </TouchableOpacity>
     </View>
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>PROFILE</Text>
+      <View style={[styles.header, { 
+        backgroundColor: theme.colors.headerBackground, 
+        borderBottomColor: theme.colors.border 
+      }]}>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>PROFILE</Text>
       </View>
 
       <ScrollView
@@ -88,7 +93,7 @@ export default function ProfileScreen() {
         {/* User Info Section */}
         <View style={styles.userSection}>
           {/* Avatar */}
-          <View style={styles.avatarContainer}>
+          <View style={[styles.avatarContainer, { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.border }]}>
             <Image
               source={{ uri: user.avatar }}
               style={styles.avatar}
@@ -97,66 +102,72 @@ export default function ProfileScreen() {
           </View>
 
           {/* Name */}
-          <Text style={styles.userName}>{user.name}</Text>
+          <Text style={[styles.userName, { color: theme.colors.text }]}>{user.name}</Text>
 
           {/* Username, Points, Location */}
           <View style={styles.userMeta}>
-            <Text style={styles.username}>{user.username}</Text>
-            <Text style={styles.userPoints}>{user.points.toLocaleString()} points</Text>
+            <Text style={[styles.username, { color: theme.colors.textSecondary }]}>{user.username}</Text>
+            <Text style={[styles.userPoints, { color: theme.colors.hot }]}>{user.points.toLocaleString()} points</Text>
             <View style={styles.locationContainer}>
-              <Ionicons name="location" size={14} color="#4ade80" />
-              <Text style={styles.locationText}>{user.location}</Text>
+              <Ionicons name="location" size={14} color={theme.colors.primary} />
+              <Text style={[styles.locationText, { color: theme.colors.primary }]}>{user.location}</Text>
             </View>
           </View>
 
           {/* Bio */}
-          <Text style={styles.bio}>{user.bio}</Text>
+          <Text style={[styles.bio, { color: theme.colors.text }]}>{user.bio}</Text>
         </View>
 
         {/* Favorite Teams */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>FAVORITE TEAMS</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>FAVORITE TEAMS</Text>
           <View style={styles.teamsRow}>
             {favoriteTeams.map(renderTeamChip)}
-            <TouchableOpacity style={styles.addTeamButton} onPress={handleAddTeam}>
-              <Text style={styles.addTeamText}>+ Add Team</Text>
+            <TouchableOpacity 
+              style={[styles.addTeamButton, { borderColor: theme.colors.textSecondary }]} 
+              onPress={handleAddTeam}
+            >
+              <Text style={[styles.addTeamText, { color: theme.colors.text }]}>+ Add Team</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* My Communities */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>MY COMMUNITIES</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>MY COMMUNITIES</Text>
           {communities.map(renderCommunityCard)}
 
           {/* Browse Communities */}
           <TouchableOpacity
-            style={styles.browseButton}
+            style={[styles.browseButton, { 
+              backgroundColor: theme.colors.background, 
+              borderColor: theme.colors.border 
+            }]}
             onPress={handleBrowseCommunities}
           >
-            <Text style={styles.browseButtonText}>BROWSE COMMUNITIES</Text>
+            <Text style={[styles.browseButtonText, { color: theme.colors.text }]}>BROWSE COMMUNITIES</Text>
           </TouchableOpacity>
         </View>
 
         {/* Predictions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>PREDICTIONS</Text>
-          <View style={styles.predictionsCard}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>PREDICTIONS</Text>
+          <View style={[styles.predictionsCard, { backgroundColor: theme.colors.cardBackground }]}>
             <View style={styles.predictionStat}>
-              <Text style={styles.predictionValue}>{predictions.total}</Text>
-              <Text style={styles.predictionLabel}>Total Predictions</Text>
+              <Text style={[styles.predictionValue, { color: theme.colors.text }]}>{predictions.total}</Text>
+              <Text style={[styles.predictionLabel, { color: theme.colors.textSecondary }]}>Total Predictions</Text>
             </View>
             <View style={styles.predictionStat}>
               <Text style={[styles.predictionValue, styles.correctValue]}>
                 {predictions.correct}
               </Text>
-              <Text style={styles.predictionLabel}>Correct</Text>
+              <Text style={[styles.predictionLabel, { color: theme.colors.textSecondary }]}>Correct</Text>
             </View>
             <View style={styles.predictionStat}>
               <Text style={[styles.predictionValue, styles.incorrectValue]}>
                 {predictions.incorrect}
               </Text>
-              <Text style={styles.predictionLabel}>Incorrect</Text>
+              <Text style={[styles.predictionLabel, { color: theme.colors.textSecondary }]}>Incorrect</Text>
             </View>
           </View>
         </View>
@@ -164,7 +175,10 @@ export default function ProfileScreen() {
         {/* Account Settings */}
         <View style={[styles.settingsSection, { borderTopColor: theme.colors.separator }]}>
           {/* Theme Toggle */}
-          <TouchableOpacity style={[styles.settingsRow, { borderBottomColor: theme.colors.separator }]} onPress={toggleTheme}>
+          <TouchableOpacity 
+            style={[styles.settingsRow, { borderBottomColor: theme.colors.separator }]} 
+            onPress={toggleTheme}
+          >
             <View style={styles.themeToggleLeft}>
               <Feather 
                 name={isDark ? "moon" : "sun"} 
@@ -187,14 +201,14 @@ export default function ProfileScreen() {
           <TouchableOpacity style={[styles.settingsRow, { borderBottomColor: theme.colors.separator }]} onPress={handleEmailPress}>
             <Text style={[styles.settingsLabel, { color: theme.colors.textSecondary }]}>Email</Text>
             <View style={styles.settingsValue}>
-              <Text style={styles.settingsValueText}>{user.email}</Text>
-              <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+              <Text style={[styles.settingsValueText, { color: theme.colors.text }]}>{user.email}</Text>
+              <Ionicons name="chevron-forward" size={20} color={theme.colors.iconMuted} />
             </View>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.settingsRow, { borderBottomColor: theme.colors.separator }]} onPress={handlePasswordPress}>
             <Text style={[styles.settingsLabel, { color: theme.colors.textSecondary }]}>Password</Text>
-            <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+            <Ionicons name="chevron-forward" size={20} color={theme.colors.iconMuted} />
           </TouchableOpacity>
         </View>
 
@@ -207,19 +221,15 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080C17',
   },
   header: {
-    backgroundColor: '#111828',
     paddingVertical: 16,
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: '#182443',
   },
   headerTitle: {
     fontSize: 18,
     fontFamily: 'Montserrat_700Bold',
-    color: '#fff',
     letterSpacing: 1,
   },
   scrollView: {
@@ -238,7 +248,6 @@ const styles = StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -252,7 +261,6 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 24,
     fontFamily: 'Montserrat_700Bold',
-    color: '#fff',
     marginBottom: 8,
   },
   userMeta: {
@@ -265,12 +273,10 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: '#6b7280',
   },
   userPoints: {
     fontSize: 14,
     fontFamily: 'Montserrat_500Medium',
-    color: '#fbbf24',
   },
   locationContainer: {
     flexDirection: 'row',
@@ -280,12 +286,10 @@ const styles = StyleSheet.create({
   locationText: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: '#4ade80',
   },
   bio: {
     fontSize: 15,
     fontFamily: 'Inter_400Regular',
-    color: '#e5e7eb',
     lineHeight: 24,
   },
 
@@ -296,7 +300,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontFamily: 'Montserrat_700Bold',
-    color: '#fff',
     letterSpacing: 0.5,
     marginBottom: 12,
   },
@@ -309,7 +312,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   teamChip: {
-    backgroundColor: '#22c55e',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -317,25 +319,21 @@ const styles = StyleSheet.create({
   teamChipText: {
     fontSize: 13,
     fontFamily: 'Montserrat_700Bold',
-    color: '#fff',
   },
   addTeamButton: {
     backgroundColor: 'transparent',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#6b7280',
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
   addTeamText: {
     fontSize: 13,
     fontFamily: 'Montserrat_500Medium',
-    color: '#fff',
   },
 
   // Community Card
   communityCard: {
-    backgroundColor: '#101828',
     borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
@@ -348,13 +346,11 @@ const styles = StyleSheet.create({
   communityName: {
     fontSize: 15,
     fontFamily: 'Montserrat_700Bold',
-    color: '#fff',
     marginBottom: 2,
   },
   communityMembers: {
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
-    color: '#6b7280',
   },
   communityStats: {
     alignItems: 'center',
@@ -363,29 +359,24 @@ const styles = StyleSheet.create({
   communityRank: {
     fontSize: 16,
     fontFamily: 'Montserrat_700Bold',
-    color: '#22c55e',
   },
   communityRankLabel: {
     fontSize: 11,
     fontFamily: 'Inter_400Regular',
-    color: '#6b7280',
     marginTop: 2,
   },
   communityPoints: {
     fontSize: 16,
     fontFamily: 'Montserrat_700Bold',
-    color: '#fff',
   },
   communityPointsLabel: {
     fontSize: 11,
     fontFamily: 'Inter_400Regular',
-    color: '#6b7280',
     marginTop: 2,
   },
   viewButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#374151',
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -394,28 +385,23 @@ const styles = StyleSheet.create({
   viewButtonText: {
     fontSize: 12,
     fontFamily: 'Montserrat_700Bold',
-    color: '#fff',
   },
 
   // Browse Button
   browseButton: {
-    backgroundColor: '#080C17',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#101828',
     paddingVertical: 16,
     alignItems: 'center',
   },
   browseButtonText: {
     fontSize: 14,
     fontFamily: 'Montserrat_700Bold',
-    color: '#fff',
     letterSpacing: 0.5,
   },
 
   // Predictions
   predictionsCard: {
-    backgroundColor: '#101828',
     borderRadius: 12,
     padding: 20,
     flexDirection: 'row',
@@ -427,7 +413,6 @@ const styles = StyleSheet.create({
   predictionValue: {
     fontSize: 22,
     fontFamily: 'Montserrat_700Bold',
-    color: '#fff',
     marginBottom: 4,
   },
   correctValue: {
@@ -439,14 +424,12 @@ const styles = StyleSheet.create({
   predictionLabel: {
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
-    color: '#6b7280',
   },
 
   // Settings
   settingsSection: {
     marginTop: 24,
     borderTopWidth: 1,
-    borderTopColor: '#1f2937',
   },
   settingsRow: {
     flexDirection: 'row',
@@ -454,7 +437,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1f2937',
   },
   themeToggleLeft: {
     flexDirection: 'row',
@@ -470,7 +452,6 @@ const styles = StyleSheet.create({
   settingsLabel: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: '#9ca3af',
   },
   settingsValue: {
     flexDirection: 'row',
@@ -480,6 +461,5 @@ const styles = StyleSheet.create({
   settingsValueText: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
-    color: '#38bdf8',
   },
 });

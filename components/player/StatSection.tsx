@@ -1,16 +1,23 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { ThemeColors } from '@/context/ThemeContext';
 
 interface StatSectionProps {
   title: string;
   children: React.ReactNode;
+  isDark?: boolean;
+  theme?: { colors: ThemeColors };
 }
 
-export const StatSection: React.FC<StatSectionProps> = ({ title, children }) => {
+export const StatSection: React.FC<StatSectionProps> = ({ title, children, isDark = true, theme }) => {
+  const backgroundColor = theme?.colors?.background || '#080C17';
+  const borderColor = theme?.colors?.border || '#1A253D';
+  const titleColor = theme?.colors?.text || '#ffffff';
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
-      <View style={styles.content}>
+      <Text style={[styles.title, { color: titleColor }]}>{title}</Text>
+      <View style={[styles.content, { backgroundColor, borderColor }]}>
         {children}
       </View>
     </View>
@@ -20,20 +27,17 @@ export const StatSection: React.FC<StatSectionProps> = ({ title, children }) => 
 const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
+    marginHorizontal: 16,
   },
   title: {
     fontFamily: 'Montserrat_800ExtraBold',
     fontSize: 15,
-    color: '#ffffff',
     marginBottom: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
   },
   content: {
-    backgroundColor: '#080C17',
     borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#1A253D',
-    marginHorizontal: 16,
   },
 });
 

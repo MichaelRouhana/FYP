@@ -13,28 +13,30 @@ import {
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useTheme } from '@/context/ThemeContext';
 import { useCommunityInfo } from '@/hooks/useChat';
 import { Moderator, Member, LeaderboardEntry } from '@/types/chat';
 
 const Tab = createMaterialTopTabNavigator();
 
 // ============ ABOUT TAB ============
-function AboutTab({ communityId }: { communityId: string }) {
+function AboutTab({ communityId, onLeaveCommunity }: { communityId: string; onLeaveCommunity: () => void }) {
+  const { theme, isDark } = useTheme();
   const { communityInfo } = useCommunityInfo(communityId);
 
   if (!communityInfo) {
     return (
       <View style={styles.tabContainer}>
-        <Text style={styles.errorText}>Community not found</Text>
+        <Text style={[styles.errorText, { color: theme.colors.textSecondary }]}>Community not found</Text>
       </View>
     );
   }
 
   const renderModerator = (mod: Moderator) => (
-    <View key={mod.id} style={styles.moderatorRow}>
+    <View key={mod.id} style={[styles.moderatorRow, { borderBottomColor: theme.colors.separator }]}>
       <Image source={{ uri: mod.avatar }} style={styles.moderatorAvatar} />
       <View style={styles.moderatorInfo}>
-        <Text style={styles.moderatorName}>{mod.name.toUpperCase()}</Text>
+        <Text style={[styles.moderatorName, { color: theme.colors.text }]}>{mod.name.toUpperCase()}</Text>
         <Text
           style={[
             styles.moderatorRole,
@@ -50,11 +52,11 @@ function AboutTab({ communityId }: { communityId: string }) {
   const renderRule = (rule: string, index: number) => {
     const isLast = index === communityInfo.rules.length - 1;
     return (
-      <View key={index} style={[styles.ruleRow, isLast && styles.ruleRowLast]}>
+      <View key={index} style={[styles.ruleRow, { borderBottomColor: theme.colors.separator }, isLast && styles.ruleRowLast]}>
         <View style={styles.ruleIcon}>
-          <Ionicons name="shield-checkmark" size={22} color="#22c55e" />
+          <Ionicons name="shield-checkmark" size={22} color={theme.colors.primary} />
         </View>
-        <Text style={styles.ruleText}>{rule}</Text>
+        <Text style={[styles.ruleText, { color: theme.colors.text }]}>{rule}</Text>
       </View>
     );
   };
@@ -62,39 +64,62 @@ function AboutTab({ communityId }: { communityId: string }) {
   return (
     <ScrollView style={styles.tabContainer} showsVerticalScrollIndicator={false}>
       {/* Community Card */}
-      <View style={styles.communityCard}>
-        <View style={styles.communityLogoContainer}>
+      <View style={[styles.communityCard, { 
+        backgroundColor: isDark ? '#080C17' : '#FFFFFF',
+        borderColor: theme.colors.border
+      }]}>
+        <View style={[styles.communityLogoContainer, { backgroundColor: isDark ? '#fff' : '#E5E7EB' }]}>
           <Image source={{ uri: communityInfo.logo }} style={styles.communityLogo} />
         </View>
-        <Text style={styles.communityName}>{communityInfo.name}</Text>
+        <Text style={[styles.communityName, { color: theme.colors.text }]}>{communityInfo.name}</Text>
         <View style={styles.locationRow}>
-          <Ionicons name="location" size={16} color="#4ade80" />
-          <Text style={styles.locationText}>{communityInfo.location}</Text>
-          <Text style={styles.memberCountText}>{communityInfo.memberCount}</Text>
+          <Ionicons name="location" size={16} color={theme.colors.primary} />
+          <Text style={[styles.locationText, { color: theme.colors.primary }]}>{communityInfo.location}</Text>
+          <Text style={[styles.memberCountText, { color: isDark ? '#38bdf8' : '#6B7280' }]}>{communityInfo.memberCount}</Text>
         </View>
 
         {/* About Section */}
         <View style={styles.aboutSection}>
-          <Text style={styles.sectionTitle}>ABOUT</Text>
-          <Text style={styles.descriptionText}>{communityInfo.description}</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textMuted }]}>ABOUT</Text>
+          <Text style={[styles.descriptionText, { color: theme.colors.textSecondary }]}>{communityInfo.description}</Text>
         </View>
       </View>
 
       {/* Moderators */}
-      <Text style={styles.sectionHeader}>MODERATORS</Text>
-      <View style={styles.moderatorsCard}>
+      <Text style={[styles.sectionHeader, { color: theme.colors.textMuted }]}>MODERATORS</Text>
+      <View style={[styles.moderatorsCard, { 
+        backgroundColor: isDark ? '#111828' : '#FFFFFF',
+        borderColor: theme.colors.border
+      }]}>
         {communityInfo.moderators.map(renderModerator)}
       </View>
 
       {/* Rules */}
-      <Text style={styles.sectionHeader}>RULES</Text>
-      <View style={styles.rulesCard}>
+      <Text style={[styles.sectionHeader, { color: theme.colors.textMuted }]}>RULES</Text>
+      <View style={[styles.rulesCard, { 
+        backgroundColor: isDark ? '#111828' : '#FFFFFF',
+        borderColor: theme.colors.border
+      }]}>
         {communityInfo.rules.map(renderRule)}
       </View>
 
       {/* Browse Communities Button */}
-      <TouchableOpacity style={styles.browseButton}>
-        <Text style={styles.browseButtonText}>BROWSE COMMUNITIES</Text>
+      <TouchableOpacity style={[styles.browseButton, { 
+        backgroundColor: isDark ? '#111828' : '#FFFFFF',
+        borderColor: theme.colors.border
+      }]}>
+        <Text style={[styles.browseButtonText, { color: theme.colors.text }]}>BROWSE COMMUNITIES</Text>
+      </TouchableOpacity>
+
+      {/* Leave Community Button */}
+      <TouchableOpacity 
+        style={[styles.leaveButton, { 
+          backgroundColor: '#ef4444',
+          marginHorizontal: 16,
+        }]}
+        onPress={onLeaveCommunity}
+      >
+        <Text style={styles.leaveButtonText}>LEAVE COMMUNITY</Text>
       </TouchableOpacity>
 
       <View style={{ height: 40 }} />
@@ -104,22 +129,23 @@ function AboutTab({ communityId }: { communityId: string }) {
 
 // ============ MEMBERS TAB ============
 function MembersTab({ communityId }: { communityId: string }) {
+  const { theme, isDark } = useTheme();
   const { communityInfo } = useCommunityInfo(communityId);
 
   if (!communityInfo) {
     return (
       <View style={styles.tabContainer}>
-        <Text style={styles.errorText}>Community not found</Text>
+        <Text style={[styles.errorText, { color: theme.colors.textSecondary }]}>Community not found</Text>
       </View>
     );
   }
 
   const renderMember = ({ item }: { item: Member }) => (
-    <View style={styles.memberRow}>
+    <View style={[styles.memberRow, { backgroundColor: isDark ? '#111827' : '#FFFFFF', borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border }]}>
       <Image source={{ uri: item.avatar }} style={styles.memberAvatar} />
       <View style={styles.memberInfo}>
-        <Text style={styles.memberName}>{item.name.toUpperCase()}</Text>
-        <Text style={styles.memberPoints}>{item.points.toLocaleString()} POINTS</Text>
+        <Text style={[styles.memberName, { color: theme.colors.text }]}>{item.name.toUpperCase()}</Text>
+        <Text style={[styles.memberPoints, { color: theme.colors.textSecondary }]}>{item.points.toLocaleString()} POINTS</Text>
       </View>
     </View>
   );
@@ -138,12 +164,13 @@ function MembersTab({ communityId }: { communityId: string }) {
 
 // ============ LEADERBOARD TAB ============
 function LeaderboardTab({ communityId }: { communityId: string }) {
+  const { theme, isDark } = useTheme();
   const { communityInfo } = useCommunityInfo(communityId);
 
   if (!communityInfo) {
     return (
       <View style={styles.tabContainer}>
-        <Text style={styles.errorText}>Community not found</Text>
+        <Text style={[styles.errorText, { color: theme.colors.textSecondary }]}>Community not found</Text>
       </View>
     );
   }
@@ -152,23 +179,26 @@ function LeaderboardTab({ communityId }: { communityId: string }) {
     const isLast = index === communityInfo.leaderboard.length - 1;
     
     return (
-      <View style={[styles.leaderboardRow, isLast && styles.lastRow]}>
-        <Text style={styles.rankText}>#{item.rank}</Text>
+      <View style={[styles.leaderboardRow, { borderBottomColor: theme.colors.separator }, isLast && styles.lastRow]}>
+        <Text style={[styles.rankText, { color: theme.colors.text }]}>#{item.rank}</Text>
         <Image source={{ uri: item.avatar }} style={styles.leaderboardAvatar} />
-        <Text style={styles.leaderboardName}>{item.name}</Text>
-        <Text style={styles.leaderboardPoints}>{item.points.toLocaleString()}</Text>
+        <Text style={[styles.leaderboardName, { color: theme.colors.text }]}>{item.name}</Text>
+        <Text style={[styles.leaderboardPoints, { color: theme.colors.text }]}>{item.points.toLocaleString()}</Text>
       </View>
     );
   };
 
   return (
     <View style={styles.tabContainer}>
-      <View style={styles.leaderboardCard}>
+      <View style={[styles.leaderboardCard, { 
+        backgroundColor: isDark ? '#080C17' : '#FFFFFF',
+        borderColor: theme.colors.border
+      }]}>
         {/* Header */}
-        <View style={styles.leaderboardHeader}>
-          <Text style={styles.headerRank}>Rank</Text>
-          <Text style={styles.headerName}>Name</Text>
-          <Text style={styles.headerPoints}>Points</Text>
+        <View style={[styles.leaderboardHeader, { borderBottomColor: theme.colors.separator }]}>
+          <Text style={[styles.headerRank, { color: theme.colors.textMuted }]}>Rank</Text>
+          <Text style={[styles.headerName, { color: theme.colors.textMuted }]}>Name</Text>
+          <Text style={[styles.headerPoints, { color: theme.colors.textMuted }]}>Points</Text>
         </View>
 
         {/* Leaderboard List */}
@@ -178,8 +208,8 @@ function LeaderboardTab({ communityId }: { communityId: string }) {
           renderItem={renderLeaderboardEntry}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={
-            <TouchableOpacity style={styles.viewAllButton}>
-              <Text style={styles.viewAllText}>View all</Text>
+            <TouchableOpacity style={[styles.viewAllButton, { borderTopColor: theme.colors.separator }]}>
+              <Text style={[styles.viewAllText, { color: theme.colors.textSecondary }]}>View all</Text>
             </TouchableOpacity>
           }
         />
@@ -191,6 +221,7 @@ function LeaderboardTab({ communityId }: { communityId: string }) {
 // ============ MAIN SCREEN ============
 export default function CommunityInfoScreen() {
   const insets = useSafeAreaInsets();
+  const { theme, isDark } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const handleBack = () => {
@@ -204,34 +235,39 @@ export default function CommunityInfoScreen() {
     });
   };
 
+  const handleLeaveCommunity = () => {
+    // TODO: Implement leave community functionality
+    console.log('Leave community:', id);
+  };
+
   return (
-    <View style={[styles.screenBackground, { paddingTop: insets.top }]}>
+    <View style={[styles.screenBackground, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color="#fff" />
+          <Ionicons name="chevron-back" size={28} color={theme.colors.icon} />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>COMMUNITY</Text>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>COMMUNITY</Text>
 
         <TouchableOpacity onPress={handleQRCode} style={styles.qrButton}>
-          <Ionicons name="qr-code" size={22} color="#fff" />
+          <Ionicons name="qr-code" size={22} color={theme.colors.icon} />
         </TouchableOpacity>
       </View>
 
       {/* Tabs - Order: ABOUT, MEMBERS, LEADERBOARD */}
       <Tab.Navigator
         screenOptions={{
-          tabBarStyle: styles.tabBar,
-          tabBarIndicatorStyle: styles.tabIndicator,
+          tabBarStyle: [styles.tabBar, { backgroundColor: theme.colors.headerBackground }],
+          tabBarIndicatorStyle: [styles.tabIndicator, { backgroundColor: theme.colors.primary }],
           tabBarLabelStyle: styles.tabLabel,
-          tabBarActiveTintColor: '#fff',
-          tabBarInactiveTintColor: '#6b7280',
+          tabBarActiveTintColor: theme.colors.text,
+          tabBarInactiveTintColor: theme.colors.textMuted,
           tabBarPressColor: 'transparent',
         }}
       >
         <Tab.Screen name="ABOUT">
-          {() => <AboutTab communityId={id} />}
+          {() => <AboutTab communityId={id} onLeaveCommunity={handleLeaveCommunity} />}
         </Tab.Screen>
         <Tab.Screen name="MEMBERS">
           {() => <MembersTab communityId={id} />}
@@ -247,7 +283,6 @@ export default function CommunityInfoScreen() {
 const styles = StyleSheet.create({
   screenBackground: {
     flex: 1,
-    backgroundColor: '#080C17',
   },
   container: {
     flex: 1,
@@ -258,7 +293,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     paddingVertical: 12,
-    backgroundColor: '#111828',
   },
   backButton: {
     padding: 4,
@@ -266,20 +300,17 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontFamily: 'Montserrat_700Bold',
-    color: '#fff',
     letterSpacing: 1,
   },
   qrButton: {
     padding: 4,
   },
   tabBar: {
-    backgroundColor: '#111828',
     elevation: 0,
     shadowOpacity: 0,
     borderBottomWidth: 0,
   },
   tabIndicator: {
-    backgroundColor: '#22c55e',
     height: 3,
     borderRadius: 2,
   },
@@ -291,7 +322,7 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flex: 1,
-    backgroundColor: '#080C17',
+    backgroundColor: 'transparent',
   },
   listContent: {
     padding: 16,
@@ -569,7 +600,19 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     fontSize: 14,
-    color: '#9ca3af',
     fontFamily: 'Inter_400Regular',
+  },
+  leaveButton: {
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 24,
+  },
+  leaveButtonText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_700Bold',
+    color: '#fff',
+    letterSpacing: 1,
   },
 });

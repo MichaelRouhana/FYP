@@ -3,6 +3,7 @@ import {
     searchData,
     SearchResultItem,
 } from '@/mock/searchData';
+import { useTheme } from '@/context/ThemeContext';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -27,6 +28,7 @@ const FILTERS: { id: FilterType; label: string }[] = [
 
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
+  const { theme, isDark } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('all');
   // Track favorites locally - initialize empty, user controls all favorites
@@ -87,12 +89,16 @@ export default function SearchScreen() {
 
     return (
       <TouchableOpacity 
-        style={styles.resultCard} 
+        style={[styles.resultCard, { 
+          backgroundColor: isDark ? '#111828' : '#FFFFFF',
+          borderWidth: isDark ? 0 : 1,
+          borderColor: theme.colors.border
+        }]} 
         activeOpacity={0.7}
         onPress={() => handleItemPress(item)}
       >
         {/* Image/Logo */}
-        <View style={[styles.resultImage, isCircular && styles.resultImageCircular]}>
+        <View style={[styles.resultImage, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }, isCircular && styles.resultImageCircular]}>
           {item.imageUrl ? (
             <Image
               source={{ uri: item.imageUrl }}
@@ -100,7 +106,7 @@ export default function SearchScreen() {
               resizeMode={isCircular ? 'cover' : 'contain'}
             />
           ) : (
-            <Text style={styles.resultImagePlaceholder}>
+            <Text style={[styles.resultImagePlaceholder, { color: isDark ? '#ffffff' : '#18223A' }]}>
               {getPlaceholderText(item.type)}
             </Text>
           )}
@@ -108,8 +114,8 @@ export default function SearchScreen() {
 
         {/* Title & Subtitle */}
         <View style={styles.resultInfo}>
-          <Text style={styles.resultTitle}>{item.title}</Text>
-          <Text style={styles.resultSubtitle}>{item.subtitle}</Text>
+          <Text style={[styles.resultTitle, { color: theme.colors.text }]}>{item.title}</Text>
+          <Text style={[styles.resultSubtitle, { color: theme.colors.textSecondary }]}>{item.subtitle}</Text>
         </View>
 
         {/* Favorite Star */}
@@ -121,7 +127,7 @@ export default function SearchScreen() {
           <MaterialCommunityIcons
             name={favorited ? 'star' : 'star-outline'}
             size={24}
-            color="#334369"
+            color={favorited ? theme.colors.primary : theme.colors.iconMuted}
           />
         </TouchableOpacity>
       </TouchableOpacity>
@@ -129,22 +135,25 @@ export default function SearchScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
       {/* Header with Back Button and Search Bar */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.push('/(tabs)/home')}
         >
-          <Feather name="chevron-left" size={28} color="#ffffff" />
+          <Feather name="chevron-left" size={28} color={theme.colors.icon} />
         </TouchableOpacity>
 
-        <View style={styles.searchBar}>
-          <Feather name="search" size={20} color="#1C263F" />
+        <View style={[styles.searchBar, { 
+          backgroundColor: isDark ? '#080C17' : '#FFFFFF',
+          borderColor: theme.colors.border
+        }]}>
+          <Feather name="search" size={20} color={theme.colors.iconMuted} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: theme.colors.text }]}
             placeholder="Search"
-            placeholderTextColor="#1C263F"
+            placeholderTextColor={theme.colors.textMuted}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
@@ -154,7 +163,7 @@ export default function SearchScreen() {
       </View>
 
       {/* Filter Tabs */}
-      <View style={styles.filterWrapper}>
+      <View style={[styles.filterWrapper, { backgroundColor: theme.colors.headerBackground }]}>
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
@@ -165,6 +174,11 @@ export default function SearchScreen() {
               key={filter.id}
               style={[
                 styles.filterTab,
+                { 
+                  backgroundColor: isDark ? '#0F172C' : (activeFilter === filter.id ? theme.colors.primary : '#FFFFFF'),
+                  borderWidth: isDark ? 0 : (activeFilter === filter.id ? 0 : 1),
+                  borderColor: theme.colors.border
+                },
                 activeFilter === filter.id && styles.filterTabActive,
               ]}
               onPress={() => setActiveFilter(filter.id)}
@@ -172,6 +186,7 @@ export default function SearchScreen() {
               <Text
                 style={[
                   styles.filterTabText,
+                  { color: isDark ? '#202D4B' : (activeFilter === filter.id ? '#FFFFFF' : '#18223A') },
                   activeFilter === filter.id && styles.filterTabTextActive,
                 ]}
               >
@@ -191,7 +206,7 @@ export default function SearchScreen() {
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No results found</Text>
+            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No results found</Text>
           </View>
         }
       />
@@ -202,7 +217,6 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#080C17',
   },
   header: {
     flexDirection: 'row',
@@ -218,10 +232,8 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#080C17',
     borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#1C263F',
     paddingHorizontal: 16,
     paddingVertical: 12,
     gap: 12,
@@ -230,7 +242,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontFamily: 'Montserrat_500Medium',
-    color: '#ffffff',
   },
   filterWrapper: {
     paddingVertical: 12,
@@ -241,22 +252,19 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   filterTab: {
-    backgroundColor: '#0F172C',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
   },
   filterTabActive: {
-    backgroundColor: '#32A95D',
+    // Active state handled inline
   },
   filterTabText: {
     fontSize: 15,
     fontFamily: 'Montserrat_600SemiBold',
-    color: '#202D4B',
   },
   filterTabTextActive: {
     fontFamily: 'Montserrat_800ExtraBold',
-    color: '#ffffff',
   },
   resultsList: {
     paddingHorizontal: 16,
@@ -265,7 +273,6 @@ const styles = StyleSheet.create({
   resultCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111828',
     borderRadius: 5,
     padding: 12,
     marginBottom: 12,
@@ -274,7 +281,6 @@ const styles = StyleSheet.create({
   resultImage: {
     width: 48,
     height: 48,
-    backgroundColor: '#1f2937',
     borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
@@ -290,7 +296,6 @@ const styles = StyleSheet.create({
   resultImagePlaceholder: {
     fontSize: 18,
     fontFamily: 'Montserrat_700Bold',
-    color: '#ffffff',
   },
   resultInfo: {
     flex: 1,
@@ -298,12 +303,10 @@ const styles = StyleSheet.create({
   resultTitle: {
     fontSize: 14,
     fontFamily: 'Montserrat_700Bold',
-    color: '#ffffff',
   },
   resultSubtitle: {
     fontSize: 12,
     fontFamily: 'Montserrat_400Regular',
-    color: '#667085',
     marginTop: 2,
   },
   favoriteButton: {
@@ -317,7 +320,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 15,
     fontFamily: 'Montserrat_500Medium',
-    color: '#667085',
   },
 });
 
