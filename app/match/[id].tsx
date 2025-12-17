@@ -1,4 +1,5 @@
 import { GoalPowerChart, TeamBalanceChart, TeamPowerChart } from '@/components/charts';
+import { useTheme } from '@/context/ThemeContext';
 import { CommentaryItem, getMatchCommentary } from '@/mock/matchCommentary';
 import { getMatchDetails } from '@/mock/matchDetails';
 import { getH2HData, H2HMatch } from '@/mock/matchH2H';
@@ -40,6 +41,7 @@ const TABS: { id: TabType; label: string }[] = [
 export default function MatchDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
+  const { theme, isDark } = useTheme();
   const match = getMatchDetails(id || 'default');
   const summary = getMatchSummary(id || 'default');
   const lineups = getMatchLineups(id || 'default');
@@ -72,15 +74,22 @@ export default function MatchDetailsScreen() {
   const renderDetailsTab = () => (
     <View style={styles.detailsContainer}>
       {/* Betting Card */}
-      <View style={styles.bettingCard}>
-        <Text style={styles.bettingTitle}>Who will win?</Text>
+      <View style={[
+        styles.bettingCard, 
+        { 
+          backgroundColor: isDark ? '#101828' : '#FFFFFF',
+          borderWidth: isDark ? 0 : 1,
+          borderColor: '#18223A',
+        }
+      ]}>
+        <Text style={[styles.bettingTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>Who will win?</Text>
 
         {/* Bet Options */}
-        <View style={styles.betOptionsContainer}>
+        <View style={[styles.betOptionsContainer, { borderWidth: isDark ? 0 : 1, borderColor: '#18223A' }]}>
           <TouchableOpacity
             style={[
               styles.betOption,
-              styles.betOptionDefault,
+              { backgroundColor: isDark ? '#0E1C1C' : '#0E1C1C' },
               betSelection === 'home' && styles.betOptionSelected,
             ]}
             onPress={() => setBetSelection('home')}
@@ -92,13 +101,13 @@ export default function MatchDetailsScreen() {
           <TouchableOpacity
             style={[
               styles.betOption,
-              styles.betOptionDraw,
+              { backgroundColor: isDark ? '#080C17' : '#D1D5DB' },
               betSelection === 'draw' && styles.betOptionSelected,
             ]}
             onPress={() => setBetSelection('draw')}
           >
-            <Text style={styles.betOptionLabel}>DRAW</Text>
-            <Text style={styles.betOptionOdds}>{match.odds.draw}x</Text>
+            <Text style={[styles.betOptionLabel, { color: isDark ? '#ffffff' : '#18223A' }]}>DRAW</Text>
+            <Text style={[styles.betOptionOdds, { color: isDark ? '#9ca3af' : '#6B7280' }]}>{match.odds.draw}x</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -115,77 +124,97 @@ export default function MatchDetailsScreen() {
         </View>
 
         {/* Stake Input */}
-        <Text style={styles.stakeLabel}>Stake</Text>
-        <View style={styles.stakeInputContainer}>
+        <Text style={[styles.stakeLabel, { color: isDark ? '#ffffff' : '#18223A' }]}>Stake</Text>
+        <View style={[
+          styles.stakeInputContainer, 
+          { 
+            backgroundColor: isDark ? '#080C17' : '#F3F4F6',
+            borderWidth: isDark ? 0 : 1,
+            borderColor: '#18223A',
+          }
+        ]}>
           <TextInput
-            style={styles.stakeInput}
+            style={[styles.stakeInput, { color: isDark ? '#ffffff' : '#18223A' }]}
             placeholder="Enter your stake"
-            placeholderTextColor="#6b7280"
+            placeholderTextColor={isDark ? '#6b7280' : '#9CA3AF'}
             value={stake}
             onChangeText={setStake}
             keyboardType="numeric"
           />
-          <Text style={styles.stakeUnit}>pts</Text>
+          <Text style={[styles.stakeUnit, { color: isDark ? '#ffffff' : '#18223A' }]}>pts</Text>
         </View>
 
         {/* Potential Winnings */}
-        <View style={styles.potentialWinningsContainer}>
+        <View style={[
+          styles.potentialWinningsContainer,
+          {
+            backgroundColor: isDark ? '#0E1C1C' : '#E8F5E9',
+            borderColor: isDark ? '#142A28' : '#32A95D',
+          }
+        ]}>
           <View style={styles.potentialWinningsLeft}>
-            <MaterialCommunityIcons name="trophy-outline" size={20} color="#2B5555" />
-            <Text style={styles.potentialWinningsText}>Potential Winnings</Text>
+            <MaterialCommunityIcons name="trophy-outline" size={20} color={isDark ? '#2B5555' : '#32A95D'} />
+            <Text style={[styles.potentialWinningsText, { color: isDark ? '#2B5555' : '#32A95D' }]}>Potential Winnings</Text>
           </View>
-          <Text style={styles.potentialWinningsAmount}>{potentialWinnings} pts</Text>
+          <Text style={[styles.potentialWinningsAmount, { color: isDark ? '#22c55e' : '#32A95D' }]}>{potentialWinnings} pts</Text>
         </View>
 
         {/* Place Bid Button */}
-        <TouchableOpacity style={styles.placeBidButton} activeOpacity={0.8}>
+        <TouchableOpacity style={[styles.placeBidButton, { backgroundColor: isDark ? '#22c55e' : '#18223A' }]} activeOpacity={0.8}>
           <Text style={styles.placeBidButtonText}>PLACE BID</Text>
         </TouchableOpacity>
       </View>
 
       {/* Match Info Card */}
-      <View style={styles.matchInfoCard}>
+      <View style={[
+        styles.matchInfoCard,
+        {
+          backgroundColor: isDark ? '#101828' : '#FFFFFF',
+          borderWidth: isDark ? 0 : 1,
+          borderColor: '#18223A',
+        }
+      ]}>
         {/* Venue */}
-        <View style={styles.infoRow}>
-          <MaterialCommunityIcons name="map-marker" size={24} color="#6b7280" />
+        <View style={[styles.infoRow, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+          <MaterialCommunityIcons name="map-marker" size={24} color={isDark ? '#6b7280' : '#18223A'} />
           <View style={styles.infoTextContainer}>
-            <Text style={styles.infoValueText}>{match.venue.name}</Text>
-            <Text style={styles.infoLabelText}>{match.venue.location}</Text>
+            <Text style={[styles.infoValueText, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.venue.name}</Text>
+            <Text style={[styles.infoLabelText, { color: isDark ? '#B3B3B3' : '#6B7280' }]}>{match.venue.location}</Text>
           </View>
         </View>
 
         {/* Capacity & Surface */}
-        <View style={styles.infoRowDouble}>
+        <View style={[styles.infoRowDouble, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
           <View style={styles.infoHalf}>
-            <MaterialCommunityIcons name="account-group" size={24} color="#6b7280" />
+            <MaterialCommunityIcons name="account-group" size={24} color={isDark ? '#6b7280' : '#6B7280'} />
             <View style={styles.infoTextContainer}>
-              <Text style={styles.infoValueText}>{match.venue.capacity}</Text>
-              <Text style={styles.infoLabelText}>Capacity</Text>
+              <Text style={[styles.infoValueText, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.venue.capacity}</Text>
+              <Text style={[styles.infoLabelText, { color: isDark ? '#B3B3B3' : '#6B7280' }]}>Capacity</Text>
             </View>
           </View>
           <View style={styles.infoHalf}>
-            <MaterialCommunityIcons name="grass" size={24} color="#6b7280" />
+            <MaterialCommunityIcons name="grass" size={24} color={isDark ? '#6b7280' : '#6B7280'} />
             <View style={styles.infoTextContainer}>
-              <Text style={styles.infoValueText}>{match.venue.surface}</Text>
-              <Text style={styles.infoLabelText}>Surface</Text>
+              <Text style={[styles.infoValueText, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.venue.surface}</Text>
+              <Text style={[styles.infoLabelText, { color: isDark ? '#B3B3B3' : '#6B7280' }]}>Surface</Text>
             </View>
           </View>
         </View>
 
         {/* Weather & Temperature */}
-        <View style={styles.infoRowDouble}>
+        <View style={[styles.infoRowDouble, { borderBottomWidth: 0 }]}>
           <View style={styles.infoHalf}>
-            <MaterialCommunityIcons name="weather-partly-cloudy" size={24} color="#6b7280" />
+            <MaterialCommunityIcons name="weather-partly-cloudy" size={24} color={isDark ? '#6b7280' : '#6B7280'} />
             <View style={styles.infoTextContainer}>
-              <Text style={styles.infoValueText}>{match.weather.condition}</Text>
-              <Text style={styles.infoLabelText}>Weather</Text>
+              <Text style={[styles.infoValueText, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.weather.condition}</Text>
+              <Text style={[styles.infoLabelText, { color: isDark ? '#B3B3B3' : '#6B7280' }]}>Weather</Text>
             </View>
           </View>
           <View style={styles.infoHalf}>
-            <MaterialCommunityIcons name="thermometer" size={24} color="#6b7280" />
+            <MaterialCommunityIcons name="thermometer" size={24} color={isDark ? '#6b7280' : '#6B7280'} />
             <View style={styles.infoTextContainer}>
-              <Text style={styles.infoValueText}>{match.weather.temperature}</Text>
-              <Text style={styles.infoLabelText}>Temperature</Text>
+              <Text style={[styles.infoValueText, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.weather.temperature}</Text>
+              <Text style={[styles.infoLabelText, { color: isDark ? '#B3B3B3' : '#6B7280' }]}>Temperature</Text>
             </View>
           </View>
         </View>
@@ -229,18 +258,18 @@ export default function MatchDetailsScreen() {
     const hasScore = event.score && (event.type === 'goal' || event.type === 'own_goal' || event.type === 'penalty_scored');
 
     return (
-      <View key={event.id} style={styles.eventRow}>
+      <View key={event.id} style={[styles.eventRow, { borderBottomColor: isDark ? '#1A253D' : '#E5E7EB' }]}>
         {/* Home team side */}
         <View style={styles.eventSide}>
           {isHome && (
             <View style={styles.eventContent}>
               {isSubstitution ? (
                 <View style={styles.substitutionNames}>
-                  <Text style={styles.playerNameSubIn}>{event.playerName}</Text>
-                  <Text style={styles.playerNameSubOut}>{event.playerOut}</Text>
+                  <Text style={[styles.playerNameSubIn, { color: isDark ? '#ffffff' : '#18223A' }]}>{event.playerName}</Text>
+                  <Text style={[styles.playerNameSubOut, { color: isDark ? '#919191' : '#6B7280' }]}>{event.playerOut}</Text>
                 </View>
               ) : (
-                <Text style={styles.playerNameSingle}>{event.playerName}</Text>
+                <Text style={[styles.playerNameSingle, { color: isDark ? '#ffffff' : '#18223A' }]}>{event.playerName}</Text>
               )}
               {hasScore && (
                 <View style={styles.scoreBadge}>
@@ -253,7 +282,7 @@ export default function MatchDetailsScreen() {
         </View>
 
         {/* Time in center */}
-        <Text style={styles.eventTime}>{event.time}</Text>
+        <Text style={[styles.eventTime, { color: isDark ? '#ffffff' : '#18223A' }]}>{event.time}</Text>
 
         {/* Away team side */}
         <View style={styles.eventSide}>
@@ -267,11 +296,11 @@ export default function MatchDetailsScreen() {
               )}
               {isSubstitution ? (
                 <View style={styles.substitutionNames}>
-                  <Text style={styles.playerNameSubIn}>{event.playerName}</Text>
-                  <Text style={styles.playerNameSubOut}>{event.playerOut}</Text>
+                  <Text style={[styles.playerNameSubIn, { color: isDark ? '#ffffff' : '#18223A' }]}>{event.playerName}</Text>
+                  <Text style={[styles.playerNameSubOut, { color: isDark ? '#919191' : '#6B7280' }]}>{event.playerOut}</Text>
                 </View>
               ) : (
-                <Text style={styles.playerNameSingle}>{event.playerName}</Text>
+                <Text style={[styles.playerNameSingle, { color: isDark ? '#ffffff' : '#18223A' }]}>{event.playerName}</Text>
               )}
             </View>
           )}
@@ -294,40 +323,54 @@ export default function MatchDetailsScreen() {
     return (
       <View style={styles.summaryContainer}>
         {/* Events Timeline Card */}
-        <View style={styles.timelineCard}>
+        <View style={[
+          styles.timelineCard,
+          {
+            backgroundColor: isDark ? '#101828' : '#FFFFFF',
+            borderWidth: isDark ? 0 : 1,
+            borderColor: '#18223A',
+          }
+        ]}>
           {/* Match End Whistle */}
-          <View style={styles.whistleRow}>
-            <MaterialCommunityIcons name="whistle" size={24} color="#22c55e" />
+          <View style={[styles.whistleRow, { backgroundColor: isDark ? '#101828' : '#FFFFFF' }]}>
+            <MaterialCommunityIcons name="whistle" size={24} color={isDark ? '#22c55e' : '#32A95D'} />
           </View>
 
           {/* Full Time */}
-          <View style={styles.scoreRow}>
-            <Text style={styles.scoreRowText}>{summary.fulltimeScore} FT</Text>
+          <View style={[styles.scoreRow, { backgroundColor: isDark ? '#1A253D' : '#D1D5DB' }]}>
+            <Text style={[styles.scoreRowText, { color: isDark ? '#ffffff' : '#18223A' }]}>{summary.fulltimeScore} FT</Text>
           </View>
 
           {/* Second Half Events (reversed to show latest first) */}
-          {[...secondHalfEvents].reverse().map(renderEventRow)}
+          {[...secondHalfEvents].reverse().map((event) => renderEventRow(event))}
 
           {/* Half Time */}
-          <View style={styles.scoreRow}>
-            <Text style={styles.scoreRowText}>{summary.halftimeScore} HT</Text>
+          <View style={[styles.scoreRow, { backgroundColor: isDark ? '#1A253D' : '#D1D5DB' }]}>
+            <Text style={[styles.scoreRowText, { color: isDark ? '#ffffff' : '#18223A' }]}>{summary.halftimeScore} HT</Text>
           </View>
 
           {/* First Half Events (reversed to show latest first) */}
-          {[...firstHalfEvents].reverse().map(renderEventRow)}
+          {[...firstHalfEvents].reverse().map((event) => renderEventRow(event))}
 
           {/* Match Start Whistle */}
-          <View style={styles.whistleRow}>
-            <MaterialCommunityIcons name="whistle" size={24} color="#22c55e" />
+          <View style={[styles.whistleRow, { backgroundColor: isDark ? '#101828' : '#FFFFFF' }]}>
+            <MaterialCommunityIcons name="whistle" size={24} color={isDark ? '#22c55e' : '#32A95D'} />
           </View>
         </View>
 
         {/* Legend Card */}
-        <View style={styles.legendCard}>
+        <View style={[
+          styles.legendCard,
+          {
+            backgroundColor: isDark ? '#101828' : '#FFFFFF',
+            borderWidth: isDark ? 0 : 1,
+            borderColor: '#18223A',
+          }
+        ]}>
           {eventLegend.map((item) => (
             <View key={item.type} style={styles.legendItem}>
               {getEventIcon(item.type)}
-              <Text style={styles.legendText}>{item.label}</Text>
+              <Text style={[styles.legendText, { color: isDark ? '#ffffff' : '#18223A' }]}>{item.label}</Text>
             </View>
           ))}
         </View>
@@ -360,16 +403,23 @@ export default function MatchDetailsScreen() {
   const renderSubstituteCard = (player: Player) => (
     <TouchableOpacity 
       key={player.id} 
-      style={styles.substituteCard}
+      style={[
+        styles.substituteCard,
+        {
+          backgroundColor: isDark ? '#111828' : '#FFFFFF',
+          borderWidth: isDark ? 0 : 1,
+          borderColor: '#18223A',
+        }
+      ]}
       onPress={() => router.push(`/player/${player.id}` as any)}
       activeOpacity={0.7}
     >
-      <View style={styles.substitutePhoto}>
-        <Text style={styles.substituteInitial}>{player.name.charAt(0)}</Text>
+      <View style={[styles.substitutePhoto, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+        <Text style={[styles.substituteInitial, { color: isDark ? '#ffffff' : '#18223A' }]}>{player.name.charAt(0)}</Text>
       </View>
       <View style={styles.substituteInfo}>
-        <Text style={styles.substituteName}>{player.name}</Text>
-        <Text style={styles.substitutePosition}>{player.number} - {player.position}</Text>
+        <Text style={[styles.substituteName, { color: isDark ? '#ffffff' : '#18223A' }]}>{player.name}</Text>
+        <Text style={[styles.substitutePosition, { color: isDark ? '#9ca3af' : '#6B7280' }]}>{player.number} - {player.position}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -380,12 +430,23 @@ export default function MatchDetailsScreen() {
     return (
       <View style={styles.lineupsContainer}>
         {/* Away Team Header */}
-        <View style={styles.teamLineupHeader}>
-          <View style={styles.teamLineupLogo}>
-            <Text style={styles.teamLineupLogoText}>{awayTeam.teamName.charAt(0)}</Text>
+        <View style={[
+          styles.teamLineupHeader,
+          {
+            backgroundColor: isDark ? '#111828' : '#FFFFFF',
+            borderWidth: isDark ? 0 : 1,
+            borderColor: '#18223A',
+            borderTopLeftRadius: 8,
+            borderTopRightRadius: 8,
+            borderBottomLeftRadius: 0,
+            borderBottomRightRadius: 0,
+          }
+        ]}>
+          <View style={[styles.teamLineupLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+            <Text style={[styles.teamLineupLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>{awayTeam.teamName.charAt(0)}</Text>
           </View>
-          <Text style={styles.teamLineupName}>{awayTeam.teamName}</Text>
-          <Text style={styles.teamLineupFormation}>{awayTeam.formation}</Text>
+          <Text style={[styles.teamLineupName, { color: isDark ? '#ffffff' : '#18223A' }]}>{awayTeam.teamName}</Text>
+          <Text style={[styles.teamLineupFormation, { color: isDark ? '#B4B4B4' : '#6B7280' }]}>{awayTeam.formation}</Text>
           <View style={styles.teamLineupRating}>
             <Text style={styles.teamLineupRatingText}>{awayTeam.teamRating.toFixed(1)}</Text>
           </View>
@@ -417,12 +478,23 @@ export default function MatchDetailsScreen() {
         </View>
 
         {/* Home Team Header */}
-        <View style={styles.teamLineupHeader}>
-          <View style={styles.teamLineupLogo}>
-            <Text style={styles.teamLineupLogoText}>{homeTeam.teamName.charAt(0)}</Text>
+        <View style={[
+          styles.teamLineupHeader,
+          {
+            backgroundColor: isDark ? '#111828' : '#FFFFFF',
+            borderWidth: isDark ? 0 : 1,
+            borderColor: '#18223A',
+            borderTopLeftRadius: 0,
+            borderTopRightRadius: 0,
+            borderBottomLeftRadius: 8,
+            borderBottomRightRadius: 8,
+          }
+        ]}>
+          <View style={[styles.teamLineupLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+            <Text style={[styles.teamLineupLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>{homeTeam.teamName.charAt(0)}</Text>
           </View>
-          <Text style={styles.teamLineupName}>{homeTeam.teamName}</Text>
-          <Text style={styles.teamLineupFormation}>{homeTeam.formation}</Text>
+          <Text style={[styles.teamLineupName, { color: isDark ? '#ffffff' : '#18223A' }]}>{homeTeam.teamName}</Text>
+          <Text style={[styles.teamLineupFormation, { color: isDark ? '#B4B4B4' : '#6B7280' }]}>{homeTeam.formation}</Text>
           <View style={styles.teamLineupRating}>
             <Text style={styles.teamLineupRatingText}>{homeTeam.teamRating.toFixed(1)}</Text>
           </View>
@@ -430,7 +502,7 @@ export default function MatchDetailsScreen() {
 
         {/* Substitutes Section */}
         <View style={styles.substitutesSection}>
-          <Text style={styles.substitutesTitle}>SUBSTITUTES</Text>
+          <Text style={[styles.substitutesTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>SUBSTITUTES</Text>
           <View style={styles.substitutesGrid}>
             {[...homeTeam.substitutes, ...awayTeam.substitutes].slice(0, 6).map(renderSubstituteCard)}
           </View>
@@ -450,7 +522,7 @@ export default function MatchDetailsScreen() {
     return (
       <View style={styles.statBarContainer}>
         {/* Home bar - grows from left toward center */}
-        <View style={[styles.statBarTrack, styles.statBarTrackHome]}>
+        <View style={[styles.statBarTrack, styles.statBarTrackHome, { backgroundColor: isDark ? '#111828' : '#E5E7EB' }]}>
           <View style={styles.statBarHomeWrapper}>
             <View 
               style={[
@@ -465,7 +537,7 @@ export default function MatchDetailsScreen() {
           </View>
         </View>
         {/* Away bar - grows from right toward center */}
-        <View style={[styles.statBarTrack, styles.statBarTrackAway]}>
+        <View style={[styles.statBarTrack, styles.statBarTrackAway, { backgroundColor: isDark ? '#111828' : '#E5E7EB' }]}>
           <View style={styles.statBarAwayWrapper}>
             <View 
               style={[
@@ -487,17 +559,23 @@ export default function MatchDetailsScreen() {
     return (
       <View style={styles.statsContainer}>
         {/* TOP STATS Card */}
-        <View style={styles.statsCard}>
-          <Text style={styles.statsCardTitle}>TOP STATS</Text>
+        <View style={[
+          styles.statsCard,
+          {
+            backgroundColor: isDark ? '#080C17' : '#FFFFFF',
+            borderColor: isDark ? '#1A253D' : '#18223A',
+          }
+        ]}>
+          <Text style={[styles.statsCardTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>TOP STATS</Text>
 
           {/* Ball Possession */}
-          <Text style={styles.statName}>Ball possession</Text>
-          <View style={styles.possessionBarContainer}>
+          <Text style={[styles.statName, { color: isDark ? '#ffffff' : '#18223A' }]}>Ball possession</Text>
+          <View style={[styles.possessionBarContainer, { borderWidth: isDark ? 0 : 1, borderColor: '#18223A' }]}>
             <View style={[styles.possessionBarHome, { flex: stats.possession.home }]}>
               <Text style={styles.possessionText}>{stats.possession.home}%</Text>
             </View>
-            <View style={[styles.possessionBarAway, { flex: stats.possession.away }]}>
-              <Text style={styles.possessionText}>{stats.possession.away}%</Text>
+            <View style={[styles.possessionBarAway, { flex: stats.possession.away, backgroundColor: isDark ? '#111828' : '#E5E7EB' }]}>
+              <Text style={[styles.possessionText, { color: isDark ? '#ffffff' : '#18223A' }]}>{stats.possession.away}%</Text>
             </View>
           </View>
 
@@ -505,9 +583,9 @@ export default function MatchDetailsScreen() {
           {stats.topStats.map((stat, index) => (
             <View key={`top-${index}`} style={styles.statRow}>
               <View style={styles.statRowHeader}>
-                <Text style={styles.statValue}>{stat.homeValue}</Text>
-                <Text style={styles.statName}>{stat.name}</Text>
-                <Text style={[styles.statValue, styles.statValueRight]}>{stat.awayValue}</Text>
+                <Text style={[styles.statValue, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.homeValue}</Text>
+                <Text style={[styles.statName, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.name}</Text>
+                <Text style={[styles.statValue, styles.statValueRight, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.awayValue}</Text>
               </View>
               {renderStatBar(stat.homeValue, stat.awayValue)}
             </View>
@@ -515,15 +593,43 @@ export default function MatchDetailsScreen() {
         </View>
 
         {/* SHOTS Card */}
-        <View style={styles.statsCard}>
-          <Text style={styles.statsCardTitle}>SHOTS</Text>
+        <View style={[
+          styles.statsCard,
+          {
+            backgroundColor: isDark ? '#080C17' : '#FFFFFF',
+            borderColor: isDark ? '#1A253D' : '#18223A',
+          }
+        ]}>
+          <Text style={[styles.statsCardTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>SHOTS</Text>
 
           {stats.shots.map((stat, index) => (
             <View key={`shots-${index}`} style={styles.statRow}>
               <View style={styles.statRowHeader}>
-                <Text style={styles.statValue}>{stat.homeValue}</Text>
-                <Text style={styles.statName}>{stat.name}</Text>
-                <Text style={[styles.statValue, styles.statValueRight]}>{stat.awayValue}</Text>
+                <Text style={[styles.statValue, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.homeValue}</Text>
+                <Text style={[styles.statName, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.name}</Text>
+                <Text style={[styles.statValue, styles.statValueRight, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.awayValue}</Text>
+              </View>
+              {renderStatBar(stat.homeValue, stat.awayValue)}
+            </View>
+          ))}
+        </View>
+
+        {/* DISCIPLINES Card */}
+        <View style={[
+          styles.statsCard,
+          {
+            backgroundColor: isDark ? '#080C17' : '#FFFFFF',
+            borderColor: isDark ? '#1A253D' : '#18223A',
+          }
+        ]}>
+          <Text style={[styles.statsCardTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>DISCIPLINES</Text>
+
+          {stats.disciplines.map((stat, index) => (
+            <View key={`disciplines-${index}`} style={styles.statRow}>
+              <View style={styles.statRowHeader}>
+                <Text style={[styles.statValue, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.homeValue}</Text>
+                <Text style={[styles.statName, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.name}</Text>
+                <Text style={[styles.statValue, styles.statValueRight, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.awayValue}</Text>
               </View>
               {renderStatBar(stat.homeValue, stat.awayValue)}
             </View>
@@ -533,35 +639,35 @@ export default function MatchDetailsScreen() {
     );
   };
 
-  const renderH2HMatchRow = (match: H2HMatch) => (
-    <View key={match.id} style={styles.h2hMatchRow}>
+  const renderH2HMatchRow = (h2hMatch: H2HMatch) => (
+    <View key={h2hMatch.id} style={[styles.h2hMatchRow, { borderTopColor: isDark ? '#202D4B' : '#E5E7EB' }]}>
       {/* Home Team */}
       <View style={styles.h2hTeamLeft}>
-        <Text style={styles.h2hTeamName}>{match.homeTeam}</Text>
-        <View style={styles.h2hTeamLogo}>
-          <Text style={styles.h2hTeamLogoText}>{match.homeTeam.charAt(0)}</Text>
+        <Text style={[styles.h2hTeamName, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hMatch.homeTeam}</Text>
+        <View style={[styles.h2hTeamLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+          <Text style={[styles.h2hTeamLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hMatch.homeTeam.charAt(0)}</Text>
         </View>
       </View>
 
       {/* Center - Date & Score/Time */}
       <View style={styles.h2hMatchCenter}>
-        <Text style={styles.h2hMatchDate}>{match.date}</Text>
-        {match.isCompleted ? (
+        <Text style={[styles.h2hMatchDate, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hMatch.date}</Text>
+        {h2hMatch.isCompleted ? (
           <View style={styles.h2hScoreRow}>
-            <Text style={styles.h2hScore}>{match.homeScore}</Text>
-            <Text style={styles.h2hScore}>{match.awayScore}</Text>
+            <Text style={[styles.h2hScore, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hMatch.homeScore}</Text>
+            <Text style={[styles.h2hScore, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hMatch.awayScore}</Text>
           </View>
         ) : (
-          <Text style={styles.h2hTime}>{match.time}</Text>
+          <Text style={[styles.h2hTime, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hMatch.time}</Text>
         )}
       </View>
 
       {/* Away Team */}
       <View style={styles.h2hTeamRight}>
-        <View style={styles.h2hTeamLogo}>
-          <Text style={styles.h2hTeamLogoText}>{match.awayTeam.charAt(0)}</Text>
+        <View style={[styles.h2hTeamLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+          <Text style={[styles.h2hTeamLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hMatch.awayTeam.charAt(0)}</Text>
         </View>
-        <Text style={styles.h2hTeamName}>{match.awayTeam}</Text>
+        <Text style={[styles.h2hTeamName, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hMatch.awayTeam}</Text>
       </View>
     </View>
   );
@@ -577,59 +683,99 @@ export default function MatchDetailsScreen() {
         {/* Filter Tabs */}
         <View style={styles.h2hFilterContainer}>
           <TouchableOpacity
-            style={[styles.h2hFilterTab, h2hFilter === 'meetings' && styles.h2hFilterTabActive]}
+            style={[
+              styles.h2hFilterTab, 
+              { 
+                backgroundColor: isDark ? '#080C17' : '#FFFFFF',
+                borderColor: isDark ? '#ffffff' : '#18223A' 
+              },
+              h2hFilter === 'meetings' && styles.h2hFilterTabActive
+            ]}
             onPress={() => setH2hFilter('meetings')}
           >
-            <Text style={[styles.h2hFilterText, h2hFilter === 'meetings' && styles.h2hFilterTextActive]}>
+            <Text style={[
+              styles.h2hFilterText, 
+              { color: isDark ? '#ffffff' : '#18223A' },
+              h2hFilter === 'meetings' && styles.h2hFilterTextActive
+            ]}>
               MEETINGS
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.h2hFilterTab, h2hFilter === 'home' && styles.h2hFilterTabActive]}
+            style={[
+              styles.h2hFilterTab, 
+              { 
+                backgroundColor: isDark ? '#080C17' : '#FFFFFF',
+                borderColor: isDark ? '#ffffff' : '#18223A' 
+              },
+              h2hFilter === 'home' && styles.h2hFilterTabActive
+            ]}
             onPress={() => setH2hFilter('home')}
           >
-            <Text style={[styles.h2hFilterText, h2hFilter === 'home' && styles.h2hFilterTextActive]}>
+            <Text style={[
+              styles.h2hFilterText, 
+              { color: isDark ? '#ffffff' : '#18223A' },
+              h2hFilter === 'home' && styles.h2hFilterTextActive
+            ]}>
               {h2h.homeTeam}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.h2hFilterTab, h2hFilter === 'away' && styles.h2hFilterTabActive]}
+            style={[
+              styles.h2hFilterTab, 
+              { 
+                backgroundColor: isDark ? '#080C17' : '#FFFFFF',
+                borderColor: isDark ? '#ffffff' : '#18223A' 
+              },
+              h2hFilter === 'away' && styles.h2hFilterTabActive
+            ]}
             onPress={() => setH2hFilter('away')}
           >
-            <Text style={[styles.h2hFilterText, h2hFilter === 'away' && styles.h2hFilterTextActive]}>
+            <Text style={[
+              styles.h2hFilterText, 
+              { color: isDark ? '#ffffff' : '#18223A' },
+              h2hFilter === 'away' && styles.h2hFilterTextActive
+            ]}>
               {h2h.awayTeam}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Stats Card */}
-        <View style={styles.h2hStatsCard}>
+        <View style={[
+          styles.h2hStatsCard,
+          {
+            backgroundColor: isDark ? '#111828' : '#FFFFFF',
+            borderWidth: isDark ? 0 : 1,
+            borderColor: '#18223A',
+          }
+        ]}>
           {/* Stats Summary */}
           <View style={styles.h2hStatsSummary}>
             <View style={styles.h2hStatItem}>
               <View style={[styles.h2hStatPill, styles.h2hStatPillHome]}>
                 <Text style={styles.h2hStatNumber}>{h2h.stats.homeWins}</Text>
               </View>
-              <Text style={styles.h2hStatLabel}>Won</Text>
+              <Text style={[styles.h2hStatLabel, { color: isDark ? '#ffffff' : '#18223A' }]}>Won</Text>
             </View>
             <View style={styles.h2hStatItem}>
-              <View style={[styles.h2hStatPill, styles.h2hStatPillDraw]}>
-                <Text style={[styles.h2hStatNumber, styles.h2hStatNumberDark]}>{h2h.stats.draws}</Text>
+              <View style={[styles.h2hStatPill, { backgroundColor: isDark ? '#FFFFFF' : '#18223A' }]}>
+                <Text style={[styles.h2hStatNumber, { color: isDark ? '#000000' : '#FFFFFF' }]}>{h2h.stats.draws}</Text>
               </View>
-              <Text style={styles.h2hStatLabel}>Drawn</Text>
+              <Text style={[styles.h2hStatLabel, { color: isDark ? '#ffffff' : '#18223A' }]}>Drawn</Text>
             </View>
             <View style={styles.h2hStatItem}>
               <View style={[styles.h2hStatPill, styles.h2hStatPillAway]}>
                 <Text style={styles.h2hStatNumber}>{h2h.stats.awayWins}</Text>
               </View>
-              <Text style={styles.h2hStatLabel}>Won</Text>
+              <Text style={[styles.h2hStatLabel, { color: isDark ? '#ffffff' : '#18223A' }]}>Won</Text>
             </View>
           </View>
 
           {/* Progress Bar */}
           <View style={styles.h2hProgressBar}>
             <View style={[styles.h2hProgressHome, { flex: homePercent }]} />
-            <View style={[styles.h2hProgressDraw, { flex: drawPercent }]} />
+            <View style={[styles.h2hProgressDraw, { flex: drawPercent, backgroundColor: isDark ? '#FFFFFF' : '#18223A' }]} />
             <View style={[styles.h2hProgressAway, { flex: awayPercent }]} />
           </View>
 
@@ -638,8 +784,8 @@ export default function MatchDetailsScreen() {
 
           {/* See All / Show Less Button */}
           {h2h.matches.length > 6 && (
-            <TouchableOpacity style={styles.h2hSeeAllButton} onPress={() => setH2hShowAll(!h2hShowAll)}>
-              <Text style={styles.h2hSeeAllText}>{h2hShowAll ? 'SHOW LESS' : 'SEE ALL MATCHES'}</Text>
+            <TouchableOpacity style={[styles.h2hSeeAllButton, { borderTopColor: isDark ? '#202D4B' : '#E5E7EB' }]} onPress={() => setH2hShowAll(!h2hShowAll)}>
+              <Text style={[styles.h2hSeeAllText, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hShowAll ? 'SHOW LESS' : 'SEE ALL MATCHES'}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -664,22 +810,34 @@ export default function MatchDetailsScreen() {
         key={team.position} 
         style={[styles.tableRow, isHighlighted && styles.tableRowHighlighted]}
       >
-        <View style={[styles.tablePositionCircle, isHighlighted && styles.tablePositionCircleHighlighted]}>
-          <Text style={[styles.tablePositionText, isHighlighted && styles.tablePositionTextHighlighted]}>
+        <View style={[
+          styles.tablePositionCircle, 
+          { backgroundColor: isDark ? '#2F384C' : '#E5E7EB' },
+          isHighlighted && styles.tablePositionCircleHighlighted
+        ]}>
+          <Text style={[
+            styles.tablePositionText, 
+            { color: isDark ? '#ffffff' : '#18223A' },
+            isHighlighted && styles.tablePositionTextHighlighted
+          ]}>
             {team.position}
           </Text>
         </View>
-        <Text style={[styles.tableTeamName, isHighlighted && styles.tableTextHighlighted]}>
+        <Text style={[
+          styles.tableTeamName, 
+          { color: isDark ? '#ffffff' : '#18223A' },
+          isHighlighted && styles.tableTextHighlighted
+        ]}>
           {team.teamName}
         </Text>
-        <Text style={[styles.tableStat, isHighlighted && styles.tableTextHighlighted]}>{team.played}</Text>
-        <Text style={[styles.tableStat, isHighlighted && styles.tableTextHighlighted]}>{team.won}</Text>
-        <Text style={[styles.tableStat, isHighlighted && styles.tableTextHighlighted]}>{team.drawn}</Text>
-        <Text style={[styles.tableStat, isHighlighted && styles.tableTextHighlighted]}>{team.lost}</Text>
-        <Text style={[styles.tableGoals, isHighlighted && styles.tableTextHighlighted]}>
+        <Text style={[styles.tableStat, { color: isDark ? '#ffffff' : '#18223A' }, isHighlighted && styles.tableTextHighlighted]}>{team.played}</Text>
+        <Text style={[styles.tableStat, { color: isDark ? '#ffffff' : '#18223A' }, isHighlighted && styles.tableTextHighlighted]}>{team.won}</Text>
+        <Text style={[styles.tableStat, { color: isDark ? '#ffffff' : '#18223A' }, isHighlighted && styles.tableTextHighlighted]}>{team.drawn}</Text>
+        <Text style={[styles.tableStat, { color: isDark ? '#ffffff' : '#18223A' }, isHighlighted && styles.tableTextHighlighted]}>{team.lost}</Text>
+        <Text style={[styles.tableGoals, { color: isDark ? '#ffffff' : '#18223A' }, isHighlighted && styles.tableTextHighlighted]}>
           {team.goalsFor}:{team.goalsAgainst}
         </Text>
-        <Text style={[styles.tablePoints, isHighlighted && styles.tableTextHighlighted]}>{team.points}</Text>
+        <Text style={[styles.tablePoints, { color: isDark ? '#ffffff' : '#18223A' }, isHighlighted && styles.tableTextHighlighted]}>{team.points}</Text>
       </View>
     );
   };
@@ -688,48 +846,79 @@ export default function MatchDetailsScreen() {
     return (
       <View style={styles.tableContainer}>
         {/* Table Card */}
-        <View style={styles.tableCard}>
+        <View style={[
+          styles.tableCard,
+          {
+            backgroundColor: isDark ? '#111828' : '#FFFFFF',
+            borderWidth: isDark ? 0 : 1,
+            borderColor: '#18223A',
+          }
+        ]}>
           {/* Filter Tabs */}
-          <View style={styles.tableFilterContainer}>
+          <View style={[styles.tableFilterContainer, { borderBottomColor: isDark ? '#222F4E' : '#E5E7EB' }]}>
             <TouchableOpacity
-              style={[styles.tableFilterTab, tableFilter === 'all' && styles.tableFilterTabActive]}
+              style={[
+                styles.tableFilterTab, 
+                { backgroundColor: isDark ? '#080C17' : '#FFFFFF' },
+                tableFilter === 'all' && styles.tableFilterTabActive
+              ]}
               onPress={() => setTableFilter('all')}
             >
-              <Text style={[styles.tableFilterText, tableFilter === 'all' && styles.tableFilterTextActive]}>
+              <Text style={[
+                styles.tableFilterText, 
+                { color: isDark ? '#ffffff' : '#18223A' },
+                tableFilter === 'all' && styles.tableFilterTextActive
+              ]}>
                 ALL
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tableFilterTab, tableFilter === 'home' && styles.tableFilterTabActive]}
+              style={[
+                styles.tableFilterTab, 
+                { backgroundColor: isDark ? '#080C17' : '#E5E7EB' },
+                tableFilter === 'home' && styles.tableFilterTabActive
+              ]}
               onPress={() => setTableFilter('home')}
             >
-              <Text style={[styles.tableFilterText, tableFilter === 'home' && styles.tableFilterTextActive]}>
+              <Text style={[
+                styles.tableFilterText, 
+                { color: isDark ? '#ffffff' : '#18223A' },
+                tableFilter === 'home' && styles.tableFilterTextActive
+              ]}>
                 HOME
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tableFilterTab, tableFilter === 'away' && styles.tableFilterTabActive]}
+              style={[
+                styles.tableFilterTab, 
+                { backgroundColor: isDark ? '#080C17' : '#E5E7EB' },
+                tableFilter === 'away' && styles.tableFilterTabActive
+              ]}
               onPress={() => setTableFilter('away')}
             >
-              <Text style={[styles.tableFilterText, tableFilter === 'away' && styles.tableFilterTextActive]}>
+              <Text style={[
+                styles.tableFilterText, 
+                { color: isDark ? '#ffffff' : '#18223A' },
+                tableFilter === 'away' && styles.tableFilterTextActive
+              ]}>
                 AWAY
               </Text>
             </TouchableOpacity>
           </View>
 
           {/* League Title */}
-          <Text style={styles.tableLeagueTitle}>{table.leagueName}</Text>
+          <Text style={[styles.tableLeagueTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>{table.leagueName}</Text>
 
           {/* Table Header */}
-          <View style={styles.tableHeader}>
-            <Text style={styles.tableHeaderPosition}>#</Text>
-            <Text style={styles.tableHeaderTeam}>Team</Text>
-            <Text style={styles.tableHeaderStat}>P</Text>
-            <Text style={styles.tableHeaderStat}>W</Text>
-            <Text style={styles.tableHeaderStat}>D</Text>
-            <Text style={styles.tableHeaderStat}>L</Text>
-            <Text style={styles.tableHeaderGoals}>Goals</Text>
-            <Text style={styles.tableHeaderPoints}>PTS</Text>
+          <View style={[styles.tableHeader, { borderBottomColor: isDark ? '#2F384C' : '#E5E7EB' }]}>
+            <Text style={[styles.tableHeaderPosition, { color: isDark ? '#485C88' : '#6B7280' }]}>#</Text>
+            <Text style={[styles.tableHeaderTeam, { color: isDark ? '#485C88' : '#6B7280' }]}>Team</Text>
+            <Text style={[styles.tableHeaderStat, { color: isDark ? '#485C88' : '#6B7280' }]}>P</Text>
+            <Text style={[styles.tableHeaderStat, { color: isDark ? '#485C88' : '#6B7280' }]}>W</Text>
+            <Text style={[styles.tableHeaderStat, { color: isDark ? '#485C88' : '#6B7280' }]}>D</Text>
+            <Text style={[styles.tableHeaderStat, { color: isDark ? '#485C88' : '#6B7280' }]}>L</Text>
+            <Text style={[styles.tableHeaderGoals, { color: isDark ? '#485C88' : '#6B7280' }]}>Goals</Text>
+            <Text style={[styles.tableHeaderPoints, { color: isDark ? '#485C88' : '#6B7280' }]}>PTS</Text>
           </View>
 
           {/* Table Rows */}
@@ -744,46 +933,49 @@ export default function MatchDetailsScreen() {
       <View style={styles.powerContainer}>
         {/* Team Balance Section */}
         <View style={styles.powerSection}>
-          <Text style={styles.powerSectionTitle}>TEAM BALANCE</Text>
-          <Text style={styles.powerSectionDescription}>
+          <Text style={[styles.powerSectionTitle, { color: isDark ? '#FFFFFF' : '#18223A' }]}>TEAM BALANCE</Text>
+          <Text style={[styles.powerSectionDescription, { color: isDark ? '#667085' : '#6B7280' }]}>
             A chart comparing two team's strength and performance
           </Text>
           <TeamBalanceChart
             data={powerData.teamBalance}
             homeColor={CHART_COLORS.homeTeam}
             awayColor={CHART_COLORS.awayTeam}
+            isDark={isDark}
           />
         </View>
 
         {/* Separator */}
-        <View style={styles.powerSeparator} />
+        <View style={[styles.powerSeparator, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.3)' : '#E5E7EB' }]} />
 
         {/* Team Power Section */}
         <View style={styles.powerSection}>
-          <Text style={styles.powerSectionTitle}>TEAM POWER</Text>
-          <Text style={styles.powerSectionDescription}>
+          <Text style={[styles.powerSectionTitle, { color: isDark ? '#FFFFFF' : '#18223A' }]}>TEAM POWER</Text>
+          <Text style={[styles.powerSectionDescription, { color: isDark ? '#667085' : '#6B7280' }]}>
             Comparison of the team's power based on past matches
           </Text>
           <TeamPowerChart
             data={powerData.teamPower}
             homeColor={CHART_COLORS.homeTeam}
             awayColor={CHART_COLORS.awayTeam}
+            isDark={isDark}
           />
         </View>
 
         {/* Separator */}
-        <View style={styles.powerSeparator} />
+        <View style={[styles.powerSeparator, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.3)' : '#E5E7EB' }]} />
 
         {/* Goal Power Section */}
         <View style={styles.powerSection}>
-          <Text style={styles.powerSectionTitle}>GOAL POWER</Text>
-          <Text style={styles.powerSectionDescription}>
+          <Text style={[styles.powerSectionTitle, { color: isDark ? '#FFFFFF' : '#18223A' }]}>GOAL POWER</Text>
+          <Text style={[styles.powerSectionDescription, { color: isDark ? '#667085' : '#6B7280' }]}>
             A chart that display's the timing of the goals scored during a match showing when each team found the net
           </Text>
           <GoalPowerChart
             data={powerData.goalPower}
             homeColor={CHART_COLORS.homeTeam}
             awayColor={CHART_COLORS.awayTeam}
+            isDark={isDark}
           />
         </View>
       </View>
@@ -791,11 +983,18 @@ export default function MatchDetailsScreen() {
   };
 
   const renderCommentaryItem = (item: CommentaryItem) => (
-    <View key={item.id} style={styles.commentaryCard}>
-      <View style={styles.commentaryTimeBadge}>
-        <Text style={styles.commentaryTimeText}>{item.time}</Text>
+    <View key={item.id} style={[
+      styles.commentaryCard,
+      {
+        backgroundColor: isDark ? '#111828' : '#FFFFFF',
+        borderWidth: isDark ? 0 : 1,
+        borderColor: '#18223A',
+      }
+    ]}>
+      <View style={[styles.commentaryTimeBadge, { backgroundColor: isDark ? '#ffffff' : '#18223A' }]}>
+        <Text style={[styles.commentaryTimeText, { color: isDark ? '#000000' : '#FFFFFF' }]}>{item.time}</Text>
       </View>
-      <Text style={styles.commentaryText}>{item.text}</Text>
+      <Text style={[styles.commentaryText, { color: isDark ? '#ffffff' : '#18223A' }]}>{item.text}</Text>
     </View>
   );
 
@@ -814,10 +1013,10 @@ export default function MatchDetailsScreen() {
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: isDark ? '#080C17' : '#F3F4F6' }]}>
       {/* Header & Score Section with Gradient */}
       <LinearGradient
-        colors={['#202D4B', '#111828', '#080C17']}
+        colors={isDark ? ['#202D4B', '#111828', '#080C17'] : ['#FFFFFF', '#FFFFFF', '#F3F4F6']}
         locations={[0, 0.4, 1]}
         style={styles.gradientHeader}
       >
@@ -827,11 +1026,11 @@ export default function MatchDetailsScreen() {
             style={styles.headerButton}
             onPress={() => router.push('/(tabs)/home')}
           >
-            <Feather name="chevron-left" size={28} color="#ffffff" />
+            <Feather name="chevron-left" size={28} color={isDark ? '#ffffff' : '#18223A'} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <Text style={styles.leagueName}>{match.league}</Text>
-            <Text style={styles.matchDate}>{match.date}</Text>
+            <Text style={[styles.leagueName, { color: isDark ? '#9ca3af' : '#6B7280' }]}>{match.league}</Text>
+            <Text style={[styles.matchDate, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.date}</Text>
           </View>
           <TouchableOpacity
             style={styles.headerButton}
@@ -840,7 +1039,7 @@ export default function MatchDetailsScreen() {
             <MaterialCommunityIcons
               name={isFavorite ? 'star' : 'star-outline'}
               size={24}
-              color={isFavorite ? '#22c55e' : '#ffffff'}
+              color={isFavorite ? '#22c55e' : (isDark ? '#ffffff' : '#18223A')}
             />
           </TouchableOpacity>
         </View>
@@ -848,30 +1047,30 @@ export default function MatchDetailsScreen() {
         {/* Score Section */}
         <View style={styles.scoreSection}>
           <View style={styles.teamContainer}>
-            <View style={styles.teamLogo}>
-              <Text style={styles.teamLogoText}>{match.homeTeam.name.charAt(0)}</Text>
+            <View style={[styles.teamLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+              <Text style={[styles.teamLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.homeTeam.name.charAt(0)}</Text>
             </View>
-            <Text style={styles.teamName}>{match.homeTeam.name}</Text>
+            <Text style={[styles.teamName, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.homeTeam.name}</Text>
           </View>
 
           <View style={styles.scoreContainer}>
-            <Text style={styles.scoreText}>
+            <Text style={[styles.scoreText, { color: isDark ? '#ffffff' : '#18223A' }]}>
               {match.homeScore} - {match.awayScore}
             </Text>
-            {match.matchTime && <Text style={styles.matchTimeText}>{match.matchTime}</Text>}
+            {match.matchTime && <Text style={[styles.matchTimeText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>{match.matchTime}</Text>}
           </View>
 
           <View style={styles.teamContainer}>
-            <View style={styles.teamLogo}>
-              <Text style={styles.teamLogoText}>{match.awayTeam.name.charAt(0)}</Text>
+            <View style={[styles.teamLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+              <Text style={[styles.teamLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.awayTeam.name.charAt(0)}</Text>
             </View>
-            <Text style={styles.teamName}>{match.awayTeam.name}</Text>
+            <Text style={[styles.teamName, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.awayTeam.name}</Text>
           </View>
         </View>
       </LinearGradient>
 
       {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
+      <View style={[styles.tabContainer, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB', backgroundColor: isDark ? 'transparent' : '#FFFFFF' }]}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -886,12 +1085,13 @@ export default function MatchDetailsScreen() {
               <Text
                 style={[
                   styles.tabText,
-                  selectedTab === tab.id && styles.tabTextSelected,
+                  { color: isDark ? '#6b7280' : '#6B7280' },
+                  selectedTab === tab.id && [styles.tabTextSelected, { color: isDark ? '#ffffff' : '#18223A' }],
                 ]}
               >
                 {tab.label}
           </Text>
-              {selectedTab === tab.id && <View style={styles.tabIndicator} />}
+              {selectedTab === tab.id && <View style={[styles.tabIndicator, { backgroundColor: isDark ? '#22c55e' : '#32A95D' }]} />}
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -899,7 +1099,7 @@ export default function MatchDetailsScreen() {
 
       {/* Tab Content */}
       <ScrollView
-        style={styles.contentScrollView}
+        style={[styles.contentScrollView, { backgroundColor: isDark ? '#080C17' : '#F3F4F6' }]}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.contentContainer}
       >

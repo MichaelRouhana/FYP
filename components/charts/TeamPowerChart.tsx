@@ -8,6 +8,7 @@ interface TeamPowerChartProps {
   data: TeamPowerData | null | undefined;
   homeColor?: string;
   awayColor?: string;
+  isDark?: boolean;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -17,6 +18,7 @@ export const TeamPowerChart: React.FC<TeamPowerChartProps> = ({
   data,
   homeColor = CHART_COLORS.homeTeam,
   awayColor = CHART_COLORS.awayTeam,
+  isDark = true,
 }) => {
   // Transform data for react-native-gifted-charts with safety checks
   // Note: We don't include 'label' in data to avoid duplicate X-axis labels
@@ -63,9 +65,9 @@ export const TeamPowerChart: React.FC<TeamPowerChartProps> = ({
       <View style={styles.chartContainer}>
         {/* Y-axis labels */}
         <View style={styles.yAxisLabels}>
-          <Text style={styles.axisLabel}>HI</Text>
+          <Text style={[styles.axisLabel, { color: isDark ? '#667085' : '#18223A' }]}>HI</Text>
           <View style={{ flex: 1 }} />
-          <Text style={styles.axisLabel}>LO</Text>
+          <Text style={[styles.axisLabel, { color: isDark ? '#667085' : '#18223A' }]}>LO</Text>
         </View>
 
         <LineChart
@@ -91,7 +93,7 @@ export const TeamPowerChart: React.FC<TeamPowerChartProps> = ({
           xAxisThickness={0}
           noOfSections={4}
           showVerticalLines
-          verticalLinesColor="rgba(255, 255, 255, 0.15)"
+          verticalLinesColor={isDark ? "rgba(255, 255, 255, 0.15)" : "rgba(0, 0, 0, 0.1)"}
           verticalLinesThickness={1}
           hideRules
           disableScroll
@@ -101,7 +103,7 @@ export const TeamPowerChart: React.FC<TeamPowerChartProps> = ({
       {/* X-axis labels */}
       <View style={styles.xAxisContainer}>
         {xAxisLabels.map((label, index) => (
-          <Text key={index} style={styles.xAxisLabel}>
+          <Text key={index} style={[styles.xAxisLabel, { color: isDark ? '#667085' : '#18223A' }]}>
             {label}
           </Text>
         ))}
@@ -111,11 +113,11 @@ export const TeamPowerChart: React.FC<TeamPowerChartProps> = ({
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendLine, { backgroundColor: homeColor }]} />
-          <Text style={styles.legendText}>{data.homeTeam.name}</Text>
+          <Text style={[styles.legendText, { color: isDark ? '#FFFFFF' : '#18223A' }]}>{data.homeTeam.name}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendLine, { backgroundColor: awayColor }]} />
-          <Text style={styles.legendText}>{data.awayTeam.name}</Text>
+          <Text style={[styles.legendText, { color: isDark ? '#FFFFFF' : '#18223A' }]}>{data.awayTeam.name}</Text>
         </View>
       </View>
     </View>

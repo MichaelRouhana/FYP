@@ -14,6 +14,7 @@ export interface MatchStats {
   };
   topStats: StatItem[];
   shots: StatItem[];
+  disciplines: StatItem[];
 }
 
 // Mock stats data based on the provided image
@@ -36,6 +37,10 @@ export const mockMatchStats: MatchStats = {
     { name: 'Blocked shots', homeValue: 7, awayValue: 2 },
     { name: 'Blocked shots', homeValue: 7, awayValue: 7 },
     { name: 'Blocked shots', homeValue: 7, awayValue: 2 },
+  ],
+  disciplines: [
+    { name: 'Red Cards', homeValue: 7, awayValue: 2 },
+    { name: 'Yellow Cards', homeValue: 7, awayValue: 2 },
   ],
 };
 

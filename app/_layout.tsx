@@ -20,7 +20,7 @@ import { useEffect } from 'react';
 import { MD3DarkTheme, MD3LightTheme, Provider as PaperProvider } from 'react-native-paper';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { ThemeProvider as AppThemeProvider, useTheme } from '@/context/ThemeContext';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -65,15 +65,19 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav />;
+  return (
+    <AppThemeProvider>
+      <RootLayoutNav />
+    </AppThemeProvider>
+  );
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+  const { isDark } = useTheme();
 
   return (
-    <PaperProvider theme={colorScheme === 'dark' ? { ...MD3DarkTheme, colors: { ...MD3DarkTheme.colors, primary: '#16a34a' } } : { ...MD3LightTheme, colors: { ...MD3LightTheme.colors, primary: '#16a34a' } }}>
-      <ThemeProvider value={colorScheme === 'dark' ? NavDarkTheme : NavDefaultTheme}>
+    <PaperProvider theme={isDark ? { ...MD3DarkTheme, colors: { ...MD3DarkTheme.colors, primary: '#16a34a' } } : { ...MD3LightTheme, colors: { ...MD3LightTheme.colors, primary: '#16a34a' } }}>
+      <ThemeProvider value={isDark ? NavDarkTheme : NavDefaultTheme}>
         <Stack>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="auth" options={{ headerShown: false }} />

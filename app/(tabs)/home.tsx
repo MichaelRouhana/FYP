@@ -6,6 +6,7 @@ import {
   Match,
   mockLeagues,
 } from '@/mock/homeData';
+import { useTheme } from '@/context/ThemeContext';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -23,6 +24,7 @@ type FilterType = 'all' | 'live' | 'upcoming';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const { theme, isDark } = useTheme();
   const [selectedDate, setSelectedDate] = useState<string>('date-0'); // Today
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [expandedLeagues, setExpandedLeagues] = useState<Set<string>>(new Set(['seria-1']));
@@ -67,10 +69,18 @@ export default function HomeScreen() {
         style={styles.dateItem}
         onPress={() => setSelectedDate(item.id)}
       >
-        <Text style={[styles.dateDayText, isSelected && styles.dateDayTextSelected]}>
+        <Text style={[
+          styles.dateDayText, 
+          { color: theme.colors.textMuted },
+          isSelected && [styles.dateDayTextSelected, { color: theme.colors.text }]
+        ]}>
           {item.dayName}
         </Text>
-        <Text style={[styles.dateMonthText, isSelected && styles.dateMonthTextSelected]}>
+        <Text style={[
+          styles.dateMonthText, 
+          { color: theme.colors.textMuted },
+          isSelected && [styles.dateMonthTextSelected, { color: theme.colors.text }]
+        ]}>
           {item.monthDay}
         </Text>
       </TouchableOpacity>
@@ -81,48 +91,61 @@ export default function HomeScreen() {
     const isHot = match.betsCount >= 100;
     const isFavorite = favorites.has(match.id);
 
-    return (
+  return (
       <TouchableOpacity
         key={match.id}
-        style={styles.matchItem}
+        style={[styles.matchItem, { borderBottomColor: theme.colors.separator }]}
         onPress={() => router.push({ pathname: '/match/[id]', params: { id: match.id } })}
         activeOpacity={0.7}
       >
         {/* Time / Live indicator */}
         <View style={styles.matchTimeContainer}>
           {match.status === 'live' ? (
-            <View style={styles.liveIndicator}>
-              <Text style={styles.liveText}>LIVE</Text>
+            <View style={[styles.liveIndicator, { backgroundColor: isDark ? '#1f2937' : '#18223A' }]}>
+              <Text style={[styles.liveText, { color: '#ffffff' }]}>LIVE</Text>
             </View>
           ) : (
-            <Text style={styles.matchTime}>{match.time}</Text>
+            <Text style={[styles.matchTime, { color: theme.colors.textSecondary }]}>{match.time}</Text>
           )}
         </View>
 
         {/* Teams */}
         <View style={styles.teamsContainer}>
           <View style={styles.teamRow}>
-            <View style={styles.teamLogo} />
-            <Text style={styles.teamName}>{match.homeTeam.name}</Text>
+            <View style={[styles.teamLogo, { backgroundColor: theme.colors.textMuted }]} />
+            <Text style={[styles.teamName, { color: theme.colors.text }]}>{match.homeTeam.name}</Text>
             {match.status === 'live' && (
-              <Text style={styles.scoreText}>{match.homeScore}</Text>
+              <Text style={[styles.scoreText, { color: theme.colors.text }]}>{match.homeScore}</Text>
             )}
           </View>
           <View style={styles.teamRow}>
-            <View style={styles.teamLogo} />
-            <Text style={styles.teamName}>{match.awayTeam.name}</Text>
+            <View style={[styles.teamLogo, { backgroundColor: theme.colors.textMuted }]} />
+            <Text style={[styles.teamName, { color: theme.colors.text }]}>{match.awayTeam.name}</Text>
             {match.status === 'live' && (
-              <Text style={styles.scoreText}>{match.awayScore}</Text>
+              <Text style={[styles.scoreText, { color: theme.colors.text }]}>{match.awayScore}</Text>
             )}
           </View>
         </View>
 
         {/* Bets */}
-        <View style={[styles.betsContainer, isHot && styles.betsContainerHot]}>
+        <View style={[
+          styles.betsContainer, 
+          isHot && [
+            styles.betsContainerHot, 
+            { 
+              backgroundColor: isDark ? '#111828' : '#FFF04E',
+              borderColor: isDark ? '#FFF04E' : '#FFF04E'
+            }
+          ]
+        ]}>
           {isHot && (
-            <MaterialCommunityIcons name="fire" size={16} color="#FFF04E" />
-          )}
-          <Text style={[styles.betsText, isHot && styles.betsTextHot]}>
+            <MaterialCommunityIcons name="fire" size={16} color={isDark ? '#FFF04E' : '#18223A'} />
+        )}
+          <Text style={[
+            styles.betsText, 
+            { color: theme.colors.textSecondary }, 
+            isHot && [styles.betsTextHot, { color: isDark ? '#FFF04E' : '#18223A' }]
+          ]}>
             {match.betsCount} BETS
           </Text>
         </View>
@@ -135,7 +158,7 @@ export default function HomeScreen() {
           <MaterialCommunityIcons
             name={isFavorite ? 'star' : 'star-outline'}
             size={24}
-            color={isFavorite ? '#22c55e' : '#6b7280'}
+            color={isFavorite ? theme.colors.primary : theme.colors.iconMuted}
           />
         </TouchableOpacity>
       </TouchableOpacity>
@@ -146,7 +169,7 @@ export default function HomeScreen() {
     const isExpanded = expandedLeagues.has(league.id);
 
     return (
-      <View key={league.id} style={styles.leagueCard}>
+      <View key={league.id} style={[styles.leagueCard, { backgroundColor: theme.colors.cardBackground, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border }]}>
         {/* League Header */}
         <TouchableOpacity
           style={styles.leagueHeader}
@@ -155,24 +178,24 @@ export default function HomeScreen() {
         >
           <Image source={league.logo} style={styles.leagueLogo} />
           <View style={styles.leagueInfo}>
-            <Text style={styles.leagueName}>{league.name}</Text>
-            <Text style={styles.leagueCountry}>{league.country}</Text>
+            <Text style={[styles.leagueName, { color: theme.colors.text }]}>{league.name}</Text>
+            <Text style={[styles.leagueCountry, { color: theme.colors.textMuted }]}>{league.country}</Text>
           </View>
-          <View style={styles.leagueSeparator} />
+          <View style={[styles.leagueSeparator, { backgroundColor: theme.colors.separator }]} />
           <View style={styles.matchCountContainer}>
-            <Text style={styles.matchCountDot}>•</Text>
-            <Text style={styles.matchCountText}>{league.matches.length} matches</Text>
+            <Text style={[styles.matchCountDot, { color: theme.colors.primary }]}>•</Text>
+            <Text style={[styles.matchCountText, { color: theme.colors.textMuted }]}>{league.matches.length} matches</Text>
           </View>
           <MaterialCommunityIcons
             name={isExpanded ? 'chevron-up' : 'chevron-down'}
             size={24}
-            color="#6b7280"
+            color={theme.colors.iconMuted}
           />
         </TouchableOpacity>
 
         {/* Matches */}
         {isExpanded && (
-          <View style={styles.matchesContainer}>
+          <View style={[styles.matchesContainer, { borderTopColor: theme.colors.separator }]}>
             {league.matches.map(renderMatchItem)}
           </View>
         )}
@@ -181,28 +204,28 @@ export default function HomeScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
         <TouchableOpacity style={styles.menuButton}>
-          <Feather name="menu" size={24} color="#ffffff" />
+          <Feather name="menu" size={24} color={theme.colors.icon} />
         </TouchableOpacity>
         <View style={styles.logoContainer}>
-          <Text style={styles.logoFyp}>FYP</Text>
-          <Text style={styles.logoScore}> SCORE</Text>
+          <Text style={[styles.logoFyp, { color: theme.colors.primary }]}>FYP</Text>
+          <Text style={[styles.logoScore, { color: theme.colors.text }]}> SCORE</Text>
         </View>
         <TouchableOpacity 
           style={styles.searchButton}
           onPress={() => router.push('/search')}
         >
-          <Feather name="search" size={24} color="#ffffff" />
+          <Feather name="search" size={24} color={theme.colors.icon} />
         </TouchableOpacity>
       </View>
 
       {/* Date Navigation */}
-      <View style={styles.dateNavigation}>
-        <View style={styles.liveLogoContainer}>
-          <Text style={styles.liveLogo}>LIVE</Text>
+      <View style={[styles.dateNavigation, { borderBottomColor: theme.colors.separator, backgroundColor: theme.colors.headerBackground }]}>
+        <View style={[styles.liveLogoContainer, { backgroundColor: isDark ? '#ffffff' : '#18223A' }]}>
+          <Text style={[styles.liveLogo, { color: isDark ? '#000000' : '#ffffff' }]}>LIVE</Text>
         </View>
         <ScrollView
           horizontal
@@ -214,28 +237,52 @@ export default function HomeScreen() {
       </View>
 
       {/* Filter Tabs */}
-      <View style={styles.filterContainer}>
+      <View style={[styles.filterContainer, { backgroundColor: theme.colors.background }]}>
         <TouchableOpacity
-          style={[styles.filterTab, selectedFilter === 'all' && styles.filterTabActive]}
+          style={[
+            styles.filterTab, 
+            { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+            selectedFilter === 'all' && { backgroundColor: theme.colors.primary }
+          ]}
           onPress={() => setSelectedFilter('all')}
         >
-          <Text style={[styles.filterText, selectedFilter === 'all' && styles.filterTextActive]}>
+          <Text style={[
+            styles.filterText, 
+            { color: theme.colors.text },
+            selectedFilter === 'all' && { color: theme.colors.primaryText }
+          ]}>
             ALL
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.filterTab, selectedFilter === 'live' && styles.filterTabActive]}
+          style={[
+            styles.filterTab, 
+            { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+            selectedFilter === 'live' && { backgroundColor: theme.colors.primary }
+          ]}
           onPress={() => setSelectedFilter('live')}
         >
-          <Text style={[styles.filterText, selectedFilter === 'live' && styles.filterTextActive]}>
+          <Text style={[
+            styles.filterText, 
+            { color: theme.colors.text },
+            selectedFilter === 'live' && { color: theme.colors.primaryText }
+          ]}>
             LIVE
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.filterTab, selectedFilter === 'upcoming' && styles.filterTabActive]}
+          style={[
+            styles.filterTab, 
+            { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+            selectedFilter === 'upcoming' && { backgroundColor: theme.colors.primary }
+          ]}
           onPress={() => setSelectedFilter('upcoming')}
         >
-          <Text style={[styles.filterText, selectedFilter === 'upcoming' && styles.filterTextActive]}>
+          <Text style={[
+            styles.filterText, 
+            { color: theme.colors.text },
+            selectedFilter === 'upcoming' && { color: theme.colors.primaryText }
+          ]}>
             UPCOMING
           </Text>
         </TouchableOpacity>

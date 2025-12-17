@@ -8,6 +8,7 @@ interface TeamBalanceChartProps {
   data: TeamBalanceData | null | undefined;
   homeColor?: string;
   awayColor?: string;
+  isDark?: boolean;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -19,6 +20,7 @@ export const TeamBalanceChart: React.FC<TeamBalanceChartProps> = ({
   data,
   homeColor = CHART_COLORS.homeTeam,
   awayColor = CHART_COLORS.awayTeam,
+  isDark = true,
 }) => {
   // Safety check - don't render chart if data is not ready
   if (!data?.homeTeam?.stats || !data?.awayTeam?.stats) {
@@ -98,7 +100,7 @@ export const TeamBalanceChart: React.FC<TeamBalanceChartProps> = ({
             key={`grid-${level}`}
             points={getGridPolygonPoints(level)}
             fill="none"
-            stroke="rgba(255, 255, 255, 0.1)"
+            stroke={isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)"}
             strokeWidth={1}
           />
         ))}
@@ -113,7 +115,7 @@ export const TeamBalanceChart: React.FC<TeamBalanceChartProps> = ({
               y1={CENTER}
               x2={point.x}
               y2={point.y}
-              stroke="rgba(255, 255, 255, 0.1)"
+              stroke={isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)"}
               strokeWidth={1}
             />
           );
@@ -171,7 +173,7 @@ export const TeamBalanceChart: React.FC<TeamBalanceChartProps> = ({
               key={`label-${index}`}
               x={pos.x}
               y={pos.y}
-              fill={CHART_COLORS.axisLabel}
+              fill={isDark ? CHART_COLORS.axisLabel : '#18223A'}
               fontSize={13}
               fontFamily="Montserrat_400Regular"
               textAnchor="middle"
@@ -187,11 +189,11 @@ export const TeamBalanceChart: React.FC<TeamBalanceChartProps> = ({
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendLine, { backgroundColor: homeColor }]} />
-          <Text style={styles.legendText}>{data.homeTeam.name}</Text>
+          <Text style={[styles.legendText, { color: isDark ? '#FFFFFF' : '#18223A' }]}>{data.homeTeam.name}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendLine, { backgroundColor: awayColor }]} />
-          <Text style={styles.legendText}>{data.awayTeam.name}</Text>
+          <Text style={[styles.legendText, { color: isDark ? '#FFFFFF' : '#18223A' }]}>{data.awayTeam.name}</Text>
         </View>
       </View>
     </View>

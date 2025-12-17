@@ -8,6 +8,7 @@ interface GoalPowerChartProps {
   data: GoalPowerData | null | undefined;
   homeColor?: string;
   awayColor?: string;
+  isDark?: boolean;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -50,6 +51,7 @@ export const GoalPowerChart: React.FC<GoalPowerChartProps> = ({
   data,
   homeColor = CHART_COLORS.homeTeam,
   awayColor = CHART_COLORS.awayTeam,
+  isDark = true,
 }) => {
   // Memoize chart data transformation
   const chartData = useMemo(() => {
@@ -106,9 +108,9 @@ export const GoalPowerChart: React.FC<GoalPowerChartProps> = ({
         maxValue={yAxisMax}
         yAxisThickness={0}
         xAxisThickness={0}
-        yAxisTextStyle={styles.yAxisLabel}
+        yAxisTextStyle={{ ...styles.yAxisLabel, color: isDark ? '#667085' : '#18223A' }}
         hideRules={false}
-        rulesColor="rgba(255, 255, 255, 0.1)"
+        rulesColor={isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(0, 0, 0, 0.1)"}
         rulesType="solid"
         yAxisLabelWidth={25}
         yAxisColor="transparent"
@@ -119,7 +121,7 @@ export const GoalPowerChart: React.FC<GoalPowerChartProps> = ({
       {/* Custom X-axis labels */}
       <View style={styles.xAxisContainer}>
         {xLabels.map((label, index) => (
-          <Text key={index} style={styles.xAxisLabel}>
+          <Text key={index} style={[styles.xAxisLabel, { color: isDark ? '#667085' : '#18223A' }]}>
             {label}
           </Text>
         ))}
@@ -129,11 +131,11 @@ export const GoalPowerChart: React.FC<GoalPowerChartProps> = ({
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendLine, { backgroundColor: homeColor }]} />
-          <Text style={styles.legendText}>{data.homeTeam.name}</Text>
+          <Text style={[styles.legendText, { color: isDark ? '#FFFFFF' : '#18223A' }]}>{data.homeTeam.name}</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendLine, { backgroundColor: awayColor }]} />
-          <Text style={styles.legendText}>{data.awayTeam.name}</Text>
+          <Text style={[styles.legendText, { color: isDark ? '#FFFFFF' : '#18223A' }]}>{data.awayTeam.name}</Text>
         </View>
       </View>
     </View>

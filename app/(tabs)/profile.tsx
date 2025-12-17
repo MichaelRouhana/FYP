@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React from 'react';
 import {
@@ -11,12 +11,14 @@ import {
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useTheme } from '@/context/ThemeContext';
 import { useProfile } from '@/hooks/useProfile';
 import { FavoriteTeam, UserCommunity } from '@/types/profile';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, favoriteTeams, communities, predictions } = useProfile();
+  const { theme, isDark, toggleTheme } = useTheme();
 
   const handleAddTeam = () => {
     router.push('/community/qr/browse');
@@ -160,17 +162,38 @@ export default function ProfileScreen() {
         </View>
 
         {/* Account Settings */}
-        <View style={styles.settingsSection}>
-          <TouchableOpacity style={styles.settingsRow} onPress={handleEmailPress}>
-            <Text style={styles.settingsLabel}>Email</Text>
+        <View style={[styles.settingsSection, { borderTopColor: theme.colors.separator }]}>
+          {/* Theme Toggle */}
+          <TouchableOpacity style={[styles.settingsRow, { borderBottomColor: theme.colors.separator }]} onPress={toggleTheme}>
+            <View style={styles.themeToggleLeft}>
+              <Feather 
+                name={isDark ? "moon" : "sun"} 
+                size={20} 
+                color={isDark ? "#6366f1" : "#f59e0b"} 
+              />
+              <Text style={[styles.settingsLabel, { color: theme.colors.textSecondary, marginLeft: 12 }]}>
+                {isDark ? 'Dark Mode' : 'Light Mode'}
+              </Text>
+            </View>
+            <View style={[styles.themeToggleSwitch, { backgroundColor: isDark ? '#6366f1' : '#f59e0b' }]}>
+              <Feather 
+                name={isDark ? "moon" : "sun"} 
+                size={14} 
+                color="#ffffff" 
+              />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.settingsRow, { borderBottomColor: theme.colors.separator }]} onPress={handleEmailPress}>
+            <Text style={[styles.settingsLabel, { color: theme.colors.textSecondary }]}>Email</Text>
             <View style={styles.settingsValue}>
               <Text style={styles.settingsValueText}>{user.email}</Text>
               <Ionicons name="chevron-forward" size={20} color="#6b7280" />
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingsRow} onPress={handlePasswordPress}>
-            <Text style={styles.settingsLabel}>Password</Text>
+          <TouchableOpacity style={[styles.settingsRow, { borderBottomColor: theme.colors.separator }]} onPress={handlePasswordPress}>
+            <Text style={[styles.settingsLabel, { color: theme.colors.textSecondary }]}>Password</Text>
             <Ionicons name="chevron-forward" size={20} color="#6b7280" />
           </TouchableOpacity>
         </View>
@@ -432,6 +455,17 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#1f2937',
+  },
+  themeToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  themeToggleSwitch: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   settingsLabel: {
     fontSize: 14,
