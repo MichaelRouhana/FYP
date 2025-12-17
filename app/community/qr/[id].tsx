@@ -12,10 +12,12 @@ import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { GradientBackground } from '@/components/GradientBackground';
+import { useTheme } from '@/context/ThemeContext';
 import { useCommunityDetails } from '@/hooks/useChat';
 
 export default function QRCodeScreen() {
   const insets = useSafeAreaInsets();
+  const { theme, isDark } = useTheme();
   const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
   const { community } = useCommunityDetails(id);
 
@@ -24,8 +26,7 @@ export default function QRCodeScreen() {
   };
 
   const handleScanPress = () => {
-    // Future: Open camera to scan QR code
-    console.log('Open scanner');
+    router.push('/community/scan');
   };
 
   // Generate QR value for the community
@@ -37,26 +38,29 @@ export default function QRCodeScreen() {
   });
 
   return (
-    <GradientBackground>
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+    <GradientBackground isDark={isDark}>
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={28} color="#fff" />
+            <Ionicons name="chevron-back" size={28} color={theme.colors.icon} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>QR CODE</Text>
+          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>QR CODE</Text>
 
           <TouchableOpacity style={styles.qrButton}>
-            <Ionicons name="qr-code" size={24} color="#fff" />
+            <Ionicons name="qr-code" size={24} color={theme.colors.icon} />
           </TouchableOpacity>
         </View>
 
         {/* QR Card */}
-        <View style={styles.qrCard}>
+        <View style={[styles.qrCard, { 
+          backgroundColor: theme.colors.cardBackground,
+          borderColor: theme.colors.border 
+        }]}>
           {/* Community Info */}
           <View style={styles.communityInfo}>
-            <View style={styles.communityAvatar}>
+            <View style={[styles.communityAvatar, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
               <Image
                 source={{ uri: community?.logo }}
                 style={styles.communityLogo}
@@ -64,10 +68,10 @@ export default function QRCodeScreen() {
               />
             </View>
             <View style={styles.communityDetails}>
-              <Text style={styles.communityName}>
+              <Text style={[styles.communityName, { color: theme.colors.text }]}>
                 {community?.name ?? name ?? 'COMMUNITY'}
               </Text>
-              <Text style={styles.memberCount}>
+              <Text style={[styles.memberCount, { color: theme.colors.textSecondary }]}>
                 {community?.memberCount ?? '1.8M members'}
               </Text>
             </View>
@@ -89,23 +93,26 @@ export default function QRCodeScreen() {
 
           {/* Scan Me Button */}
           <TouchableOpacity
-            style={styles.scanButton}
+            style={[styles.scanButton, {
+              backgroundColor: isDark ? '#1a2234' : '#FFFFFF',
+              borderColor: theme.colors.border
+            }]}
             onPress={handleScanPress}
             activeOpacity={0.8}
           >
             <View style={styles.scanIconWrapper}>
-              <View style={styles.scanCorner} />
-              <View style={[styles.scanCorner, styles.scanCornerTR]} />
-              <View style={[styles.scanCorner, styles.scanCornerBL]} />
-              <View style={[styles.scanCorner, styles.scanCornerBR]} />
+              <View style={[styles.scanCorner, { borderColor: theme.colors.primary }]} />
+              <View style={[styles.scanCorner, styles.scanCornerTR, { borderColor: theme.colors.primary }]} />
+              <View style={[styles.scanCorner, styles.scanCornerBL, { borderColor: theme.colors.primary }]} />
+              <View style={[styles.scanCorner, styles.scanCornerBR, { borderColor: theme.colors.primary }]} />
             </View>
-            <Text style={styles.scanText}>SCAN ME</Text>
+            <Text style={[styles.scanText, { color: theme.colors.text }]}>SCAN ME</Text>
           </TouchableOpacity>
         </View>
 
         {/* Instructions */}
         <View style={styles.instructions}>
-          <Text style={styles.instructionText}>
+          <Text style={[styles.instructionText, { color: theme.colors.textSecondary }]}>
             Share this QR code with friends to invite them to join the community
           </Text>
         </View>
@@ -131,19 +138,16 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontFamily: 'Montserrat_700Bold',
-    color: '#fff',
     letterSpacing: 1,
   },
   qrButton: {
     padding: 4,
   },
   qrCard: {
-    backgroundColor: '#141c2e',
     borderRadius: 20,
     padding: 20,
     marginTop: 20,
     borderWidth: 1,
-    borderColor: '#1f2937',
   },
   communityInfo: {
     flexDirection: 'row',
@@ -154,7 +158,6 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#374151',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -170,12 +173,10 @@ const styles = StyleSheet.create({
   communityName: {
     fontSize: 16,
     fontFamily: 'Montserrat_700Bold',
-    color: '#fff',
     letterSpacing: 0.5,
   },
   memberCount: {
     fontSize: 13,
-    color: '#9ca3af',
     fontFamily: 'Inter_400Regular',
     marginTop: 2,
   },
@@ -190,12 +191,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1a2234',
     borderRadius: 12,
     paddingVertical: 14,
     marginTop: 20,
     borderWidth: 1,
-    borderColor: '#374151',
   },
   scanIconWrapper: {
     width: 20,
@@ -207,7 +206,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: 6,
     height: 6,
-    borderColor: '#22c55e',
     borderTopWidth: 2,
     borderLeftWidth: 2,
     top: 0,
@@ -242,7 +240,6 @@ const styles = StyleSheet.create({
   scanText: {
     fontSize: 14,
     fontFamily: 'Montserrat_700Bold',
-    color: '#fff',
     letterSpacing: 1,
   },
   instructions: {
@@ -251,7 +248,6 @@ const styles = StyleSheet.create({
   },
   instructionText: {
     fontSize: 14,
-    color: '#6b7280',
     fontFamily: 'Inter_400Regular',
     textAlign: 'center',
     lineHeight: 22,

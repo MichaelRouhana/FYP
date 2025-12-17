@@ -42,6 +42,10 @@ export default function CommunityScreen() {
     });
   };
 
+  const handleScanPress = () => {
+    router.push('/community/scan');
+  };
+
   const renderCommunityItem = ({ item }: { item: Community }) => (
     <TouchableOpacity
       style={[
@@ -94,7 +98,9 @@ export default function CommunityScreen() {
           <Ionicons name="menu" size={28} color={theme.colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>COMMUNITIES</Text>
-        <View style={styles.headerRight} />
+        <TouchableOpacity style={styles.headerRight} onPress={handleScanPress}>
+          <Ionicons name="camera" size={28} color={theme.colors.icon} />
+        </TouchableOpacity>
       </View>
 
       {/* Search Bar - Custom light gray for Light Mode */}
@@ -165,6 +171,9 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     width: 36,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    padding: 4,
   },
   searchContainer: {
     flexDirection: 'row',
