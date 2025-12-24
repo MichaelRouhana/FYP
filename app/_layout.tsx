@@ -14,7 +14,9 @@ import {
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme as NavDarkTheme, DefaultTheme as NavDefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+// Added useRouter and useSegments for navigation logic
+import { Stack, useRouter, useSegments } from 'expo-router';
+import * as SecureStore from 'expo-secure-store'; // Added for Token check
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { MD3DarkTheme, MD3LightTheme, Provider as PaperProvider } from 'react-native-paper';
@@ -50,6 +52,10 @@ export default function RootLayout() {
     Inter_500Medium,
   });
 
+  // Hooks for Auto-Login Logic
+  const segments = useSegments();
+  const router = useRouter();
+
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
     if (error) throw error;
@@ -58,8 +64,25 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      checkAuth(); // Check for token when app loads
     }
   }, [loaded]);
+
+  // --- Auto-Login Logic ---
+  const checkAuth = async () => {
+    try {
+      const token = await SecureStore.getItemAsync('jwt_token');
+      const inAuthGroup = segments[0] === 'auth';
+
+      if (token && inAuthGroup) {
+        // If user has a token but is on Login/Signup page, send them to Home
+        router.replace('/(tabs)/home');
+      } 
+      // Optional: Add logic here to force logout if token is invalid
+    } catch (e) {
+      console.log('Auth check failed:', e);
+    }
+  };
 
   if (!loaded) {
     return null;
