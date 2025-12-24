@@ -52,17 +52,24 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
     };
 
     lineup.startXI?.forEach((playerData: any) => {
+      // Defensive: Skip if player data is missing
+      if (!playerData?.player) {
+        console.warn('[matchDataMapper] Missing player data in startXI:', playerData);
+        return;
+      }
+
+      const player = playerData.player;
       const mappedPlayer: Player = {
-        id: playerData.player.id.toString(),
-        name: playerData.player.name,
-        number: playerData.player.number,
-        position: playerData.player.pos,
+        id: player.id?.toString() || `player-${Math.random()}`,
+        name: player.name || 'Unknown',
+        number: player.number || 0,
+        position: player.pos || 'U', // U = Unknown
         rating: getRating(playerData), // Extract from statistics
-        photo: playerData.player.photo,
+        photo: player.photo || null,
       };
 
-      // Categorize by position
-      const pos = playerData.player.pos?.toUpperCase();
+      // Categorize by position - with fallback if pos is missing
+      const pos = (player.pos || 'M')?.toUpperCase(); // Default to midfield
       if (pos === 'G') {
         starters.goalkeeper.push(mappedPlayer);
       } else if (pos === 'D') {
@@ -71,24 +78,34 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
         starters.midfielders.push(mappedPlayer);
       } else if (pos === 'F') {
         starters.forwards.push(mappedPlayer);
+      } else {
+        // Unknown position - put in midfield
+        starters.midfielders.push(mappedPlayer);
       }
     });
 
     lineup.substitutes?.forEach((playerData: any) => {
+      // Defensive: Skip if player data is missing
+      if (!playerData?.player) {
+        console.warn('[matchDataMapper] Missing player data in substitutes:', playerData);
+        return;
+      }
+
+      const player = playerData.player;
       substitutes.push({
-        id: playerData.player.id.toString(),
-        name: playerData.player.name,
-        number: playerData.player.number,
-        position: playerData.player.pos,
+        id: player.id?.toString() || `sub-${Math.random()}`,
+        name: player.name || 'Unknown',
+        number: player.number || 0,
+        position: player.pos || 'SUB',
         rating: getRating(playerData),
-        photo: playerData.player.photo,
+        photo: player.photo || null,
       });
     });
 
     const result = {
-      teamId: lineup.team.id.toString(),
+      teamId: lineup.team?.id?.toString() || 'unknown',
       teamName: teamName,
-      teamLogo: lineup.team.logo,
+      teamLogo: lineup.team?.logo || null,
       formation: lineup.formation || 'N/A',
       teamRating: 0, // Not available
       starters,

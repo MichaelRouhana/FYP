@@ -14,6 +14,7 @@ import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   ImageBackground,
   ScrollView,
   StyleSheet,
@@ -935,13 +936,11 @@ export default function MatchDetailsScreen() {
       >
         <View style={styles.playerPhoto}>
           {player.photo ? (
-            <ImageBackground
+            <Image
               source={{ uri: player.photo }}
-              style={{ width: '100%', height: '100%', borderRadius: 20 }}
-              imageStyle={{ borderRadius: 20 }}
-            >
-              <Text style={styles.playerInitial}></Text>
-            </ImageBackground>
+              style={{ width: 40, height: 40, borderRadius: 20 }}
+              resizeMode="cover"
+            />
           ) : (
             <Text style={styles.playerInitial}>{player.name.charAt(0).toUpperCase()}</Text>
           )}
@@ -989,19 +988,19 @@ export default function MatchDetailsScreen() {
         onPress={() => router.push(`/player/${player.id}` as any)}
         activeOpacity={0.7}
       >
-        <View style={[styles.substitutePhoto, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-          {player.photo ? (
-            <ImageBackground
-              source={{ uri: player.photo }}
-              style={{ width: '100%', height: '100%', borderRadius: 20 }}
-              imageStyle={{ borderRadius: 20 }}
-            />
-          ) : (
-            <Text style={[styles.substituteInitial, { color: isDark ? '#ffffff' : '#18223A' }]}>
-              {player.name.charAt(0).toUpperCase()}
-            </Text>
-          )}
-        </View>
+      <View style={[styles.substitutePhoto, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+        {player.photo ? (
+          <Image
+            source={{ uri: player.photo }}
+            style={{ width: 40, height: 40, borderRadius: 20 }}
+            resizeMode="cover"
+          />
+        ) : (
+          <Text style={[styles.substituteInitial, { color: isDark ? '#ffffff' : '#18223A' }]}>
+            {player.name.charAt(0).toUpperCase()}
+          </Text>
+        )}
+      </View>
         <View style={styles.substituteInfo}>
           <Text style={[styles.substituteName, { color: isDark ? '#ffffff' : '#18223A' }]}>
             {player.name}
