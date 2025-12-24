@@ -81,7 +81,7 @@ export default function Register() {
 
       Alert.alert(
         "Success", 
-        "Account created! Please check your email to verify before logging in.",
+        "Account created successfully! You can now login.",
         [{ text: "OK", onPress: () => router.replace('/auth/login') }]
       );
 
