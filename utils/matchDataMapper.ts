@@ -13,12 +13,18 @@ import { TeamStanding } from '@/mock/matchTable';
  * Map lineups API response to UI format
  */
 export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture): MatchLineups | null => {
-  if (!lineupsData || lineupsData.length < 2) return null;
+  if (!lineupsData || lineupsData.length < 2) {
+    console.log('[matchDataMapper] Insufficient lineup data:', lineupsData?.length);
+    return null;
+  }
 
   const homeLineup = lineupsData.find(l => l.team.id === matchData.teams.home.id);
   const awayLineup = lineupsData.find(l => l.team.id === matchData.teams.away.id);
 
-  if (!homeLineup || !awayLineup) return null;
+  if (!homeLineup || !awayLineup) {
+    console.log('[matchDataMapper] Missing lineup for home or away team');
+    return null;
+  }
 
   const mapTeamLineup = (lineup: any, teamName: string): TeamLineup => {
     const starters = {
@@ -86,7 +92,10 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
  * Map statistics API response to UI format
  */
 export const mapStatsToUI = (statsData: any[]): MatchStats | null => {
-  if (!statsData || statsData.length < 2) return null;
+  if (!statsData || statsData.length < 2) {
+    console.log('[matchDataMapper] Insufficient stats data:', statsData?.length);
+    return null;
+  }
 
   const homeStats = statsData[0]?.statistics || [];
   const awayStats = statsData[1]?.statistics || [];
@@ -231,10 +240,22 @@ export const mapH2HToUI = (h2hData: any[], homeTeamName: string, awayTeamName: s
  * Map standings API response to UI format
  */
 export const mapStandingsToUI = (standingsData: any[]): TeamStanding[] => {
-  if (!standingsData || standingsData.length === 0) return [];
+  console.log('[matchDataMapper] Mapping standings data:', standingsData);
+  
+  if (!standingsData || standingsData.length === 0) {
+    console.log('[matchDataMapper] No standings data provided');
+    return [];
+  }
+
+  console.log('[matchDataMapper] Standings data structure:', JSON.stringify(standingsData[0], null, 2).substring(0, 500));
 
   const standings = standingsData[0]?.league?.standings?.[0];
-  if (!standings) return [];
+  if (!standings) {
+    console.log('[matchDataMapper] No standings array found in data');
+    return [];
+  }
+
+  console.log('[matchDataMapper] Found', standings.length, 'teams in standings');
 
   return standings.map((team: any) => ({
     position: team.rank,
@@ -256,16 +277,47 @@ export const mapStandingsToUI = (standingsData: any[]): TeamStanding[] => {
  * Extract venue and weather info from predictions
  */
 export const extractVenueAndWeather = (predictionsData: any, matchData: FootballApiFixture) => {
+  // Try to extract venue capacity and surface from fixture data
+  const capacity = matchData.fixture.venue?.capacity 
+    ? `${matchData.fixture.venue.capacity.toLocaleString()} seats`
+    : 'N/A';
+  const surface = matchData.fixture.venue?.surface || 'N/A';
+
+  // Try to extract weather from predictions (if available)
+  let condition = 'N/A';
+  let temperature = 'N/A';
+
+  // Weather data might be in predictions.forecast or predictions.weather
+  if (predictionsData) {
+    console.log('[matchDataMapper] Predictions data available, checking for weather...');
+    const forecast = predictionsData.forecast;
+    const weather = predictionsData.weather;
+    
+    if (weather) {
+      console.log('[matchDataMapper] Weather data found:', weather);
+      condition = weather.condition || weather.description || 'N/A';
+      temperature = weather.temperature ? `${weather.temperature}°C` : 'N/A';
+    } else if (forecast) {
+      console.log('[matchDataMapper] Forecast data found:', forecast);
+      condition = forecast.condition || 'N/A';
+      temperature = forecast.temperature ? `${forecast.temperature}°C` : 'N/A';
+    } else {
+      console.log('[matchDataMapper] No weather/forecast data in predictions');
+    }
+  } else {
+    console.log('[matchDataMapper] No predictions data available');
+  }
+
   return {
     venue: {
       name: matchData.fixture.venue.name || 'Unknown Venue',
       location: matchData.fixture.venue.city || 'Unknown City',
-      capacity: 'N/A', // Not available in standard API
-      surface: 'N/A', // Not available in standard API
+      capacity,
+      surface,
     },
     weather: {
-      condition: 'N/A', // Not available in standard API
-      temperature: 'N/A', // Not available in standard API
+      condition,
+      temperature,
     },
   };
 };
@@ -274,19 +326,55 @@ export const extractVenueAndWeather = (predictionsData: any, matchData: Football
  * Extract odds from predictions
  */
 export const extractOdds = (predictionsData: any) => {
-  const bookmakers = predictionsData?.predictions?.[0]?.bookmakers || [];
+  // Try multiple possible data structures from Football-API
+  
+  console.log('[matchDataMapper] Extracting odds from predictions...');
+  
+  // Structure 1: predictions.bookmakers (from predictions endpoint)
+  const bookmakers = predictionsData?.bookmakers || predictionsData?.predictions?.[0]?.bookmakers || [];
   
   if (bookmakers.length > 0) {
-    const matchWinner = bookmakers[0].bets?.find((bet: any) => bet.name === 'Match Winner');
+    console.log('[matchDataMapper] Found bookmakers data:', bookmakers.length);
+    // Find Match Winner bet
+    const matchWinner = bookmakers[0].bets?.find((bet: any) => 
+      bet.name === 'Match Winner' || bet.name === 'Match Winner (1X2)'
+    );
+    
     if (matchWinner?.values) {
       const homeOdd = matchWinner.values.find((v: any) => v.value === 'Home')?.odd;
       const drawOdd = matchWinner.values.find((v: any) => v.value === 'Draw')?.odd;
       const awayOdd = matchWinner.values.find((v: any) => v.value === 'Away')?.odd;
 
+      if (homeOdd && drawOdd && awayOdd) {
+        return {
+          home: parseFloat(homeOdd),
+          draw: parseFloat(drawOdd),
+          away: parseFloat(awayOdd),
+        };
+      }
+    }
+  }
+
+  // Structure 2: predictions.comparison (from predictions endpoint)
+  const comparison = predictionsData?.predictions?.comparison;
+  if (comparison) {
+    const form = comparison.form;
+    const att = comparison.att;
+    const def = comparison.def;
+    
+    if (form && att && def) {
+      // Calculate approximate odds from form/attack/defense ratings
+      const homeStrength = (parseFloat(form.home) + parseFloat(att.home) + parseFloat(def.home)) / 3;
+      const awayStrength = (parseFloat(form.away) + parseFloat(att.away) + parseFloat(def.away)) / 3;
+      
+      const total = homeStrength + awayStrength;
+      const homeProb = homeStrength / total;
+      const awayProb = awayStrength / total;
+      
       return {
-        home: parseFloat(homeOdd) || 1.85,
-        draw: parseFloat(drawOdd) || 3.40,
-        away: parseFloat(awayOdd) || 2.10,
+        home: Number((1 / homeProb * 0.9).toFixed(2)), // 0.9 is house edge
+        draw: 3.40, // Default draw odds
+        away: Number((1 / awayProb * 0.9).toFixed(2)),
       };
     }
   }

@@ -61,6 +61,10 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
       const season = fixture.league.season;
 
       // Fetch all other data in parallel
+      console.log('[useMatchData] Fetching additional data for fixture:', fixtureId);
+      console.log('[useMatchData] Home team ID:', homeTeamId, 'Away team ID:', awayTeamId);
+      console.log('[useMatchData] League ID:', leagueId, 'Season:', season);
+
       const [lineupsData, statsData, eventsData, h2hData, standingsData, predictionsData] =
         await Promise.allSettled([
           getFixtureLineups(fixtureId),
@@ -70,6 +74,14 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
           getStandings(leagueId, season),
           getPredictions(fixtureId),
         ]);
+
+      // Log results of each API call
+      console.log('[useMatchData] Lineups:', lineupsData.status, lineupsData.status === 'fulfilled' ? `${lineupsData.value?.length || 0} items` : lineupsData.reason?.message);
+      console.log('[useMatchData] Stats:', statsData.status, statsData.status === 'fulfilled' ? `${statsData.value?.length || 0} items` : statsData.reason?.message);
+      console.log('[useMatchData] Events:', eventsData.status, eventsData.status === 'fulfilled' ? `${eventsData.value?.length || 0} items` : eventsData.reason?.message);
+      console.log('[useMatchData] H2H:', h2hData.status, h2hData.status === 'fulfilled' ? `${h2hData.value?.length || 0} items` : h2hData.reason?.message);
+      console.log('[useMatchData] Standings:', standingsData.status, standingsData.status === 'fulfilled' ? 'success' : standingsData.reason?.message);
+      console.log('[useMatchData] Predictions:', predictionsData.status, predictionsData.status === 'fulfilled' ? 'success' : predictionsData.reason?.message);
 
       // Set data from settled promises
       if (lineupsData.status === 'fulfilled') setLineups(lineupsData.value);

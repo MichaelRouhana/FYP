@@ -35,6 +35,8 @@ export interface FootballApiFixture {
       id: number | null;
       name: string | null;
       city: string | null;
+      capacity?: number;
+      surface?: string;
     };
     status: {
       long: string; // "Match Finished", "Not Started", "First Half", etc.

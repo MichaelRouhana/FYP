@@ -98,35 +98,54 @@ export default function MatchDetailsScreen() {
 
   // Transform API data to UI format using memoization
   const lineups = useMemo(() => {
-    return matchData && lineupsData ? mapLineupsToUI(lineupsData, matchData) : null;
+    const result = matchData && lineupsData ? mapLineupsToUI(lineupsData, matchData) : null;
+    console.log('[MatchDetails] Lineups transformed:', result ? 'Success' : 'Null');
+    return result;
   }, [matchData, lineupsData]);
 
   const stats = useMemo(() => {
-    return statsData ? mapStatsToUI(statsData) : null;
+    const result = statsData ? mapStatsToUI(statsData) : null;
+    console.log('[MatchDetails] Stats transformed:', result ? 'Success' : 'Null');
+    return result;
   }, [statsData]);
 
   const summary = useMemo(() => {
-    return matchData && eventsData ? mapEventsToUI(eventsData, matchData) : null;
+    const result = matchData && eventsData ? mapEventsToUI(eventsData, matchData) : null;
+    console.log('[MatchDetails] Summary transformed:', result ? `${result?.events?.length} events` : 'Null');
+    return result;
   }, [matchData, eventsData]);
 
   const h2h = useMemo(() => {
-    return matchData && h2hData ? mapH2HToUI(
+    const result = matchData && h2hData ? mapH2HToUI(
       h2hData, 
       matchData.teams.home.name, 
       matchData.teams.away.name
     ) : null;
+    console.log('[MatchDetails] H2H transformed:', result ? `${result.matches?.length} matches` : 'Null');
+    return result;
   }, [matchData, h2hData]);
 
   const table = useMemo(() => {
-    return standingsData ? mapStandingsToUI(standingsData) : [];
+    const result = standingsData ? mapStandingsToUI(standingsData) : [];
+    console.log('[MatchDetails] Standings transformed:', result.length, 'teams');
+    return result;
   }, [standingsData]);
 
   // Transform API data to match UI expectations (with null checks)
   const match = useMemo(() => {
     if (!matchData) return null;
 
+    console.log('[MatchDetails] Transforming match data...');
+    console.log('[MatchDetails] Match data venue:', matchData.fixture.venue);
+    console.log('[MatchDetails] Predictions data available:', !!predictionsData);
+    console.log('[MatchDetails] Predictions data:', predictionsData);
+    
     const venueWeather = extractVenueAndWeather(predictionsData, matchData);
     const odds = extractOdds(predictionsData);
+
+    console.log('[MatchDetails] Venue:', venueWeather.venue);
+    console.log('[MatchDetails] Weather:', venueWeather.weather);
+    console.log('[MatchDetails] Odds:', odds);
 
     return {
       id: matchData.fixture.id,
@@ -908,10 +927,20 @@ export default function MatchDetailsScreen() {
       activeOpacity={0.7}
     >
       <View style={styles.playerPhoto}>
-        <Text style={styles.playerInitial}>{player.name.charAt(0)}</Text>
+        {player.photo ? (
+          <ImageBackground
+            source={{ uri: player.photo }}
+            style={{ width: '100%', height: '100%', borderRadius: 20 }}
+            imageStyle={{ borderRadius: 20 }}
+          >
+            <Text style={styles.playerInitial}></Text>
+          </ImageBackground>
+        ) : (
+          <Text style={styles.playerInitial}>{player.name.charAt(0)}</Text>
+        )}
       </View>
       <View style={[styles.playerRating, { backgroundColor: getRatingColor(player.rating) }]}>
-        <Text style={styles.playerRatingText}>{player.rating.toFixed(1)}</Text>
+        <Text style={styles.playerRatingText}>{player.rating > 0 ? player.rating.toFixed(1) : '--'}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -937,7 +966,15 @@ export default function MatchDetailsScreen() {
       activeOpacity={0.7}
     >
       <View style={[styles.substitutePhoto, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-        <Text style={[styles.substituteInitial, { color: isDark ? '#ffffff' : '#18223A' }]}>{player.name.charAt(0)}</Text>
+        {player.photo ? (
+          <ImageBackground
+            source={{ uri: player.photo }}
+            style={{ width: '100%', height: '100%', borderRadius: 20 }}
+            imageStyle={{ borderRadius: 20 }}
+          />
+        ) : (
+          <Text style={[styles.substituteInitial, { color: isDark ? '#ffffff' : '#18223A' }]}>{player.name.charAt(0)}</Text>
+        )}
       </View>
       <View style={styles.substituteInfo}>
         <Text style={[styles.substituteName, { color: isDark ? '#ffffff' : '#18223A' }]}>{player.name}</Text>
@@ -981,9 +1018,6 @@ export default function MatchDetailsScreen() {
           </View>
           <Text style={[styles.teamLineupName, { color: isDark ? '#ffffff' : '#18223A' }]}>{awayTeam.teamName}</Text>
           <Text style={[styles.teamLineupFormation, { color: isDark ? '#B4B4B4' : '#6B7280' }]}>{awayTeam.formation}</Text>
-          <View style={styles.teamLineupRating}>
-            <Text style={styles.teamLineupRatingText}>{awayTeam.teamRating.toFixed(1)}</Text>
-          </View>
         </View>
 
         {/* Football Pitch */}
@@ -1029,9 +1063,6 @@ export default function MatchDetailsScreen() {
           </View>
           <Text style={[styles.teamLineupName, { color: isDark ? '#ffffff' : '#18223A' }]}>{homeTeam.teamName}</Text>
           <Text style={[styles.teamLineupFormation, { color: isDark ? '#B4B4B4' : '#6B7280' }]}>{homeTeam.formation}</Text>
-          <View style={styles.teamLineupRating}>
-            <Text style={styles.teamLineupRatingText}>{homeTeam.teamRating.toFixed(1)}</Text>
-          </View>
         </View>
 
         {/* Substitutes Section */}

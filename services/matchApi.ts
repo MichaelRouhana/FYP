@@ -30,10 +30,12 @@ export const getFixtureDetails = async (fixtureId: string | number) => {
  * Get fixture lineups
  */
 export const getFixtureLineups = async (fixtureId: string | number) => {
+  console.log('[matchApi] Fetching lineups for fixture:', fixtureId);
   const response = await api.get<FootballApiResponse<any>>(
     `/football/fixtures/lineups`,
     { params: { fixture: fixtureId } }
   );
+  console.log('[matchApi] Lineups response:', response.data?.response?.length, 'items');
   return response.data.response;
 };
 
@@ -41,10 +43,12 @@ export const getFixtureLineups = async (fixtureId: string | number) => {
  * Get fixture statistics
  */
 export const getFixtureStatistics = async (fixtureId: string | number) => {
+  console.log('[matchApi] Fetching statistics for fixture:', fixtureId);
   const response = await api.get<FootballApiResponse<any>>(
     `/football/fixtures/statistics`,
     { params: { fixture: fixtureId } }
   );
+  console.log('[matchApi] Statistics response:', response.data?.response?.length, 'items');
   return response.data.response;
 };
 
@@ -52,10 +56,12 @@ export const getFixtureStatistics = async (fixtureId: string | number) => {
  * Get fixture events (goals, cards, substitutions)
  */
 export const getFixtureEvents = async (fixtureId: string | number) => {
+  console.log('[matchApi] Fetching events for fixture:', fixtureId);
   const response = await api.get<FootballApiResponse<any>>(
     `/football/fixtures/events`,
     { params: { fixture: fixtureId } }
   );
+  console.log('[matchApi] Events response:', response.data?.response?.length, 'items');
   return response.data.response;
 };
 
@@ -63,10 +69,12 @@ export const getFixtureEvents = async (fixtureId: string | number) => {
  * Get head-to-head matches
  */
 export const getHeadToHead = async (homeTeamId: number, awayTeamId: number) => {
+  console.log('[matchApi] Fetching H2H for teams:', homeTeamId, 'vs', awayTeamId);
   const response = await api.get<FootballApiResponse<any>>(
     `/football/fixtures/headtohead`,
     { params: { h2h: `${homeTeamId}-${awayTeamId}` } }
   );
+  console.log('[matchApi] H2H response:', response.data?.response?.length, 'matches');
   return response.data.response;
 };
 
@@ -74,10 +82,12 @@ export const getHeadToHead = async (homeTeamId: number, awayTeamId: number) => {
  * Get league standings
  */
 export const getStandings = async (leagueId: number, season: number) => {
+  console.log('[matchApi] Fetching standings for league:', leagueId, 'season:', season);
   const response = await api.get<FootballApiResponse<any>>(
     `/football/standings`,
     { params: { league: leagueId, season } }
   );
+  console.log('[matchApi] Standings response:', response.data?.response?.length, 'items');
   return response.data.response;
 };
 
@@ -85,10 +95,12 @@ export const getStandings = async (leagueId: number, season: number) => {
  * Get match predictions
  */
 export const getPredictions = async (fixtureId: string | number) => {
+  console.log('[matchApi] Fetching predictions for fixture:', fixtureId);
   const response = await api.get<FootballApiResponse<any>>(
     `/football/fixtures/predictions`,
     { params: { fixture: fixtureId } }
   );
+  console.log('[matchApi] Predictions response:', response.data?.response ? 'success' : 'empty');
   return response.data.response[0];
 };
 
