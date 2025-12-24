@@ -8,6 +8,7 @@ import {
   getStandings,
   getPredictions,
   getFixturePlayers,
+  getTeamDetails,
 } from '@/services/matchApi';
 import { FootballApiFixture } from '@/types/fixture';
 
@@ -17,6 +18,7 @@ interface UseMatchDataReturn {
   matchData: FootballApiFixture | null;
   lineups: any | null;
   playerStats: any | null; // Player statistics with ratings and photos
+  homeTeamVenue: any | null; // Home team venue details (capacity, surface)
   stats: any | null;
   events: any | null;
   h2h: any | null;
@@ -36,6 +38,7 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
   const [matchData, setMatchData] = useState<FootballApiFixture | null>(null);
   const [lineups, setLineups] = useState<any | null>(null);
   const [playerStats, setPlayerStats] = useState<any | null>(null);
+  const [homeTeamVenue, setHomeTeamVenue] = useState<any | null>(null);
   const [stats, setStats] = useState<any | null>(null);
   const [events, setEvents] = useState<any | null>(null);
   const [h2h, setH2h] = useState<any | null>(null);
@@ -93,6 +96,13 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
         getFixturePlayers(fixtureId), // Player stats with ratings and photos
       ];
 
+      // Fetch home team details for complete venue info (capacity, surface)
+      if (homeTeamId) {
+        promises.push(getTeamDetails(homeTeamId));
+      } else {
+        promises.push(Promise.resolve(null));
+      }
+
       // Only fetch H2H if we have both team IDs
       if (homeTeamId && awayTeamId) {
         promises.push(getHeadToHead(homeTeamId, awayTeamId));
@@ -109,7 +119,7 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
 
       promises.push(getPredictions(fixtureId));
 
-      const [lineupsData, statsData, eventsData, playerStatsData, h2hData, standingsData, predictionsData] =
+      const [lineupsData, statsData, eventsData, playerStatsData, homeTeamData, h2hData, standingsData, predictionsData] =
         await Promise.allSettled(promises);
 
       // Log results of each API call
@@ -117,6 +127,7 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
       console.log('[useMatchData] Stats:', statsData.status, statsData.status === 'fulfilled' ? `${statsData.value?.length || 0} items` : statsData.reason?.message);
       console.log('[useMatchData] Events:', eventsData.status, eventsData.status === 'fulfilled' ? `${eventsData.value?.length || 0} items` : eventsData.reason?.message);
       console.log('[useMatchData] PlayerStats:', playerStatsData.status, playerStatsData.status === 'fulfilled' ? `${playerStatsData.value?.length || 0} teams` : playerStatsData.reason?.message);
+      console.log('[useMatchData] HomeTeam:', homeTeamData.status, homeTeamData.status === 'fulfilled' ? (homeTeamData.value?.venue ? 'has venue' : 'no venue') : homeTeamData.reason?.message);
       console.log('[useMatchData] H2H:', h2hData.status, h2hData.status === 'fulfilled' ? `${h2hData.value?.length || 0} items` : h2hData.reason?.message);
       console.log('[useMatchData] Standings:', standingsData.status, standingsData.status === 'fulfilled' ? 'success' : standingsData.reason?.message);
       console.log('[useMatchData] Predictions:', predictionsData.status, predictionsData.status === 'fulfilled' ? 'success' : predictionsData.reason?.message);
@@ -126,6 +137,7 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
       if (statsData.status === 'fulfilled') setStats(statsData.value);
       if (eventsData.status === 'fulfilled') setEvents(eventsData.value);
       if (playerStatsData.status === 'fulfilled') setPlayerStats(playerStatsData.value);
+      if (homeTeamData.status === 'fulfilled') setHomeTeamVenue(homeTeamData.value?.venue || null);
       if (h2hData.status === 'fulfilled') setH2h(h2hData.value);
       if (standingsData.status === 'fulfilled') setStandings(standingsData.value);
       if (predictionsData.status === 'fulfilled') setPredictions(predictionsData.value);
@@ -148,6 +160,7 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
     matchData,
     lineups,
     playerStats,
+    homeTeamVenue,
     stats,
     events,
     h2h,

@@ -68,6 +68,7 @@ export default function MatchDetailsScreen() {
     matchData,
     lineups: lineupsData,
     playerStats: playerStatsData,
+    homeTeamVenue,
     stats: statsData,
     events: eventsData,
     h2h: h2hData,
@@ -139,10 +140,10 @@ export default function MatchDetailsScreen() {
 
     console.log('[MatchDetails] Transforming match data...');
     console.log('[MatchDetails] Match data venue:', matchData.fixture.venue);
+    console.log('[MatchDetails] Home team venue:', homeTeamVenue);
     console.log('[MatchDetails] Predictions data available:', !!predictionsData);
-    console.log('[MatchDetails] Predictions data:', predictionsData);
     
-    const venueWeather = extractVenueAndWeather(predictionsData, matchData);
+    const venueWeather = extractVenueAndWeather(predictionsData, matchData, homeTeamVenue);
     const odds = extractOdds(predictionsData);
 
     console.log('[MatchDetails] Venue:', venueWeather.venue);
@@ -171,7 +172,7 @@ export default function MatchDetailsScreen() {
       odds,
       isFavorite: isFavorite,
     };
-  }, [matchData, predictionsData, isFavorite]);
+  }, [matchData, predictionsData, homeTeamVenue, isFavorite]);
 
   const potentialWinnings = useMemo(() => {
     if (!stake || !betSelection || !match) return 0;

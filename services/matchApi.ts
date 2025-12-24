@@ -140,3 +140,17 @@ export const getFixturePlayers = async (fixtureId: string | number) => {
   return response.data?.response || [];
 };
 
+/**
+ * Get team details including full venue information (capacity, surface, image)
+ * This is used as a fallback when fixture.venue doesn't have complete data
+ */
+export const getTeamDetails = async (teamId: number) => {
+  console.log('[matchApi] Fetching team details for ID:', teamId);
+  const response = await api.get<FootballApiResponse<any>>(
+    `/football/teams`,
+    { params: { id: teamId } }
+  );
+  console.log('[matchApi] Team details response:', response.data?.response?.length || 0, 'items');
+  return response.data?.response?.[0] || null;
+};
+

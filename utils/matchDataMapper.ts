@@ -357,24 +357,34 @@ export const mapStandingsToUI = (standingsData: any[]): { leagueName: string; st
 };
 
 /**
- * Extract venue and weather info from predictions
+ * Extract venue and weather info from predictions and home team data
+ * @param predictionsData - Predictions data (may contain weather)
+ * @param matchData - Main fixture data
+ * @param homeTeamVenue - Home team's venue data (fallback for capacity/surface)
  */
-export const extractVenueAndWeather = (predictionsData: any, matchData: FootballApiFixture) => {
+export const extractVenueAndWeather = (predictionsData: any, matchData: FootballApiFixture, homeTeamVenue?: any) => {
   console.log('[matchDataMapper] Extracting venue and weather...');
-  console.log('[matchDataMapper] Venue data:', JSON.stringify(matchData.fixture.venue, null, 2));
-  console.log('[matchDataMapper] Predictions data:', JSON.stringify(predictionsData, null, 2)?.substring(0, 500));
+  console.log('[matchDataMapper] Fixture venue:', JSON.stringify(matchData.fixture.venue, null, 2));
+  console.log('[matchDataMapper] Home team venue:', JSON.stringify(homeTeamVenue, null, 2));
   
-  // Extract venue info directly from fixture.venue
-  const venueName = matchData.fixture.venue?.name || 'Unknown Venue';
-  const venueCity = matchData.fixture.venue?.city || 'Unknown City';
+  // Extract venue info - try fixture.venue first, then fall back to homeTeamVenue
+  const venueName = matchData.fixture.venue?.name || homeTeamVenue?.name || 'Unknown Venue';
+  const venueCity = matchData.fixture.venue?.city || homeTeamVenue?.city || 'Unknown City';
   
-  // Extract capacity and surface (may be undefined for many stadiums)
+  // Extract capacity - fixture.venue usually doesn't have it, so try homeTeamVenue
   let capacity = 'N/A';
   if (matchData.fixture.venue?.capacity) {
     capacity = `${matchData.fixture.venue.capacity.toLocaleString()} seats`;
+  } else if (homeTeamVenue?.capacity) {
+    capacity = `${homeTeamVenue.capacity.toLocaleString()} seats`;
   }
   
-  const surface = matchData.fixture.venue?.surface || 'N/A';
+  // Extract surface - same fallback logic
+  let surface = matchData.fixture.venue?.surface || homeTeamVenue?.surface || 'N/A';
+  // Capitalize surface if available
+  if (surface && surface !== 'N/A') {
+    surface = surface.charAt(0).toUpperCase() + surface.slice(1);
+  }
 
   // Try to extract weather from predictions
   let condition = 'N/A';
@@ -407,6 +417,11 @@ export const extractVenueAndWeather = (predictionsData: any, matchData: Football
     } else {
       console.log('[matchDataMapper] No weather data found in predictions');
     }
+  }
+  
+  // Fallback for weather - use city weather description
+  if (condition === 'N/A' && venueCity && venueCity !== 'Unknown City') {
+    condition = 'Check local forecast';
   }
 
   const result = {
