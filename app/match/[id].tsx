@@ -237,9 +237,10 @@ export default function MatchDetailsScreen() {
       awayScore: matchData.goals.away ?? 0,
       league: matchData.league.name,
       date: new Date(matchData.fixture.date).toLocaleDateString(),
-      matchTime: matchData.fixture.status.short === 'FT' ? 'FT' : 
-                 matchData.fixture.status.short === 'NS' ? new Date(matchData.fixture.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) :
-                 `${matchData.fixture.status.elapsed || 0}'`,
+      statusShort: matchData.fixture.status.short,
+      statusLong: matchData.fixture.status.long,
+      elapsed: matchData.fixture.status.elapsed,
+      kickoffTime: new Date(matchData.fixture.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
       venue: venueWeather.venue,
       weather: venueWeather.weather,
       odds,
@@ -303,6 +304,88 @@ export default function MatchDetailsScreen() {
       </View>
     );
   }
+
+  /**
+   * Render the match status indicator based on match state
+   * - Upcoming (NS): Shows kickoff time
+   * - Live (1H, 2H, HT, ET): Shows elapsed time with LIVE indicator
+   * - Finished (FT, AET, PEN): Shows final status
+   */
+  const renderMatchStatus = () => {
+    if (!match) return null;
+    
+    const status = match.statusShort?.toUpperCase() || 'NS';
+    
+    // Live match statuses
+    const liveStatuses = ['1H', '2H', 'ET', 'BT', 'P', 'LIVE', 'INT'];
+    const isLive = liveStatuses.includes(status);
+    
+    // Half time
+    const isHalfTime = status === 'HT';
+    
+    // Finished statuses
+    const finishedStatuses = ['FT', 'AET', 'PEN', 'PST', 'CANC', 'ABD', 'AWD', 'WO'];
+    const isFinished = finishedStatuses.includes(status);
+    
+    if (isLive) {
+      // Live: Show elapsed time with pulsing LIVE badge
+      return (
+        <View style={styles.liveStatusContainer}>
+          <View style={styles.liveBadge}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>LIVE</Text>
+          </View>
+          <Text style={[styles.matchTimeText, { color: '#ef4444', fontWeight: 'bold' }]}>
+            {match.elapsed ? `${match.elapsed}'` : status}
+          </Text>
+        </View>
+      );
+    }
+    
+    if (isHalfTime) {
+      // Half Time
+      return (
+        <View style={styles.liveStatusContainer}>
+          <View style={[styles.liveBadge, { backgroundColor: '#f59e0b' }]}>
+            <Text style={styles.liveText}>HT</Text>
+          </View>
+          <Text style={[styles.matchTimeText, { color: '#f59e0b' }]}>Half Time</Text>
+        </View>
+      );
+    }
+    
+    if (isFinished) {
+      // Finished: Show status badge
+      const statusLabel = status === 'FT' ? 'Full Time' : 
+                          status === 'AET' ? 'After Extra Time' :
+                          status === 'PEN' ? 'Penalties' :
+                          status === 'CANC' ? 'Cancelled' :
+                          status === 'PST' ? 'Postponed' :
+                          status === 'ABD' ? 'Abandoned' : status;
+      return (
+        <View style={styles.finishedStatusContainer}>
+          <Text style={[styles.matchTimeText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+            {status}
+          </Text>
+          <Text style={[styles.statusLabelText, { color: isDark ? '#6b7280' : '#9ca3af' }]}>
+            {statusLabel}
+          </Text>
+        </View>
+      );
+    }
+    
+    // Upcoming: Show kickoff time
+    return (
+      <View style={styles.upcomingStatusContainer}>
+        <Text style={[styles.kickoffTimeText, { color: isDark ? '#22c55e' : '#16a34a' }]}>
+          {match.kickoffTime}
+        </Text>
+        <Text style={[styles.statusLabelText, { color: isDark ? '#6b7280' : '#9ca3af' }]}>
+          Kick-off
+        </Text>
+      </View>
+    );
+  };
 
   const renderDetailsTab = () => (
     <View style={styles.detailsContainer}>
@@ -1786,7 +1869,8 @@ export default function MatchDetailsScreen() {
             <Text style={[styles.scoreText, { color: isDark ? '#ffffff' : '#18223A' }]}>
               {match.homeScore} - {match.awayScore}
             </Text>
-            {match.matchTime && <Text style={[styles.matchTimeText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>{match.matchTime}</Text>}
+            {/* Dynamic Match Status Display */}
+            {renderMatchStatus()}
           </View>
 
           <View style={styles.teamContainer}>
@@ -1924,6 +2008,51 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_400Regular',
     color: '#9ca3af',
     marginTop: 4,
+  },
+  // Match Status Styles
+  liveStatusContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ef4444',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#ffffff',
+    marginRight: 4,
+  },
+  liveText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  finishedStatusContainer: {
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  upcomingStatusContainer: {
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  kickoffTimeText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  statusLabelText: {
+    fontSize: 10,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   // Tab Navigation
   tabContainer: {
