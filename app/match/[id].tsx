@@ -67,6 +67,7 @@ export default function MatchDetailsScreen() {
     error, 
     matchData,
     lineups: lineupsData,
+    playerStats: playerStatsData,
     stats: statsData,
     events: eventsData,
     h2h: h2hData,
@@ -99,10 +100,10 @@ export default function MatchDetailsScreen() {
 
   // Transform API data to UI format using memoization
   const lineups = useMemo(() => {
-    const result = matchData && lineupsData ? mapLineupsToUI(lineupsData, matchData) : null;
+    const result = matchData && lineupsData ? mapLineupsToUI(lineupsData, matchData, playerStatsData) : null;
     console.log('[MatchDetails] Lineups transformed:', result ? 'Success' : 'Null');
     return result;
-  }, [matchData, lineupsData]);
+  }, [matchData, lineupsData, playerStatsData]);
 
   const stats = useMemo(() => {
     const result = statsData ? mapStatsToUI(statsData) : null;

@@ -11,9 +11,13 @@ import { TeamStanding } from '@/mock/matchTable';
 
 /**
  * Map lineups API response to UI format
+ * @param lineupsData - Raw lineups from /fixtures/lineups endpoint
+ * @param matchData - Main fixture data
+ * @param playerStatsData - Player statistics from /fixtures/players endpoint (has ratings and photos)
  */
-export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture): MatchLineups | null => {
+export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture, playerStatsData?: any[]): MatchLineups | null => {
   console.log('[matchDataMapper] Mapping lineups, received:', lineupsData?.length, 'teams');
+  console.log('[matchDataMapper] Player stats available:', playerStatsData?.length || 0, 'teams');
   
   if (!lineupsData || lineupsData.length < 2) {
     console.log('[matchDataMapper] Insufficient lineup data:', lineupsData?.length);
@@ -28,9 +32,27 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
     return null;
   }
 
+  // Build a lookup map for player stats (id -> { rating, photo })
+  const playerStatsMap = new Map<number, { rating: number; photo: string | null }>();
+  
+  if (playerStatsData && playerStatsData.length > 0) {
+    playerStatsData.forEach((teamData: any) => {
+      teamData.players?.forEach((playerData: any) => {
+        const playerId = playerData.player?.id;
+        if (playerId) {
+          const ratingStr = playerData.statistics?.[0]?.games?.rating;
+          const rating = ratingStr ? parseFloat(ratingStr) : 0;
+          const photo = playerData.player?.photo || null;
+          playerStatsMap.set(playerId, { rating: isNaN(rating) ? 0 : rating, photo });
+        }
+      });
+    });
+    console.log('[matchDataMapper] Built player stats map with', playerStatsMap.size, 'players');
+  }
+
   // Log a sample player to see the structure
   if (homeLineup.startXI && homeLineup.startXI.length > 0) {
-    console.log('[matchDataMapper] Sample player data:', JSON.stringify(homeLineup.startXI[0], null, 2));
+    console.log('[matchDataMapper] Sample lineup player data:', JSON.stringify(homeLineup.startXI[0], null, 2));
   }
 
   const mapTeamLineup = (lineup: any, teamName: string): TeamLineup => {
@@ -43,12 +65,9 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
 
     const substitutes: Player[] = [];
 
-    // Helper to extract rating from statistics
-    const getRating = (playerData: any): number => {
-      const ratingStr = playerData.statistics?.[0]?.games?.rating;
-      if (!ratingStr || ratingStr === 'null' || ratingStr === null) return 0;
-      const rating = parseFloat(ratingStr);
-      return isNaN(rating) ? 0 : rating;
+    // Helper to get player stats (rating and photo) from the playerStatsMap
+    const getPlayerStats = (playerId: number) => {
+      return playerStatsMap.get(playerId) || { rating: 0, photo: null };
     };
 
     lineup.startXI?.forEach((playerData: any) => {
@@ -59,13 +78,24 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
       }
 
       const player = playerData.player;
+      const playerId = player.id;
+      
+      // Get rating and photo from player stats (fixtures/players endpoint)
+      const playerStatsInfo = getPlayerStats(playerId);
+      
+      // DEBUG: Log first player's full structure to understand API response
+      if (starters.goalkeeper.length === 0 && starters.defenders.length === 0) {
+        console.log('[matchDataMapper] Sample player structure:', JSON.stringify(playerData, null, 2));
+        console.log('[matchDataMapper] Player stats from map:', playerStatsInfo);
+      }
+      
       const mappedPlayer: Player = {
         id: player.id?.toString() || `player-${Math.random()}`,
         name: player.name || 'Unknown',
         number: player.number || 0,
         position: player.pos || 'U', // U = Unknown
-        rating: getRating(playerData), // Extract from statistics
-        photo: player.photo || null,
+        rating: playerStatsInfo.rating, // From fixtures/players endpoint
+        photo: playerStatsInfo.photo, // From fixtures/players endpoint
       };
 
       // Categorize by position - with fallback if pos is missing
@@ -92,13 +122,16 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
       }
 
       const player = playerData.player;
+      const playerId = player.id;
+      const playerStatsInfo = getPlayerStats(playerId);
+      
       substitutes.push({
         id: player.id?.toString() || `sub-${Math.random()}`,
         name: player.name || 'Unknown',
         number: player.number || 0,
         position: player.pos || 'SUB',
-        rating: getRating(playerData),
-        photo: player.photo || null,
+        rating: playerStatsInfo.rating, // From fixtures/players endpoint
+        photo: playerStatsInfo.photo, // From fixtures/players endpoint
       });
     });
 
@@ -328,7 +361,8 @@ export const mapStandingsToUI = (standingsData: any[]): { leagueName: string; st
  */
 export const extractVenueAndWeather = (predictionsData: any, matchData: FootballApiFixture) => {
   console.log('[matchDataMapper] Extracting venue and weather...');
-  console.log('[matchDataMapper] Venue data:', matchData.fixture.venue);
+  console.log('[matchDataMapper] Venue data:', JSON.stringify(matchData.fixture.venue, null, 2));
+  console.log('[matchDataMapper] Predictions data:', JSON.stringify(predictionsData, null, 2)?.substring(0, 500));
   
   // Extract venue info directly from fixture.venue
   const venueName = matchData.fixture.venue?.name || 'Unknown Venue';

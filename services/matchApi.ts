@@ -126,3 +126,17 @@ export const getPredictions = async (fixtureId: string | number) => {
   return response.data?.response?.[0] || null;
 };
 
+/**
+ * Get fixture players with statistics (includes ratings and photos)
+ * This endpoint returns detailed player data including match ratings
+ */
+export const getFixturePlayers = async (fixtureId: string | number) => {
+  console.log('[matchApi] Fetching player statistics for fixture:', fixtureId);
+  const response = await api.get<FootballApiResponse<any>>(
+    `/football/fixtures/players`,
+    { params: { fixture: fixtureId } }
+  );
+  console.log('[matchApi] Player stats response:', response.data?.response?.length || 0, 'teams');
+  return response.data?.response || [];
+};
+

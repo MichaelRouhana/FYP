@@ -7,6 +7,7 @@ import {
   getHeadToHead,
   getStandings,
   getPredictions,
+  getFixturePlayers,
 } from '@/services/matchApi';
 import { FootballApiFixture } from '@/types/fixture';
 
@@ -15,6 +16,7 @@ interface UseMatchDataReturn {
   error: string | null;
   matchData: FootballApiFixture | null;
   lineups: any | null;
+  playerStats: any | null; // Player statistics with ratings and photos
   stats: any | null;
   events: any | null;
   h2h: any | null;
@@ -33,6 +35,7 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
   const [error, setError] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<FootballApiFixture | null>(null);
   const [lineups, setLineups] = useState<any | null>(null);
+  const [playerStats, setPlayerStats] = useState<any | null>(null);
   const [stats, setStats] = useState<any | null>(null);
   const [events, setEvents] = useState<any | null>(null);
   const [h2h, setH2h] = useState<any | null>(null);
@@ -87,6 +90,7 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
         getFixtureLineups(fixtureId),
         getFixtureStatistics(fixtureId),
         getFixtureEvents(fixtureId),
+        getFixturePlayers(fixtureId), // Player stats with ratings and photos
       ];
 
       // Only fetch H2H if we have both team IDs
@@ -105,13 +109,14 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
 
       promises.push(getPredictions(fixtureId));
 
-      const [lineupsData, statsData, eventsData, h2hData, standingsData, predictionsData] =
+      const [lineupsData, statsData, eventsData, playerStatsData, h2hData, standingsData, predictionsData] =
         await Promise.allSettled(promises);
 
       // Log results of each API call
       console.log('[useMatchData] Lineups:', lineupsData.status, lineupsData.status === 'fulfilled' ? `${lineupsData.value?.length || 0} items` : lineupsData.reason?.message);
       console.log('[useMatchData] Stats:', statsData.status, statsData.status === 'fulfilled' ? `${statsData.value?.length || 0} items` : statsData.reason?.message);
       console.log('[useMatchData] Events:', eventsData.status, eventsData.status === 'fulfilled' ? `${eventsData.value?.length || 0} items` : eventsData.reason?.message);
+      console.log('[useMatchData] PlayerStats:', playerStatsData.status, playerStatsData.status === 'fulfilled' ? `${playerStatsData.value?.length || 0} teams` : playerStatsData.reason?.message);
       console.log('[useMatchData] H2H:', h2hData.status, h2hData.status === 'fulfilled' ? `${h2hData.value?.length || 0} items` : h2hData.reason?.message);
       console.log('[useMatchData] Standings:', standingsData.status, standingsData.status === 'fulfilled' ? 'success' : standingsData.reason?.message);
       console.log('[useMatchData] Predictions:', predictionsData.status, predictionsData.status === 'fulfilled' ? 'success' : predictionsData.reason?.message);
@@ -120,6 +125,7 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
       if (lineupsData.status === 'fulfilled') setLineups(lineupsData.value);
       if (statsData.status === 'fulfilled') setStats(statsData.value);
       if (eventsData.status === 'fulfilled') setEvents(eventsData.value);
+      if (playerStatsData.status === 'fulfilled') setPlayerStats(playerStatsData.value);
       if (h2hData.status === 'fulfilled') setH2h(h2hData.value);
       if (standingsData.status === 'fulfilled') setStandings(standingsData.value);
       if (predictionsData.status === 'fulfilled') setPredictions(predictionsData.value);
@@ -141,6 +147,7 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
     error,
     matchData,
     lineups,
+    playerStats,
     stats,
     events,
     h2h,
