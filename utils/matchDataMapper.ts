@@ -387,42 +387,64 @@ export const extractVenueAndWeather = (predictionsData: any, matchData: Football
   }
 
   // Try to extract weather from predictions
-  let condition = 'N/A';
-  let temperature = 'N/A';
+  let condition = '';
+  let temperature = '';
 
   if (predictionsData) {
     console.log('[matchDataMapper] Checking predictions for weather...');
     
-    // Check predictions.weather first
+    // Check predictions.weather first (structured data)
     if (predictionsData.weather) {
-      console.log('[matchDataMapper] Found weather:', predictionsData.weather);
-      condition = predictionsData.weather.condition || predictionsData.weather.description || 'N/A';
+      console.log('[matchDataMapper] Found weather object:', predictionsData.weather);
+      condition = predictionsData.weather.condition || predictionsData.weather.description || '';
       if (predictionsData.weather.temperature !== undefined && predictionsData.weather.temperature !== null) {
         temperature = `${predictionsData.weather.temperature}°C`;
       }
     }
     // Check predictions.forecast as fallback
     else if (predictionsData.forecast) {
-      console.log('[matchDataMapper] Found forecast:', predictionsData.forecast);
-      condition = predictionsData.forecast.condition || 'N/A';
+      console.log('[matchDataMapper] Found forecast object:', predictionsData.forecast);
+      condition = predictionsData.forecast.condition || '';
       if (predictionsData.forecast.temperature !== undefined && predictionsData.forecast.temperature !== null) {
         temperature = `${predictionsData.forecast.temperature}°C`;
       }
     }
-    // Sometimes weather info is in predictions.advice as text
-    else if (predictionsData.predictions?.advice) {
-      console.log('[matchDataMapper] Found advice:', predictionsData.predictions.advice);
-      // Advice might contain weather info, but it's just text
-      // We can't reliably parse it, so leave as N/A
-    } else {
-      console.log('[matchDataMapper] No weather data found in predictions');
+    
+    // Try to extract weather from advice string using regex
+    // Patterns like "Weather: Clear, 22°C" or "Clear 22°C" or just "22°C"
+    if (!temperature || !condition) {
+      const adviceText = predictionsData.predictions?.advice || predictionsData.advice || '';
+      if (adviceText) {
+        console.log('[matchDataMapper] Trying to parse advice for weather:', adviceText);
+        
+        // Try to extract temperature (e.g., "22°C", "22°F", "22 degrees")
+        const tempMatch = adviceText.match(/(\d+)\s*°?\s*([CF]|degrees?)/i);
+        if (tempMatch && !temperature) {
+          const tempValue = tempMatch[1];
+          const unit = tempMatch[2]?.toUpperCase().startsWith('F') ? '°F' : '°C';
+          temperature = `${tempValue}${unit}`;
+          console.log('[matchDataMapper] Extracted temperature from advice:', temperature);
+        }
+        
+        // Try to extract condition (e.g., "Clear", "Cloudy", "Rain")
+        const conditionPatterns = ['clear', 'cloudy', 'overcast', 'rain', 'rainy', 'sunny', 'windy', 'snow', 'fog', 'mist'];
+        if (!condition) {
+          for (const pattern of conditionPatterns) {
+            if (adviceText.toLowerCase().includes(pattern)) {
+              condition = pattern.charAt(0).toUpperCase() + pattern.slice(1);
+              console.log('[matchDataMapper] Extracted condition from advice:', condition);
+              break;
+            }
+          }
+        }
+      }
     }
   }
-  
-  // Fallback for weather - use city weather description
-  if (condition === 'N/A' && venueCity && venueCity !== 'Unknown City') {
-    condition = 'Check local forecast';
-  }
+
+  // Set empty strings to null for cleaner UI handling
+  // The UI can then decide to hide these fields entirely
+  const weatherCondition = condition || null;
+  const weatherTemperature = temperature || null;
 
   const result = {
     venue: {
@@ -432,8 +454,8 @@ export const extractVenueAndWeather = (predictionsData: any, matchData: Football
       surface,
     },
     weather: {
-      condition,
-      temperature,
+      condition: weatherCondition,
+      temperature: weatherTemperature,
     },
   };
 

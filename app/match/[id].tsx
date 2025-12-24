@@ -38,13 +38,15 @@ import {
 } from '@/utils/matchDataMapper';
 
 type TabType = 'details' | 'predictions' | 'summary' | 'lineups' | 'stats' | 'h2h' | 'table' | 'power' | 'commentary';
+type MatchStatus = 'upcoming' | 'live' | 'finished';
 type BetSelection = 'home' | 'draw' | 'away' | null;
 type GoalsOverUnder = 'x1' | '12' | 'x2' | null;
 type BothTeamsScore = 'yes' | 'no' | null;
 type FirstTeamScore = 'home' | 'away' | null;
 type DoubleChance = 'x1' | '12' | 'x2' | null;
 
-const TABS: { id: TabType; label: string }[] = [
+// All available tabs with their labels
+const ALL_TABS: { id: TabType; label: string }[] = [
   { id: 'details', label: 'DETAILS' },
   { id: 'predictions', label: 'PREDICTIONS' },
   { id: 'summary', label: 'SUMMARY' },
@@ -55,6 +57,55 @@ const TABS: { id: TabType; label: string }[] = [
   { id: 'h2h', label: 'H2H' },
   { id: 'power', label: 'POWER' },
 ];
+
+// Tab configuration per match status
+const TABS_BY_STATUS: Record<MatchStatus, TabType[]> = {
+  // Upcoming Match (NS - Not Started)
+  upcoming: ['predictions', 'h2h', 'details', 'table', 'power', 'lineups'],
+  
+  // Live Match (1H, 2H, HT, ET, etc.)
+  live: ['summary', 'stats', 'commentary', 'power', 'lineups', 'table', 'details'],
+  
+  // Finished Match (FT, AET, PEN)
+  finished: ['summary', 'stats', 'lineups', 'h2h', 'table', 'details'],
+};
+
+// Default tabs for each status (first tab in the list)
+const DEFAULT_TAB_BY_STATUS: Record<MatchStatus, TabType> = {
+  upcoming: 'predictions',
+  live: 'summary',
+  finished: 'summary',
+};
+
+/**
+ * Determine match status from API status code
+ */
+const getMatchStatus = (statusShort: string | undefined): MatchStatus => {
+  if (!statusShort) return 'upcoming';
+  
+  const status = statusShort.toUpperCase();
+  
+  // Live statuses
+  if (['1H', '2H', 'HT', 'ET', 'BT', 'P', 'LIVE', 'INT'].includes(status)) {
+    return 'live';
+  }
+  
+  // Finished statuses
+  if (['FT', 'AET', 'PEN', 'PST', 'CANC', 'ABD', 'AWD', 'WO'].includes(status)) {
+    return 'finished';
+  }
+  
+  // Default to upcoming (NS, TBD, etc.)
+  return 'upcoming';
+};
+
+/**
+ * Get filtered tabs based on match status
+ */
+const getTabsForStatus = (status: MatchStatus): { id: TabType; label: string }[] => {
+  const allowedTabs = TABS_BY_STATUS[status];
+  return ALL_TABS.filter(tab => allowedTabs.includes(tab.id));
+};
 
 export default function MatchDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -94,6 +145,28 @@ export default function MatchDetailsScreen() {
   const [doubleChance, setDoubleChance] = useState<DoubleChance>(null);
   const [homeScore, setHomeScore] = useState('');
   const [awayScore, setAwayScore] = useState('');
+
+  // Determine match status and available tabs
+  const matchStatus = useMemo(() => {
+    return getMatchStatus(matchData?.fixture?.status?.short);
+  }, [matchData?.fixture?.status?.short]);
+
+  const availableTabs = useMemo(() => {
+    return getTabsForStatus(matchStatus);
+  }, [matchStatus]);
+
+  // Auto-select appropriate default tab when match status changes
+  const [hasAutoSelectedTab, setHasAutoSelectedTab] = useState(false);
+  
+  React.useEffect(() => {
+    if (matchData && !hasAutoSelectedTab) {
+      const defaultTab = DEFAULT_TAB_BY_STATUS[matchStatus];
+      if (defaultTab && availableTabs.some(t => t.id === defaultTab)) {
+        setSelectedTab(defaultTab);
+        setHasAutoSelectedTab(true);
+      }
+    }
+  }, [matchData, matchStatus, availableTabs, hasAutoSelectedTab]);
 
   // Keep mock data for tabs that aren't integrated yet (Commentary and Power)
   const commentary = getMatchCommentary(id || 'default');
@@ -437,23 +510,29 @@ export default function MatchDetailsScreen() {
           </View>
         </View>
 
-        {/* Weather & Temperature */}
-        <View style={[styles.infoRowDouble, { borderBottomWidth: 0 }]}>
-          <View style={styles.infoHalf}>
-            <MaterialCommunityIcons name="weather-partly-cloudy" size={24} color={isDark ? '#6b7280' : '#6B7280'} />
-            <View style={styles.infoTextContainer}>
-              <Text style={[styles.infoValueText, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.weather.condition}</Text>
-              <Text style={[styles.infoLabelText, { color: isDark ? '#B3B3B3' : '#6B7280' }]}>Weather</Text>
+        {/* Weather & Temperature - Only show if data is available (predictions API must return weather) */}
+        {(match.weather.condition || match.weather.temperature) && (
+          <View style={[styles.infoRowDouble, { borderBottomWidth: 0 }]}>
+            <View style={styles.infoHalf}>
+              <MaterialCommunityIcons name="weather-partly-cloudy" size={24} color={isDark ? '#6b7280' : '#6B7280'} />
+              <View style={styles.infoTextContainer}>
+                <Text style={[styles.infoValueText, { color: isDark ? '#ffffff' : '#18223A' }]}>
+                  {match.weather.condition || 'Unknown'}
+                </Text>
+                <Text style={[styles.infoLabelText, { color: isDark ? '#B3B3B3' : '#6B7280' }]}>Weather</Text>
+              </View>
+            </View>
+            <View style={styles.infoHalf}>
+              <MaterialCommunityIcons name="thermometer" size={24} color={isDark ? '#6b7280' : '#6B7280'} />
+              <View style={styles.infoTextContainer}>
+                <Text style={[styles.infoValueText, { color: isDark ? '#ffffff' : '#18223A' }]}>
+                  {match.weather.temperature || 'Unknown'}
+                </Text>
+                <Text style={[styles.infoLabelText, { color: isDark ? '#B3B3B3' : '#6B7280' }]}>Temperature</Text>
+              </View>
             </View>
           </View>
-          <View style={styles.infoHalf}>
-            <MaterialCommunityIcons name="thermometer" size={24} color={isDark ? '#6b7280' : '#6B7280'} />
-            <View style={styles.infoTextContainer}>
-              <Text style={[styles.infoValueText, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.weather.temperature}</Text>
-              <Text style={[styles.infoLabelText, { color: isDark ? '#B3B3B3' : '#6B7280' }]}>Temperature</Text>
-            </View>
-          </View>
-        </View>
+        )}
       </View>
     </View>
   );
@@ -1726,7 +1805,7 @@ export default function MatchDetailsScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tabScrollContent}
         >
-          {TABS.map((tab) => (
+          {availableTabs.map((tab) => (
             <TouchableOpacity
               key={tab.id}
               style={styles.tabItem}
@@ -1740,7 +1819,7 @@ export default function MatchDetailsScreen() {
                 ]}
               >
                 {tab.label}
-          </Text>
+              </Text>
               {selectedTab === tab.id && <View style={[styles.tabIndicator, { backgroundColor: isDark ? '#22c55e' : '#32A95D' }]} />}
             </TouchableOpacity>
           ))}
@@ -1762,7 +1841,8 @@ export default function MatchDetailsScreen() {
         {selectedTab === 'table' && renderTableTab()}
         {selectedTab === 'power' && renderPowerTab()}
         {selectedTab === 'commentary' && renderCommentaryTab()}
-        {!['details', 'summary', 'lineups', 'stats', 'h2h', 'table', 'power', 'commentary'].includes(selectedTab) && renderPlaceholderTab()}
+        {/* Fallback for any unhandled tab */}
+        {!['details', 'predictions', 'summary', 'lineups', 'stats', 'h2h', 'table', 'power', 'commentary'].includes(selectedTab) && renderPlaceholderTab()}
     </ScrollView>
     </View>
   );
