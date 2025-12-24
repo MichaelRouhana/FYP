@@ -126,8 +126,8 @@ export default function MatchDetailsScreen() {
   }, [matchData, h2hData]);
 
   const table = useMemo(() => {
-    const result = standingsData ? mapStandingsToUI(standingsData) : [];
-    console.log('[MatchDetails] Standings transformed:', result.length, 'teams');
+    const result = standingsData ? mapStandingsToUI(standingsData) : null;
+    console.log('[MatchDetails] Standings transformed:', result ? `${result.standings?.length || 0} teams` : 'Null');
     return result;
   }, [standingsData]);
 
@@ -919,69 +919,100 @@ export default function MatchDetailsScreen() {
     );
   };
 
-  const renderPlayerNode = (player: Player) => (
-    <TouchableOpacity 
-      key={player.id} 
-      style={styles.playerNode}
-      onPress={() => router.push(`/player/${player.id}` as any)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.playerPhoto}>
-        {player.photo ? (
-          <ImageBackground
-            source={{ uri: player.photo }}
-            style={{ width: '100%', height: '100%', borderRadius: 20 }}
-            imageStyle={{ borderRadius: 20 }}
-          >
-            <Text style={styles.playerInitial}></Text>
-          </ImageBackground>
-        ) : (
-          <Text style={styles.playerInitial}>{player.name.charAt(0)}</Text>
-        )}
-      </View>
-      <View style={[styles.playerRating, { backgroundColor: getRatingColor(player.rating) }]}>
-        <Text style={styles.playerRatingText}>{player.rating > 0 ? player.rating.toFixed(1) : '--'}</Text>
-      </View>
-    </TouchableOpacity>
-  );
+  const renderPlayerNode = (player: Player) => {
+    // Defensive coding: ensure player has required fields
+    if (!player || !player.id || !player.name) {
+      console.warn('[MatchDetails] Invalid player data:', player);
+      return null;
+    }
 
-  const renderFormationRow = (players: Player[]) => (
-    <View style={styles.formationRow}>
-      {players.map((player) => renderPlayerNode(player))}
-    </View>
-  );
+    return (
+      <TouchableOpacity 
+        key={player.id} 
+        style={styles.playerNode}
+        onPress={() => router.push(`/player/${player.id}` as any)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.playerPhoto}>
+          {player.photo ? (
+            <ImageBackground
+              source={{ uri: player.photo }}
+              style={{ width: '100%', height: '100%', borderRadius: 20 }}
+              imageStyle={{ borderRadius: 20 }}
+            >
+              <Text style={styles.playerInitial}></Text>
+            </ImageBackground>
+          ) : (
+            <Text style={styles.playerInitial}>{player.name.charAt(0).toUpperCase()}</Text>
+          )}
+        </View>
+        <View style={[styles.playerRating, { backgroundColor: getRatingColor(player.rating || 0) }]}>
+          <Text style={styles.playerRatingText}>
+            {player.rating && player.rating > 0 ? player.rating.toFixed(1) : '--'}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
-  const renderSubstituteCard = (player: Player) => (
-    <TouchableOpacity 
-      key={player.id} 
-      style={[
-        styles.substituteCard,
-        {
-          backgroundColor: isDark ? '#111828' : '#FFFFFF',
-          borderWidth: isDark ? 0 : 1,
-          borderColor: '#18223A',
-        }
-      ]}
-      onPress={() => router.push(`/player/${player.id}` as any)}
-      activeOpacity={0.7}
-    >
-      <View style={[styles.substitutePhoto, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-        {player.photo ? (
-          <ImageBackground
-            source={{ uri: player.photo }}
-            style={{ width: '100%', height: '100%', borderRadius: 20 }}
-            imageStyle={{ borderRadius: 20 }}
-          />
-        ) : (
-          <Text style={[styles.substituteInitial, { color: isDark ? '#ffffff' : '#18223A' }]}>{player.name.charAt(0)}</Text>
-        )}
+  const renderFormationRow = (players: Player[]) => {
+    // Defensive coding: handle empty or null arrays
+    if (!players || !Array.isArray(players) || players.length === 0) {
+      return null;
+    }
+
+    return (
+      <View style={styles.formationRow}>
+        {players.map((player) => renderPlayerNode(player)).filter(Boolean)}
       </View>
-      <View style={styles.substituteInfo}>
-        <Text style={[styles.substituteName, { color: isDark ? '#ffffff' : '#18223A' }]}>{player.name}</Text>
-        <Text style={[styles.substitutePosition, { color: isDark ? '#9ca3af' : '#6B7280' }]}>{player.number} - {player.position}</Text>
-      </View>
-    </TouchableOpacity>
-  );
+    );
+  };
+
+  const renderSubstituteCard = (player: Player) => {
+    // Defensive coding: ensure player has required fields
+    if (!player || !player.id || !player.name) {
+      console.warn('[MatchDetails] Invalid substitute data:', player);
+      return null;
+    }
+
+    return (
+      <TouchableOpacity 
+        key={player.id} 
+        style={[
+          styles.substituteCard,
+          {
+            backgroundColor: isDark ? '#111828' : '#FFFFFF',
+            borderWidth: isDark ? 0 : 1,
+            borderColor: '#18223A',
+          }
+        ]}
+        onPress={() => router.push(`/player/${player.id}` as any)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.substitutePhoto, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+          {player.photo ? (
+            <ImageBackground
+              source={{ uri: player.photo }}
+              style={{ width: '100%', height: '100%', borderRadius: 20 }}
+              imageStyle={{ borderRadius: 20 }}
+            />
+          ) : (
+            <Text style={[styles.substituteInitial, { color: isDark ? '#ffffff' : '#18223A' }]}>
+              {player.name.charAt(0).toUpperCase()}
+            </Text>
+          )}
+        </View>
+        <View style={styles.substituteInfo}>
+          <Text style={[styles.substituteName, { color: isDark ? '#ffffff' : '#18223A' }]}>
+            {player.name}
+          </Text>
+          <Text style={[styles.substitutePosition, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+            {player.number || '?'} - {player.position || 'N/A'}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderLineupsTab = () => {
     // Show empty state if no lineup data
@@ -1069,7 +1100,10 @@ export default function MatchDetailsScreen() {
         <View style={styles.substitutesSection}>
           <Text style={[styles.substitutesTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>SUBSTITUTES</Text>
           <View style={styles.substitutesGrid}>
-            {[...homeTeam.substitutes, ...awayTeam.substitutes].slice(0, 6).map(renderSubstituteCard)}
+            {[...(homeTeam.substitutes || []), ...(awayTeam.substitutes || [])]
+              .slice(0, 6)
+              .map(renderSubstituteCard)
+              .filter(Boolean)}
           </View>
         </View>
       </View>
@@ -1148,23 +1182,23 @@ export default function MatchDetailsScreen() {
           {/* Ball Possession */}
           <Text style={[styles.statName, { color: isDark ? '#ffffff' : '#18223A' }]}>Ball possession</Text>
           <View style={[styles.possessionBarContainer, { borderWidth: isDark ? 0 : 1, borderColor: '#18223A' }]}>
-            <View style={[styles.possessionBarHome, { flex: stats.possession.home }]}>
-              <Text style={styles.possessionText}>{stats.possession.home}%</Text>
+            <View style={[styles.possessionBarHome, { flex: stats.possession?.home || 50 }]}>
+              <Text style={styles.possessionText}>{stats.possession?.home || 50}%</Text>
             </View>
-            <View style={[styles.possessionBarAway, { flex: stats.possession.away, backgroundColor: isDark ? '#111828' : '#E5E7EB' }]}>
-              <Text style={[styles.possessionText, { color: isDark ? '#ffffff' : '#18223A' }]}>{stats.possession.away}%</Text>
+            <View style={[styles.possessionBarAway, { flex: stats.possession?.away || 50, backgroundColor: isDark ? '#111828' : '#E5E7EB' }]}>
+              <Text style={[styles.possessionText, { color: isDark ? '#ffffff' : '#18223A' }]}>{stats.possession?.away || 50}%</Text>
             </View>
           </View>
 
           {/* Other Stats */}
-          {stats.topStats.map((stat, index) => (
+          {(stats.topStats || []).map((stat, index) => (
             <View key={`top-${index}`} style={styles.statRow}>
               <View style={styles.statRowHeader}>
-                <Text style={[styles.statValue, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.homeValue}</Text>
-                <Text style={[styles.statName, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.name}</Text>
-                <Text style={[styles.statValue, styles.statValueRight, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.awayValue}</Text>
+                <Text style={[styles.statValue, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.homeValue ?? 0}</Text>
+                <Text style={[styles.statName, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.name || 'Unknown'}</Text>
+                <Text style={[styles.statValue, styles.statValueRight, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.awayValue ?? 0}</Text>
               </View>
-              {renderStatBar(stat.homeValue, stat.awayValue)}
+              {renderStatBar(stat.homeValue ?? 0, stat.awayValue ?? 0)}
             </View>
           ))}
         </View>
@@ -1179,7 +1213,7 @@ export default function MatchDetailsScreen() {
         ]}>
           <Text style={[styles.statsCardTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>SHOTS</Text>
 
-          {stats.shots.map((stat, index) => (
+          {(stats.shots || []).map((stat, index) => (
             <View key={`shots-${index}`} style={styles.statRow}>
               <View style={styles.statRowHeader}>
                 <Text style={[styles.statValue, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.homeValue}</Text>
@@ -1201,7 +1235,7 @@ export default function MatchDetailsScreen() {
         ]}>
           <Text style={[styles.statsCardTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>DISCIPLINES</Text>
 
-          {stats.disciplines.map((stat, index) => (
+          {(stats.disciplines || []).map((stat, index) => (
             <View key={`disciplines-${index}`} style={styles.statRow}>
               <View style={styles.statRowHeader}>
                 <Text style={[styles.statValue, { color: isDark ? '#ffffff' : '#18223A' }]}>{stat.homeValue}</Text>
@@ -1433,7 +1467,7 @@ export default function MatchDetailsScreen() {
 
   const renderTableTab = () => {
     // Show empty state if no standings data
-    if (!table || table.length === 0) {
+    if (!table || !table.standings || table.standings.length === 0) {
       return (
         <View style={[styles.tableContainer, { justifyContent: 'center', alignItems: 'center', paddingVertical: 48 }]}>
           <MaterialCommunityIcons name="table" size={48} color={isDark ? '#9ca3af' : '#6B7280'} />
@@ -1523,7 +1557,7 @@ export default function MatchDetailsScreen() {
           </View>
 
           {/* Table Rows */}
-          {table.standings.map(renderTableRow)}
+          {(table.standings || []).map(renderTableRow)}
         </View>
       </View>
     );

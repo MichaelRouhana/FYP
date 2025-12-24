@@ -265,25 +265,27 @@ export const mapH2HToUI = (h2hData: any[], homeTeamName: string, awayTeamName: s
 /**
  * Map standings API response to UI format
  */
-export const mapStandingsToUI = (standingsData: any[]): TeamStanding[] => {
+export const mapStandingsToUI = (standingsData: any[]): { leagueName: string; standings: TeamStanding[] } | null => {
   console.log('[matchDataMapper] Mapping standings data:', standingsData);
   
   if (!standingsData || standingsData.length === 0) {
     console.log('[matchDataMapper] No standings data provided');
-    return [];
+    return null;
   }
 
   console.log('[matchDataMapper] Standings data structure:', JSON.stringify(standingsData[0], null, 2).substring(0, 500));
 
-  const standings = standingsData[0]?.league?.standings?.[0];
+  const leagueData = standingsData[0]?.league;
+  const standings = leagueData?.standings?.[0];
+  
   if (!standings) {
     console.log('[matchDataMapper] No standings array found in data');
-    return [];
+    return null;
   }
 
   console.log('[matchDataMapper] Found', standings.length, 'teams in standings');
 
-  return standings.map((team: any) => ({
+  const mappedStandings = standings.map((team: any) => ({
     position: team.rank,
     teamName: team.team.name,
     teamLogo: team.team.logo,
@@ -297,6 +299,11 @@ export const mapStandingsToUI = (standingsData: any[]): TeamStanding[] => {
     points: team.points,
     form: team.form?.split('').slice(0, 5) || [],
   }));
+
+  return {
+    leagueName: `${leagueData.name} ${leagueData.season}/${(leagueData.season + 1) % 100}`,
+    standings: mappedStandings,
+  };
 };
 
 /**
