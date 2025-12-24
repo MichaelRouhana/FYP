@@ -1,5 +1,5 @@
 import { countries } from '@/constants/countries';
-import api from '@/services/api';
+import api from '@/services/api'; // Ensure you have created this file from Phase 1
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -23,8 +23,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function Register() {
   const insets = useSafeAreaInsets();
   
-  // Added "Name" field as most backends require it
-  const [username, setUsername] = useState(''); 
+  // Added "username" to match SignUpRequestDTO.java
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -48,13 +48,19 @@ export default function Register() {
   const handleSignup = async () => {
     const newErrors: typeof errors = {};
 
+    // 1. Validate Username (Must be 6-20 chars per Backend DTO)
     if (!username.trim()) newErrors.username = 'Username is required';
+    else if (username.length < 6 || username.length > 20) newErrors.username = 'Username must be 6-20 characters';
+
+    // 2. Validate Email
     if (!email.trim()) newErrors.email = 'Email is required';
     else if (!validateEmail(email)) newErrors.email = 'Invalid email format';
     
+    // 3. Validate Password (Must be 8-20 chars per Backend DTO)
     if (!password) newErrors.password = 'Password is required';
-    else if (password.length < 6) newErrors.password = 'Min 6 characters required';
+    else if (password.length < 8 || password.length > 20) newErrors.password = 'Password must be 8-20 characters';
     
+    // 4. Validate Confirm
     if (password !== confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
 
     setErrors(newErrors);
@@ -62,24 +68,28 @@ export default function Register() {
 
     setLoading(true);
     try {
-      // Backend Call
+      console.log("Sending Register Request:", { username, email, password }); // Debug Log
+
+      // API Call
       await api.post('/users/signup', {
         username: username,
         email: email,
-        password: password,
-        country: country || 'Lebanon', // Default if empty
-        // Add other fields if your DTO requires them (e.g., firstName, lastName)
+        password: password, // Matches SignUpRequestDTO.java
+        // Note: The DTO doesn't strictly require country, but we send it if you add it later
+        // country: country || 'Lebanon', 
       });
 
       Alert.alert(
         "Success", 
-        "Account created! Please check your email to verify your account before logging in.",
+        "Account created! Please check your email to verify before logging in.",
         [{ text: "OK", onPress: () => router.replace('/auth/login') }]
       );
 
     } catch (error: any) {
-      console.error("Signup Error:", error.response?.data);
-      Alert.alert("Registration Failed", error.response?.data?.message || "An error occurred");
+      console.error("Signup Error:", error.response?.data || error.message);
+      // Show the exact error from backend (e.g., "Username already exists")
+      const backendMessage = error.response?.data?.message || error.response?.data?.detail || "Registration failed";
+      Alert.alert("Error", backendMessage);
     } finally {
       setLoading(false);
     }
@@ -101,12 +111,12 @@ export default function Register() {
           </View>
 
           <View style={styles.form}>
-            {/* Username Field (Added) */}
+            {/* NEW: Username Field */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Username</Text>
               <TextInput
                 style={[styles.input, errors.username && styles.inputError]}
-                placeholder="Choose a username"
+                placeholder="Username (6-20 chars)"
                 placeholderTextColor="#9ca3af"
                 value={username}
                 onChangeText={setUsername}
@@ -136,7 +146,7 @@ export default function Register() {
               <View style={styles.passwordContainer}>
                 <TextInput
                   style={[styles.input, styles.passwordInput, errors.password && styles.inputError]}
-                  placeholder="Enter your password"
+                  placeholder="Password (8-20 chars)"
                   placeholderTextColor="#9ca3af"
                   value={password}
                   onChangeText={setPassword}
