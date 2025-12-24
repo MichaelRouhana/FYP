@@ -1,16 +1,13 @@
 import {
   DateOption,
-  filterLeaguesByStatus,
   generateDates,
-  League,
-  Match,
-  mockLeagues,
 } from '@/mock/homeData';
 import { useTheme } from '@/context/ThemeContext';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   ScrollView,
   StyleSheet,
@@ -19,6 +16,8 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import api from '@/services/api';
+import { FixtureViewDTO, UILeague, UIMatch } from '@/types/fixture';
 
 type FilterType = 'all' | 'live' | 'upcoming';
 
@@ -27,35 +26,143 @@ export default function HomeScreen() {
   const { theme, isDark } = useTheme();
   const [selectedDate, setSelectedDate] = useState<string>('date-0'); // Today
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
-  const [expandedLeagues, setExpandedLeagues] = useState<Set<string>>(new Set(['seria-1']));
+  const [expandedLeagues, setExpandedLeagues] = useState<Set<string>>(new Set());
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
+  const [leagues, setLeagues] = useState<UILeague[]>([]);
 
   const dates = useMemo(() => generateDates(), []);
 
-  const filteredLeagues = useMemo(
-    () => filterLeaguesByStatus(mockLeagues, selectedFilter),
-    [selectedFilter]
-  );
+  // Fetch fixtures from backend
+  useEffect(() => {
+    fetchFixtures();
+  }, []);
 
-  const toggleLeague = useCallback((leagueId: string) => {
+  const fetchFixtures = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get<FixtureViewDTO[]>('/fixtures/public');
+      const fixtures = response.data;
+      
+      // Transform backend data to UI format
+      const transformedLeagues = transformFixturesToLeagues(fixtures);
+      setLeagues(transformedLeagues);
+      
+      // Auto-expand first league if any exist
+      if (transformedLeagues.length > 0) {
+        setExpandedLeagues(new Set([String(transformedLeagues[0].id)]));
+      }
+    } catch (error) {
+      console.error('Failed to fetch fixtures:', error);
+      // Optionally show error to user
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Transform FixtureViewDTO[] to UILeague[]
+  const transformFixturesToLeagues = (fixtures: FixtureViewDTO[]): UILeague[] => {
+    const leagueMap = new Map<number, UILeague>();
+
+    fixtures.forEach((fixture) => {
+      const rawJson = fixture.rawJson;
+      const leagueId = rawJson.league.id;
+
+      // Determine match status
+      const statusShort = rawJson.fixture.status.short;
+      let status: 'upcoming' | 'live' | 'finished' = 'upcoming';
+      
+      if (['1H', '2H', 'HT', 'ET', 'P', 'LIVE', 'BT'].includes(statusShort)) {
+        status = 'live';
+      } else if (['FT', 'AET', 'PEN'].includes(statusShort)) {
+        status = 'finished';
+      }
+
+      // Format time
+      let timeDisplay: string;
+      if (status === 'live') {
+        timeDisplay = rawJson.fixture.status.elapsed ? `${rawJson.fixture.status.elapsed}'` : 'LIVE';
+      } else if (status === 'finished') {
+        timeDisplay = 'FT';
+      } else {
+        // Format time from ISO date
+        const date = new Date(rawJson.fixture.date);
+        timeDisplay = date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        });
+      }
+
+      const match: UIMatch = {
+        id: fixture.id,
+        homeTeam: {
+          name: rawJson.teams.home.name,
+          logo: rawJson.teams.home.logo,
+        },
+        awayTeam: {
+          name: rawJson.teams.away.name,
+          logo: rawJson.teams.away.logo,
+        },
+        time: timeDisplay,
+        status,
+        homeScore: rawJson.goals.home ?? undefined,
+        awayScore: rawJson.goals.away ?? undefined,
+        betsCount: fixture.bets,
+        date: rawJson.fixture.date,
+        leagueId: rawJson.league.id,
+        leagueName: rawJson.league.name,
+      };
+
+      // Group by league
+      if (!leagueMap.has(leagueId)) {
+        leagueMap.set(leagueId, {
+          id: leagueId,
+          name: rawJson.league.name,
+          country: rawJson.league.country,
+          logo: rawJson.league.logo,
+          matches: [],
+        });
+      }
+
+      leagueMap.get(leagueId)!.matches.push(match);
+    });
+
+    return Array.from(leagueMap.values());
+  };
+
+  const filteredLeagues = useMemo(() => {
+    if (selectedFilter === 'all') return leagues;
+    
+    return leagues
+      .map((league) => ({
+        ...league,
+        matches: league.matches.filter((match) => match.status === selectedFilter),
+      }))
+      .filter((league) => league.matches.length > 0);
+  }, [leagues, selectedFilter]);
+
+  const toggleLeague = useCallback((leagueId: number) => {
+    const leagueIdStr = String(leagueId);
     setExpandedLeagues((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(leagueId)) {
-        newSet.delete(leagueId);
+      if (newSet.has(leagueIdStr)) {
+        newSet.delete(leagueIdStr);
       } else {
-        newSet.add(leagueId);
+        newSet.add(leagueIdStr);
       }
       return newSet;
     });
   }, []);
 
-  const toggleFavorite = useCallback((matchId: string) => {
+  const toggleFavorite = useCallback((matchId: number) => {
+    const matchIdStr = String(matchId);
     setFavorites((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(matchId)) {
-        newSet.delete(matchId);
+      if (newSet.has(matchIdStr)) {
+        newSet.delete(matchIdStr);
       } else {
-        newSet.add(matchId);
+        newSet.add(matchIdStr);
       }
       return newSet;
     });
@@ -87,15 +194,15 @@ export default function HomeScreen() {
     );
   };
 
-  const renderMatchItem = (match: Match) => {
+  const renderMatchItem = (match: UIMatch) => {
     const isHot = match.betsCount >= 100;
-    const isFavorite = favorites.has(match.id);
+    const isFavorite = favorites.has(String(match.id));
 
-  return (
+    return (
       <TouchableOpacity
         key={match.id}
         style={[styles.matchItem, { borderBottomColor: theme.colors.separator }]}
-        onPress={() => router.push({ pathname: '/match/[id]', params: { id: match.id } })}
+        onPress={() => router.push({ pathname: '/match/[id]', params: { id: String(match.id) } })}
         activeOpacity={0.7}
       >
         {/* Time / Live indicator */}
@@ -112,16 +219,28 @@ export default function HomeScreen() {
         {/* Teams */}
         <View style={styles.teamsContainer}>
           <View style={styles.teamRow}>
-            <View style={[styles.teamLogo, { backgroundColor: theme.colors.textMuted }]} />
-            <Text style={[styles.teamName, { color: theme.colors.text }]}>{match.homeTeam.name}</Text>
-            {match.status === 'live' && (
+            {match.homeTeam.logo ? (
+              <Image source={{ uri: match.homeTeam.logo }} style={styles.teamLogo} />
+            ) : (
+              <View style={[styles.teamLogo, { backgroundColor: theme.colors.textMuted }]} />
+            )}
+            <Text style={[styles.teamName, { color: theme.colors.text }]} numberOfLines={1}>
+              {match.homeTeam.name}
+            </Text>
+            {(match.status === 'live' || match.status === 'finished') && match.homeScore !== undefined && (
               <Text style={[styles.scoreText, { color: theme.colors.text }]}>{match.homeScore}</Text>
             )}
           </View>
           <View style={styles.teamRow}>
-            <View style={[styles.teamLogo, { backgroundColor: theme.colors.textMuted }]} />
-            <Text style={[styles.teamName, { color: theme.colors.text }]}>{match.awayTeam.name}</Text>
-            {match.status === 'live' && (
+            {match.awayTeam.logo ? (
+              <Image source={{ uri: match.awayTeam.logo }} style={styles.teamLogo} />
+            ) : (
+              <View style={[styles.teamLogo, { backgroundColor: theme.colors.textMuted }]} />
+            )}
+            <Text style={[styles.teamName, { color: theme.colors.text }]} numberOfLines={1}>
+              {match.awayTeam.name}
+            </Text>
+            {(match.status === 'live' || match.status === 'finished') && match.awayScore !== undefined && (
               <Text style={[styles.scoreText, { color: theme.colors.text }]}>{match.awayScore}</Text>
             )}
           </View>
@@ -140,7 +259,7 @@ export default function HomeScreen() {
         ]}>
           {isHot && (
             <MaterialCommunityIcons name="fire" size={16} color={isDark ? '#FFF04E' : '#18223A'} />
-        )}
+          )}
           <Text style={[
             styles.betsText, 
             { color: theme.colors.textSecondary }, 
@@ -165,8 +284,8 @@ export default function HomeScreen() {
     );
   };
 
-  const renderLeagueCard = (league: League) => {
-    const isExpanded = expandedLeagues.has(league.id);
+  const renderLeagueCard = (league: UILeague) => {
+    const isExpanded = expandedLeagues.has(String(league.id));
 
     return (
       <View key={league.id} style={[styles.leagueCard, { backgroundColor: theme.colors.cardBackground, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border }]}>
@@ -176,15 +295,25 @@ export default function HomeScreen() {
           onPress={() => toggleLeague(league.id)}
           activeOpacity={0.7}
         >
-          <Image source={league.logo} style={styles.leagueLogo} />
+          {league.logo ? (
+            <Image source={{ uri: league.logo }} style={styles.leagueLogo} />
+          ) : (
+            <View style={[styles.leagueLogo, { backgroundColor: theme.colors.textMuted }]} />
+          )}
           <View style={styles.leagueInfo}>
-            <Text style={[styles.leagueName, { color: theme.colors.text }]}>{league.name}</Text>
-            <Text style={[styles.leagueCountry, { color: theme.colors.textMuted }]}>{league.country}</Text>
+            <Text style={[styles.leagueName, { color: theme.colors.text }]} numberOfLines={1}>
+              {league.name}
+            </Text>
+            <Text style={[styles.leagueCountry, { color: theme.colors.textMuted }]}>
+              {league.country}
+            </Text>
           </View>
           <View style={[styles.leagueSeparator, { backgroundColor: theme.colors.separator }]} />
           <View style={styles.matchCountContainer}>
             <Text style={[styles.matchCountDot, { color: theme.colors.primary }]}>•</Text>
-            <Text style={[styles.matchCountText, { color: theme.colors.textMuted }]}>{league.matches.length} matches</Text>
+            <Text style={[styles.matchCountText, { color: theme.colors.textMuted }]}>
+              {league.matches.length} {league.matches.length === 1 ? 'match' : 'matches'}
+            </Text>
           </View>
           <MaterialCommunityIcons
             name={isExpanded ? 'chevron-up' : 'chevron-down'}
@@ -294,7 +423,27 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.leaguesContent}
       >
-        {filteredLeagues.map(renderLeagueCard)}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={[styles.loadingText, { color: theme.colors.textMuted }]}>
+              Loading matches...
+            </Text>
+          </View>
+        ) : filteredLeagues.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <MaterialCommunityIcons 
+              name="soccer" 
+              size={64} 
+              color={theme.colors.textMuted} 
+            />
+            <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>
+              No matches available
+            </Text>
+          </View>
+        ) : (
+          filteredLeagues.map(renderLeagueCard)
+        )}
       </ScrollView>
     </View>
   );
@@ -554,5 +703,28 @@ const styles = StyleSheet.create({
   favoriteButton: {
     padding: 8,
     marginLeft: 8,
+  },
+  // Loading & Empty States
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 14,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    marginTop: 16,
+    fontSize: 14,
+    fontFamily: 'Montserrat_400Regular',
   },
 });

@@ -14,6 +14,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   ImageBackground,
   ScrollView,
   StyleSheet,
@@ -23,12 +25,20 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useMatchData } from '@/hooks/useMatchData';
+import { useUserBalance } from '@/hooks/useUserBalance';
+import { placeBet, createMatchWinnerBet } from '@/services/betApi';
 
-type TabType = 'details' | 'summary' | 'lineups' | 'stats' | 'h2h' | 'table' | 'power' | 'commentary';
+type TabType = 'details' | 'predictions' | 'summary' | 'lineups' | 'stats' | 'h2h' | 'table' | 'power' | 'commentary';
 type BetSelection = 'home' | 'draw' | 'away' | null;
+type GoalsOverUnder = 'x1' | '12' | 'x2' | null;
+type BothTeamsScore = 'yes' | 'no' | null;
+type FirstTeamScore = 'home' | 'away' | null;
+type DoubleChance = 'x1' | '12' | 'x2' | null;
 
 const TABS: { id: TabType; label: string }[] = [
   { id: 'details', label: 'DETAILS' },
+  { id: 'predictions', label: 'PREDICTIONS' },
   { id: 'summary', label: 'SUMMARY' },
   { id: 'lineups', label: 'LINEUP' },
   { id: 'table', label: 'STANDINGS' },
@@ -42,7 +52,30 @@ export default function MatchDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
-  const match = getMatchDetails(id || 'default');
+  
+  // Fetch real data from API
+  const { loading, error, matchData } = useMatchData(id || '');
+  const { balance, refetch: refetchBalance } = useUserBalance();
+  const [submitting, setSubmitting] = useState(false);
+  
+  // All state hooks MUST be called unconditionally
+  const [selectedTab, setSelectedTab] = useState<TabType>('details');
+  const [h2hFilter, setH2hFilter] = useState<'meetings' | 'home' | 'away'>('meetings');
+  const [h2hShowAll, setH2hShowAll] = useState(false);
+  const [tableFilter, setTableFilter] = useState<'all' | 'home' | 'away'>('all');
+  const [betSelection, setBetSelection] = useState<BetSelection>(null);
+  const [stake, setStake] = useState('');
+  const [isFavorite, setIsFavorite] = useState(false);
+  
+  // Predictions state
+  const [goalsOverUnder, setGoalsOverUnder] = useState<GoalsOverUnder>(null);
+  const [bothTeamsScore, setBothTeamsScore] = useState<BothTeamsScore>(null);
+  const [firstTeamScore, setFirstTeamScore] = useState<FirstTeamScore>(null);
+  const [doubleChance, setDoubleChance] = useState<DoubleChance>(null);
+  const [homeScore, setHomeScore] = useState('');
+  const [awayScore, setAwayScore] = useState('');
+
+  // Keep mock data for tabs that aren't integrated yet
   const summary = getMatchSummary(id || 'default');
   const lineups = getMatchLineups(id || 'default');
   const stats = getMatchStats(id || 'default');
@@ -51,16 +84,44 @@ export default function MatchDetailsScreen() {
   const commentary = getMatchCommentary(id || 'default');
   const powerData = getMatchPowerData(id || 'default');
 
-  const [selectedTab, setSelectedTab] = useState<TabType>('details');
-  const [h2hFilter, setH2hFilter] = useState<'meetings' | 'home' | 'away'>('meetings');
-  const [h2hShowAll, setH2hShowAll] = useState(false);
-  const [tableFilter, setTableFilter] = useState<'all' | 'home' | 'away'>('all');
-  const [betSelection, setBetSelection] = useState<BetSelection>(null);
-  const [stake, setStake] = useState('');
-  const [isFavorite, setIsFavorite] = useState(match.isFavorite);
+  // Transform API data to match UI expectations (with null checks)
+  const match = matchData ? {
+    id: matchData.fixture.id,
+    homeTeam: {
+      name: matchData.teams.home.name,
+      logo: matchData.teams.home.logo,
+    },
+    awayTeam: {
+      name: matchData.teams.away.name,
+      logo: matchData.teams.away.logo,
+    },
+    homeScore: matchData.goals.home ?? 0,
+    awayScore: matchData.goals.away ?? 0,
+    league: matchData.league.name,
+    date: new Date(matchData.fixture.date).toLocaleDateString(),
+    matchTime: matchData.fixture.status.short === 'FT' ? 'FT' : 
+               matchData.fixture.status.short === 'NS' ? new Date(matchData.fixture.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) :
+               `${matchData.fixture.status.elapsed || 0}'`,
+    venue: {
+      name: matchData.fixture.venue.name || 'Unknown Venue',
+      location: matchData.fixture.venue.city || 'Unknown City',
+      capacity: 'N/A',
+      surface: 'N/A',
+    },
+    weather: {
+      condition: 'N/A',
+      temperature: 'N/A',
+    },
+    odds: {
+      home: 1.85,
+      draw: 3.40,
+      away: 2.10,
+    },
+    isFavorite: isFavorite,
+  } : null;
 
   const potentialWinnings = useMemo(() => {
-    if (!stake || !betSelection) return 0;
+    if (!stake || !betSelection || !match) return 0;
     const stakeNum = parseFloat(stake) || 0;
     const odds =
       betSelection === 'home'
@@ -69,10 +130,58 @@ export default function MatchDetailsScreen() {
         ? match.odds.draw
         : match.odds.away;
     return Math.round(stakeNum * odds);
-  }, [stake, betSelection, match.odds]);
+  }, [stake, betSelection, match]);
+
+  // Show loading state
+  if (loading) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: isDark ? '#080C17' : '#F3F4F6', justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#22c55e" />
+        <Text style={{ color: isDark ? '#ffffff' : '#18223A', marginTop: 16, fontSize: 14 }}>Loading match data...</Text>
+      </View>
+    );
+  }
+
+  // Show error state
+  if (error || !matchData || !match) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: isDark ? '#080C17' : '#F3F4F6', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}>
+        <MaterialCommunityIcons name="alert-circle-outline" size={64} color={isDark ? '#9ca3af' : '#6B7280'} />
+        <Text style={{ color: isDark ? '#ffffff' : '#18223A', marginTop: 16, fontSize: 16, textAlign: 'center' }}>
+          Failed to load match data
+        </Text>
+        <Text style={{ color: isDark ? '#9ca3af' : '#6B7280', marginTop: 8, fontSize: 14, textAlign: 'center' }}>
+          {error || 'Please try again later'}
+        </Text>
+        <TouchableOpacity 
+          style={{ marginTop: 24, backgroundColor: '#22c55e', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 }}
+          onPress={() => router.back()}
+        >
+          <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: 'bold' }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const renderDetailsTab = () => (
     <View style={styles.detailsContainer}>
+      {/* User Balance */}
+      <View style={[
+        styles.balanceCard,
+        {
+          backgroundColor: isDark ? '#101828' : '#FFFFFF',
+          borderWidth: isDark ? 0 : 1,
+          borderColor: '#18223A',
+        }
+      ]}>
+        <Text style={[styles.balanceLabel, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+          Available Balance
+        </Text>
+        <Text style={[styles.balanceAmount, { color: '#22c55e' }]}>
+          {balance} PTS
+        </Text>
+      </View>
+
       {/* Betting Card */}
       <View style={[
         styles.bettingCard, 
@@ -160,8 +269,67 @@ export default function MatchDetailsScreen() {
         </View>
 
         {/* Place Bid Button */}
-        <TouchableOpacity style={[styles.placeBidButton, { backgroundColor: isDark ? '#22c55e' : '#18223A' }]} activeOpacity={0.8}>
-          <Text style={styles.placeBidButtonText}>PLACE BID</Text>
+        <TouchableOpacity 
+          style={[
+            styles.placeBidButton, 
+            { backgroundColor: isDark ? '#22c55e' : '#18223A' },
+            (submitting || !betSelection || !stake) && { opacity: 0.5 }
+          ]} 
+          activeOpacity={0.8}
+          onPress={async () => {
+            if (!betSelection || !stake) {
+              Alert.alert('Error', 'Please select an option and enter your stake');
+              return;
+            }
+
+            const stakeNum = parseFloat(stake);
+            if (isNaN(stakeNum) || stakeNum <= 0) {
+              Alert.alert('Error', 'Please enter a valid stake amount');
+              return;
+            }
+
+            if (stakeNum > balance) {
+              Alert.alert('Insufficient Balance', `You only have ${balance} points available`);
+              return;
+            }
+
+            try {
+              setSubmitting(true);
+              const betRequest = createMatchWinnerBet(
+                Number(id),
+                betSelection.toUpperCase() as 'HOME' | 'DRAW' | 'AWAY'
+              );
+              
+              await placeBet(betRequest);
+              
+              Alert.alert(
+                'Success',
+                `Bet placed successfully!\nSelection: ${betSelection.toUpperCase()}\nStake: ${stake} pts\nPotential Return: ${potentialWinnings} pts`,
+                [
+                  {
+                    text: 'OK',
+                    onPress: () => {
+                      setBetSelection(null);
+                      setStake('');
+                      refetchBalance();
+                    },
+                  },
+                ]
+              );
+            } catch (error: any) {
+              const message = error.response?.data?.message || error.message || 'Failed to place bet. Please try again.';
+              Alert.alert('Error', message);
+            } finally {
+              setSubmitting(false);
+            }
+          }}
+          disabled={submitting || !betSelection || !stake}
+        >
+          {submitting ? (
+            <ActivityIndicator color="#ffffff" />
+          ) : (
+            <Text style={styles.placeBidButtonText}>PLACE BID</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -305,6 +473,316 @@ export default function MatchDetailsScreen() {
             </View>
           )}
         </View>
+      </View>
+    );
+  };
+
+  const renderPredictionsTab = () => {
+    const handleSubmitPredictions = () => {
+      // TODO: Submit predictions to backend
+      console.log('Submitting predictions:', {
+        goalsOverUnder,
+        bothTeamsScore,
+        firstTeamScore,
+        doubleChance,
+        homeScore,
+        awayScore,
+      });
+    };
+
+    return (
+      <View style={styles.predictionsContainer}>
+        {/* Goals Over/Under */}
+        <View style={styles.predictionSection}>
+          <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
+            GOALS OVER/UNDER
+          </Text>
+          <View style={styles.predictionOptions}>
+            <TouchableOpacity
+              style={[
+                styles.predictionButton,
+                { backgroundColor: theme.colors.cardBackground },
+                goalsOverUnder === 'x1' && styles.predictionButtonSelected,
+              ]}
+              onPress={() => setGoalsOverUnder('x1')}
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
+                  goalsOverUnder === 'x1' && styles.predictionButtonTextSelected,
+                ]}
+              >
+                X1
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.predictionButton,
+                { backgroundColor: theme.colors.cardBackground },
+                goalsOverUnder === '12' && styles.predictionButtonSelected,
+              ]}
+              onPress={() => setGoalsOverUnder('12')}
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
+                  goalsOverUnder === '12' && styles.predictionButtonTextSelected,
+                ]}
+              >
+                12
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.predictionButton,
+                { backgroundColor: theme.colors.cardBackground },
+                goalsOverUnder === 'x2' && styles.predictionButtonSelected,
+              ]}
+              onPress={() => setGoalsOverUnder('x2')}
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
+                  goalsOverUnder === 'x2' && styles.predictionButtonTextSelected,
+                ]}
+              >
+                X2
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Both Teams to Score */}
+        <View style={styles.predictionSection}>
+          <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
+            BOTH TEAMS TO SCORE
+          </Text>
+          <View style={styles.predictionOptions}>
+            <TouchableOpacity
+              style={[
+                styles.predictionButton,
+                styles.predictionButtonWide,
+                { backgroundColor: theme.colors.cardBackground },
+                bothTeamsScore === 'yes' && styles.predictionButtonSelected,
+              ]}
+              onPress={() => setBothTeamsScore('yes')}
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
+                  bothTeamsScore === 'yes' && styles.predictionButtonTextSelected,
+                ]}
+              >
+                YES
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.predictionButton,
+                styles.predictionButtonWide,
+                { backgroundColor: theme.colors.cardBackground },
+                bothTeamsScore === 'no' && styles.predictionButtonSelected,
+              ]}
+              onPress={() => setBothTeamsScore('no')}
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
+                  bothTeamsScore === 'no' && styles.predictionButtonTextSelected,
+                ]}
+              >
+                NO
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* First Team to Score */}
+        <View style={styles.predictionSection}>
+          <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
+            FIRST TEAM TO SCORE
+          </Text>
+          <View style={styles.predictionOptions}>
+            <TouchableOpacity
+              style={[
+                styles.predictionButton,
+                styles.predictionButtonWide,
+                { backgroundColor: theme.colors.cardBackground },
+                firstTeamScore === 'home' && styles.predictionButtonSelected,
+              ]}
+              onPress={() => setFirstTeamScore('home')}
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
+                  firstTeamScore === 'home' && styles.predictionButtonTextSelected,
+                ]}
+              >
+                HOME
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.predictionButton,
+                styles.predictionButtonWide,
+                { backgroundColor: theme.colors.cardBackground },
+                firstTeamScore === 'away' && styles.predictionButtonSelected,
+              ]}
+              onPress={() => setFirstTeamScore('away')}
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
+                  firstTeamScore === 'away' && styles.predictionButtonTextSelected,
+                ]}
+              >
+                AWAY
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Double Chance */}
+        <View style={styles.predictionSection}>
+          <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
+            DOUBLE CHANCE
+          </Text>
+          <View style={styles.predictionOptions}>
+            <TouchableOpacity
+              style={[
+                styles.predictionButton,
+                { backgroundColor: theme.colors.cardBackground },
+                doubleChance === 'x1' && styles.predictionButtonSelected,
+              ]}
+              onPress={() => setDoubleChance('x1')}
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
+                  doubleChance === 'x1' && styles.predictionButtonTextSelected,
+                ]}
+              >
+                X1
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.predictionButton,
+                { backgroundColor: theme.colors.cardBackground },
+                doubleChance === '12' && styles.predictionButtonSelected,
+              ]}
+              onPress={() => setDoubleChance('12')}
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
+                  doubleChance === '12' && styles.predictionButtonTextSelected,
+                ]}
+              >
+                12
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.predictionButton,
+                { backgroundColor: theme.colors.cardBackground },
+                doubleChance === 'x2' && styles.predictionButtonSelected,
+              ]}
+              onPress={() => setDoubleChance('x2')}
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
+                  doubleChance === 'x2' && styles.predictionButtonTextSelected,
+                ]}
+              >
+                X2
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Score Prediction */}
+        <View style={styles.predictionSection}>
+          <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
+            SCORE PREDICTION
+          </Text>
+          <View style={styles.scoreInputsContainer}>
+            <View style={styles.scoreInputWrapper}>
+              <Text style={[styles.scoreInputLabel, { color: theme.colors.textSecondary }]}>
+                Home Score
+              </Text>
+              <TextInput
+                style={[
+                  styles.scoreInput,
+                  {
+                    backgroundColor: theme.colors.cardBackground,
+                    color: theme.colors.text,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+                placeholder="0"
+                placeholderTextColor={theme.colors.textSecondary}
+                value={homeScore}
+                onChangeText={(text) => {
+                  // Only allow numbers 0-99
+                  const num = text.replace(/[^0-9]/g, '');
+                  if (num === '' || (parseInt(num) >= 0 && parseInt(num) <= 99)) {
+                    setHomeScore(num);
+                  }
+                }}
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+            </View>
+            <View style={styles.scoreInputWrapper}>
+              <Text style={[styles.scoreInputLabel, { color: theme.colors.textSecondary }]}>
+                Away Score
+              </Text>
+              <TextInput
+                style={[
+                  styles.scoreInput,
+                  {
+                    backgroundColor: theme.colors.cardBackground,
+                    color: theme.colors.text,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
+                placeholder="0"
+                placeholderTextColor={theme.colors.textSecondary}
+                value={awayScore}
+                onChangeText={(text) => {
+                  // Only allow numbers 0-99
+                  const num = text.replace(/[^0-9]/g, '');
+                  if (num === '' || (parseInt(num) >= 0 && parseInt(num) <= 99)) {
+                    setAwayScore(num);
+                  }
+                }}
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Submit Button */}
+        <TouchableOpacity
+          style={[styles.submitPredictionsButton, { backgroundColor: theme.colors.primary }]}
+          onPress={handleSubmitPredictions}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.submitPredictionsButtonText}>SUBMIT PREDICTIONS</Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -1104,6 +1582,7 @@ export default function MatchDetailsScreen() {
         contentContainerStyle={styles.contentContainer}
       >
         {selectedTab === 'details' && renderDetailsTab()}
+        {selectedTab === 'predictions' && renderPredictionsTab()}
         {selectedTab === 'summary' && renderSummaryTab()}
         {selectedTab === 'lineups' && renderLineupsTab()}
         {selectedTab === 'stats' && renderStatsTab()}
@@ -2138,5 +2617,97 @@ const styles = StyleSheet.create({
   powerSeparator: {
     height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  // Predictions Tab
+  predictionsContainer: {
+    gap: 24,
+    paddingBottom: 20,
+  },
+  predictionSection: {
+    gap: 12,
+  },
+  predictionTitle: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_700Bold',
+    letterSpacing: 0.5,
+  },
+  predictionOptions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  predictionButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 56,
+  },
+  predictionButtonWide: {
+    flex: 1,
+  },
+  predictionButtonSelected: {
+    backgroundColor: '#22c55e',
+  },
+  predictionButtonText: {
+    fontSize: 15,
+    fontFamily: 'Montserrat_700Bold',
+    letterSpacing: 0.5,
+  },
+  predictionButtonTextSelected: {
+    color: '#ffffff',
+  },
+  scoreInputsContainer: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  scoreInputWrapper: {
+    flex: 1,
+    gap: 8,
+  },
+  scoreInputLabel: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+  },
+  scoreInput: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    fontFamily: 'Montserrat_600SemiBold',
+    textAlign: 'center',
+    borderWidth: 1,
+  },
+  submitPredictionsButton: {
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  submitPredictionsButtonText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_700Bold',
+    color: '#ffffff',
+    letterSpacing: 1,
+  },
+  // Balance Card
+  balanceCard: {
+    backgroundColor: '#101828',
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  balanceLabel: {
+    fontSize: 15,
+    fontFamily: 'Montserrat_400Regular',
+    color: '#9ca3af',
+  },
+  balanceAmount: {
+    fontSize: 24,
+    fontFamily: 'Montserrat_800ExtraBold',
+    color: '#22c55e',
   },
 });
