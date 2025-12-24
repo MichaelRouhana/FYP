@@ -120,3 +120,48 @@ export interface UILeague {
   matches: UIMatch[];
 }
 
+// Football-API Lineup Response Types
+export interface FootballApiLineupPlayer {
+  player: {
+    id: number;
+    name: string;
+    number: number;
+    pos: string; // Position: G, D, M, F
+    grid: string | null; // e.g., "1:1" or null
+    photo?: string;
+  };
+  statistics?: Array<{
+    games: {
+      rating: string | null; // e.g., "7.2" or null
+      minutes: number;
+      substitute: boolean;
+    };
+  }>;
+}
+
+export interface FootballApiPredictions {
+  predictions?: {
+    winner?: {
+      id: number;
+      name: string;
+      comment: string;
+    };
+    advice?: string; // e.g., "Team1 to win", may contain weather info
+    percent?: {
+      home: string;
+      draw: string;
+      away: string;
+    };
+  };
+  forecast?: {
+    condition?: string; // Weather condition
+    temperature?: number;
+  };
+  weather?: {
+    condition?: string;
+    temperature?: number;
+    description?: string;
+  };
+  bookmakers?: Array<any>;
+}
+

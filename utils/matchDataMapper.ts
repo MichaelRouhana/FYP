@@ -13,6 +13,8 @@ import { TeamStanding } from '@/mock/matchTable';
  * Map lineups API response to UI format
  */
 export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture): MatchLineups | null => {
+  console.log('[matchDataMapper] Mapping lineups, received:', lineupsData?.length, 'teams');
+  
   if (!lineupsData || lineupsData.length < 2) {
     console.log('[matchDataMapper] Insufficient lineup data:', lineupsData?.length);
     return null;
@@ -26,6 +28,11 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
     return null;
   }
 
+  // Log a sample player to see the structure
+  if (homeLineup.startXI && homeLineup.startXI.length > 0) {
+    console.log('[matchDataMapper] Sample player data:', JSON.stringify(homeLineup.startXI[0], null, 2));
+  }
+
   const mapTeamLineup = (lineup: any, teamName: string): TeamLineup => {
     const starters = {
       goalkeeper: [] as Player[],
@@ -36,18 +43,26 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
 
     const substitutes: Player[] = [];
 
-    lineup.startXI?.forEach((player: any) => {
+    // Helper to extract rating from statistics
+    const getRating = (playerData: any): number => {
+      const ratingStr = playerData.statistics?.[0]?.games?.rating;
+      if (!ratingStr || ratingStr === 'null' || ratingStr === null) return 0;
+      const rating = parseFloat(ratingStr);
+      return isNaN(rating) ? 0 : rating;
+    };
+
+    lineup.startXI?.forEach((playerData: any) => {
       const mappedPlayer: Player = {
-        id: player.player.id.toString(),
-        name: player.player.name,
-        number: player.player.number,
-        position: player.player.pos,
-        rating: 0, // Rating not available in lineup endpoint
-        photo: player.player.photo,
+        id: playerData.player.id.toString(),
+        name: playerData.player.name,
+        number: playerData.player.number,
+        position: playerData.player.pos,
+        rating: getRating(playerData), // Extract from statistics
+        photo: playerData.player.photo,
       };
 
       // Categorize by position
-      const pos = player.player.pos?.toUpperCase();
+      const pos = playerData.player.pos?.toUpperCase();
       if (pos === 'G') {
         starters.goalkeeper.push(mappedPlayer);
       } else if (pos === 'D') {
@@ -59,18 +74,18 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
       }
     });
 
-    lineup.substitutes?.forEach((player: any) => {
+    lineup.substitutes?.forEach((playerData: any) => {
       substitutes.push({
-        id: player.player.id.toString(),
-        name: player.player.name,
-        number: player.player.number,
-        position: player.player.pos,
-        rating: 0,
-        photo: player.player.photo,
+        id: playerData.player.id.toString(),
+        name: playerData.player.name,
+        number: playerData.player.number,
+        position: playerData.player.pos,
+        rating: getRating(playerData),
+        photo: playerData.player.photo,
       });
     });
 
-    return {
+    const result = {
       teamId: lineup.team.id.toString(),
       teamName: teamName,
       teamLogo: lineup.team.logo,
@@ -79,13 +94,24 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
       starters,
       substitutes,
     };
+
+    // Log counts
+    const totalStarters = starters.goalkeeper.length + starters.defenders.length + 
+                         starters.midfielders.length + starters.forwards.length;
+    console.log(`[matchDataMapper] ${teamName}: ${totalStarters} starters, ${substitutes.length} subs`);
+    console.log(`[matchDataMapper] Formation breakdown - GK:${starters.goalkeeper.length}, D:${starters.defenders.length}, M:${starters.midfielders.length}, F:${starters.forwards.length}`);
+
+    return result;
   };
 
-  return {
+  const lineups = {
     matchId: matchData.fixture.id.toString(),
     homeTeam: mapTeamLineup(homeLineup, matchData.teams.home.name),
     awayTeam: mapTeamLineup(awayLineup, matchData.teams.away.name),
   };
+
+  console.log('[matchDataMapper] Lineups mapping complete');
+  return lineups;
 };
 
 /**
@@ -277,41 +303,58 @@ export const mapStandingsToUI = (standingsData: any[]): TeamStanding[] => {
  * Extract venue and weather info from predictions
  */
 export const extractVenueAndWeather = (predictionsData: any, matchData: FootballApiFixture) => {
-  // Try to extract venue capacity and surface from fixture data
-  const capacity = matchData.fixture.venue?.capacity 
-    ? `${matchData.fixture.venue.capacity.toLocaleString()} seats`
-    : 'N/A';
+  console.log('[matchDataMapper] Extracting venue and weather...');
+  console.log('[matchDataMapper] Venue data:', matchData.fixture.venue);
+  
+  // Extract venue info directly from fixture.venue
+  const venueName = matchData.fixture.venue?.name || 'Unknown Venue';
+  const venueCity = matchData.fixture.venue?.city || 'Unknown City';
+  
+  // Extract capacity and surface (may be undefined for many stadiums)
+  let capacity = 'N/A';
+  if (matchData.fixture.venue?.capacity) {
+    capacity = `${matchData.fixture.venue.capacity.toLocaleString()} seats`;
+  }
+  
   const surface = matchData.fixture.venue?.surface || 'N/A';
 
-  // Try to extract weather from predictions (if available)
+  // Try to extract weather from predictions
   let condition = 'N/A';
   let temperature = 'N/A';
 
-  // Weather data might be in predictions.forecast or predictions.weather
   if (predictionsData) {
-    console.log('[matchDataMapper] Predictions data available, checking for weather...');
-    const forecast = predictionsData.forecast;
-    const weather = predictionsData.weather;
+    console.log('[matchDataMapper] Checking predictions for weather...');
     
-    if (weather) {
-      console.log('[matchDataMapper] Weather data found:', weather);
-      condition = weather.condition || weather.description || 'N/A';
-      temperature = weather.temperature ? `${weather.temperature}°C` : 'N/A';
-    } else if (forecast) {
-      console.log('[matchDataMapper] Forecast data found:', forecast);
-      condition = forecast.condition || 'N/A';
-      temperature = forecast.temperature ? `${forecast.temperature}°C` : 'N/A';
-    } else {
-      console.log('[matchDataMapper] No weather/forecast data in predictions');
+    // Check predictions.weather first
+    if (predictionsData.weather) {
+      console.log('[matchDataMapper] Found weather:', predictionsData.weather);
+      condition = predictionsData.weather.condition || predictionsData.weather.description || 'N/A';
+      if (predictionsData.weather.temperature !== undefined && predictionsData.weather.temperature !== null) {
+        temperature = `${predictionsData.weather.temperature}°C`;
+      }
     }
-  } else {
-    console.log('[matchDataMapper] No predictions data available');
+    // Check predictions.forecast as fallback
+    else if (predictionsData.forecast) {
+      console.log('[matchDataMapper] Found forecast:', predictionsData.forecast);
+      condition = predictionsData.forecast.condition || 'N/A';
+      if (predictionsData.forecast.temperature !== undefined && predictionsData.forecast.temperature !== null) {
+        temperature = `${predictionsData.forecast.temperature}°C`;
+      }
+    }
+    // Sometimes weather info is in predictions.advice as text
+    else if (predictionsData.predictions?.advice) {
+      console.log('[matchDataMapper] Found advice:', predictionsData.predictions.advice);
+      // Advice might contain weather info, but it's just text
+      // We can't reliably parse it, so leave as N/A
+    } else {
+      console.log('[matchDataMapper] No weather data found in predictions');
+    }
   }
 
-  return {
+  const result = {
     venue: {
-      name: matchData.fixture.venue.name || 'Unknown Venue',
-      location: matchData.fixture.venue.city || 'Unknown City',
+      name: venueName,
+      location: venueCity,
       capacity,
       surface,
     },
@@ -320,6 +363,9 @@ export const extractVenueAndWeather = (predictionsData: any, matchData: Football
       temperature,
     },
   };
+
+  console.log('[matchDataMapper] Extracted venue/weather:', result);
+  return result;
 };
 
 /**
