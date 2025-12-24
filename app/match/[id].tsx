@@ -58,16 +58,22 @@ const ALL_TABS: { id: TabType; label: string }[] = [
   { id: 'power', label: 'POWER' },
 ];
 
-// Tab configuration per match status
+// Tab configuration per match status (based on user requirements)
 const TABS_BY_STATUS: Record<MatchStatus, TabType[]> = {
   // Upcoming Match (NS - Not Started)
-  upcoming: ['predictions', 'h2h', 'details', 'table', 'power', 'lineups'],
+  // ✅ Show: PREDICTIONS, LINEUP, H2H, STANDINGS, POWER, DETAILS
+  // ❌ Hide: Summary, Stats, Commentary
+  upcoming: ['predictions', 'lineups', 'h2h', 'table', 'power', 'details'],
   
   // Live Match (1H, 2H, HT, ET, etc.)
-  live: ['summary', 'stats', 'commentary', 'power', 'lineups', 'table', 'details'],
+  // ✅ Show: SUMMARY, STATS, LINEUP, COMMENTARY, H2H, STANDINGS, POWER, DETAILS
+  // ❌ Hide: Predictions
+  live: ['summary', 'stats', 'lineups', 'commentary', 'h2h', 'table', 'power', 'details'],
   
-  // Finished Match (FT, AET, PEN)
-  finished: ['summary', 'stats', 'lineups', 'h2h', 'table', 'details'],
+  // Completed Match (FT, AET, PEN)
+  // ✅ Show: SUMMARY, STATS, LINEUP, COMMENTARY, H2H, STANDINGS, DETAILS
+  // ❌ Hide: Predictions, Power
+  finished: ['summary', 'stats', 'lineups', 'commentary', 'h2h', 'table', 'details'],
 };
 
 // Default tabs for each status (first tab in the list)
@@ -148,7 +154,14 @@ export default function MatchDetailsScreen() {
 
   // Determine match status and available tabs
   const matchStatus = useMemo(() => {
-    return getMatchStatus(matchData?.fixture?.status?.short);
+    const status = getMatchStatus(matchData?.fixture?.status?.short);
+    console.log('[MatchDetails] Status detection:', {
+      statusShort: matchData?.fixture?.status?.short,
+      statusLong: matchData?.fixture?.status?.long,
+      elapsed: matchData?.fixture?.status?.elapsed,
+      detectedStatus: status,
+    });
+    return status;
   }, [matchData?.fixture?.status?.short]);
 
   const availableTabs = useMemo(() => {
@@ -1866,9 +1879,16 @@ export default function MatchDetailsScreen() {
           </View>
 
           <View style={styles.scoreContainer}>
-            <Text style={[styles.scoreText, { color: isDark ? '#ffffff' : '#18223A' }]}>
-              {match.homeScore} - {match.awayScore}
-            </Text>
+            {/* Show "vs" for upcoming, score for live/finished */}
+            {matchStatus === 'upcoming' ? (
+              <Text style={[styles.scoreText, { color: isDark ? '#ffffff' : '#18223A', fontSize: 32 }]}>
+                vs
+              </Text>
+            ) : (
+              <Text style={[styles.scoreText, { color: isDark ? '#ffffff' : '#18223A' }]}>
+                {match.homeScore} - {match.awayScore}
+              </Text>
+            )}
             {/* Dynamic Match Status Display */}
             {renderMatchStatus()}
           </View>
