@@ -1,14 +1,12 @@
 import { GoalPowerChart, TeamBalanceChart, TeamPowerChart } from '@/components/charts';
 import { useTheme } from '@/context/ThemeContext';
 import { CommentaryItem, getMatchCommentary } from '@/mock/matchCommentary';
-import { getMatchDetails } from '@/mock/matchDetails';
-import { getH2HData, H2HMatch } from '@/mock/matchH2H';
-import { getMatchLineups, getRatingColor, Player } from '@/mock/matchLineups';
+import { H2HMatch } from '@/mock/matchH2H';
+import { getRatingColor, Player } from '@/mock/matchLineups';
 import { getMatchPowerData } from '@/mock/matchPower';
 import { CHART_COLORS } from '@/mock/matchPower/constants';
-import { getMatchStats } from '@/mock/matchStats';
-import { eventLegend, EventType, getMatchSummary, MatchEvent } from '@/mock/matchSummary';
-import { getMatchTable, TeamStanding } from '@/mock/matchTable';
+import { eventLegend, EventType, MatchEvent } from '@/mock/matchSummary';
+import { TeamStanding } from '@/mock/matchTable';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -28,6 +26,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMatchData } from '@/hooks/useMatchData';
 import { useUserBalance } from '@/hooks/useUserBalance';
 import { placeBet, createMatchWinnerBet } from '@/services/betApi';
+import {
+  mapLineupsToUI,
+  mapStatsToUI,
+  mapEventsToUI,
+  mapH2HToUI,
+  mapStandingsToUI,
+  extractVenueAndWeather,
+  extractOdds,
+} from '@/utils/matchDataMapper';
 
 type TabType = 'details' | 'predictions' | 'summary' | 'lineups' | 'stats' | 'h2h' | 'table' | 'power' | 'commentary';
 type BetSelection = 'home' | 'draw' | 'away' | null;
@@ -54,7 +61,17 @@ export default function MatchDetailsScreen() {
   const { theme, isDark } = useTheme();
   
   // Fetch real data from API
-  const { loading, error, matchData } = useMatchData(id || '');
+  const { 
+    loading, 
+    error, 
+    matchData,
+    lineups: lineupsData,
+    stats: statsData,
+    events: eventsData,
+    h2h: h2hData,
+    standings: standingsData,
+    predictions: predictionsData,
+  } = useMatchData(id || '');
   const { balance, refetch: refetchBalance } = useUserBalance();
   const [submitting, setSubmitting] = useState(false);
   
@@ -75,50 +92,65 @@ export default function MatchDetailsScreen() {
   const [homeScore, setHomeScore] = useState('');
   const [awayScore, setAwayScore] = useState('');
 
-  // Keep mock data for tabs that aren't integrated yet
-  const summary = getMatchSummary(id || 'default');
-  const lineups = getMatchLineups(id || 'default');
-  const stats = getMatchStats(id || 'default');
-  const h2h = getH2HData(id || 'default');
-  const table = getMatchTable(id || 'default');
+  // Keep mock data for tabs that aren't integrated yet (Commentary and Power)
   const commentary = getMatchCommentary(id || 'default');
   const powerData = getMatchPowerData(id || 'default');
 
+  // Transform API data to UI format using memoization
+  const lineups = useMemo(() => {
+    return matchData && lineupsData ? mapLineupsToUI(lineupsData, matchData) : null;
+  }, [matchData, lineupsData]);
+
+  const stats = useMemo(() => {
+    return statsData ? mapStatsToUI(statsData) : null;
+  }, [statsData]);
+
+  const summary = useMemo(() => {
+    return matchData && eventsData ? mapEventsToUI(eventsData, matchData) : null;
+  }, [matchData, eventsData]);
+
+  const h2h = useMemo(() => {
+    return matchData && h2hData ? mapH2HToUI(
+      h2hData, 
+      matchData.teams.home.name, 
+      matchData.teams.away.name
+    ) : null;
+  }, [matchData, h2hData]);
+
+  const table = useMemo(() => {
+    return standingsData ? mapStandingsToUI(standingsData) : [];
+  }, [standingsData]);
+
   // Transform API data to match UI expectations (with null checks)
-  const match = matchData ? {
-    id: matchData.fixture.id,
-    homeTeam: {
-      name: matchData.teams.home.name,
-      logo: matchData.teams.home.logo,
-    },
-    awayTeam: {
-      name: matchData.teams.away.name,
-      logo: matchData.teams.away.logo,
-    },
-    homeScore: matchData.goals.home ?? 0,
-    awayScore: matchData.goals.away ?? 0,
-    league: matchData.league.name,
-    date: new Date(matchData.fixture.date).toLocaleDateString(),
-    matchTime: matchData.fixture.status.short === 'FT' ? 'FT' : 
-               matchData.fixture.status.short === 'NS' ? new Date(matchData.fixture.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) :
-               `${matchData.fixture.status.elapsed || 0}'`,
-    venue: {
-      name: matchData.fixture.venue.name || 'Unknown Venue',
-      location: matchData.fixture.venue.city || 'Unknown City',
-      capacity: 'N/A',
-      surface: 'N/A',
-    },
-    weather: {
-      condition: 'N/A',
-      temperature: 'N/A',
-    },
-    odds: {
-      home: 1.85,
-      draw: 3.40,
-      away: 2.10,
-    },
-    isFavorite: isFavorite,
-  } : null;
+  const match = useMemo(() => {
+    if (!matchData) return null;
+
+    const venueWeather = extractVenueAndWeather(predictionsData, matchData);
+    const odds = extractOdds(predictionsData);
+
+    return {
+      id: matchData.fixture.id,
+      homeTeam: {
+        name: matchData.teams.home.name,
+        logo: matchData.teams.home.logo,
+      },
+      awayTeam: {
+        name: matchData.teams.away.name,
+        logo: matchData.teams.away.logo,
+      },
+      homeScore: matchData.goals.home ?? 0,
+      awayScore: matchData.goals.away ?? 0,
+      league: matchData.league.name,
+      date: new Date(matchData.fixture.date).toLocaleDateString(),
+      matchTime: matchData.fixture.status.short === 'FT' ? 'FT' : 
+                 matchData.fixture.status.short === 'NS' ? new Date(matchData.fixture.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) :
+                 `${matchData.fixture.status.elapsed || 0}'`,
+      venue: venueWeather.venue,
+      weather: venueWeather.weather,
+      odds,
+      isFavorite: isFavorite,
+    };
+  }, [matchData, predictionsData, isFavorite]);
 
   const potentialWinnings = useMemo(() => {
     if (!stake || !betSelection || !match) return 0;
@@ -788,6 +820,18 @@ export default function MatchDetailsScreen() {
   };
 
   const renderSummaryTab = () => {
+    // Show empty state if no summary data
+    if (!summary || !summary.events || summary.events.length === 0) {
+      return (
+        <View style={[styles.summaryContainer, { justifyContent: 'center', alignItems: 'center', paddingVertical: 48 }]}>
+          <MaterialCommunityIcons name="timeline-alert" size={48} color={isDark ? '#9ca3af' : '#6B7280'} />
+          <Text style={{ color: isDark ? '#9ca3af' : '#6B7280', marginTop: 16, fontSize: 14 }}>
+            No match events available
+          </Text>
+        </View>
+      );
+    }
+
     // Split events into first half and second half
     const firstHalfEvents = summary.events.filter((e) => {
       const time = parseInt(e.time.replace("'", '').replace('+', ''));
@@ -903,6 +947,18 @@ export default function MatchDetailsScreen() {
   );
 
   const renderLineupsTab = () => {
+    // Show empty state if no lineup data
+    if (!lineups || !lineups.homeTeam || !lineups.awayTeam) {
+      return (
+        <View style={[styles.lineupsContainer, { justifyContent: 'center', alignItems: 'center', paddingVertical: 48 }]}>
+          <MaterialCommunityIcons name="account-group-outline" size={48} color={isDark ? '#9ca3af' : '#6B7280'} />
+          <Text style={{ color: isDark ? '#9ca3af' : '#6B7280', marginTop: 16, fontSize: 14 }}>
+            Lineups not available yet
+          </Text>
+        </View>
+      );
+    }
+
     const { homeTeam, awayTeam } = lineups;
 
     return (
@@ -1034,6 +1090,18 @@ export default function MatchDetailsScreen() {
   };
 
   const renderStatsTab = () => {
+    // Show empty state if no stats data
+    if (!stats) {
+      return (
+        <View style={[styles.statsContainer, { justifyContent: 'center', alignItems: 'center', paddingVertical: 48 }]}>
+          <MaterialCommunityIcons name="chart-bar" size={48} color={isDark ? '#9ca3af' : '#6B7280'} />
+          <Text style={{ color: isDark ? '#9ca3af' : '#6B7280', marginTop: 16, fontSize: 14 }}>
+            Match statistics not available
+          </Text>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.statsContainer}>
         {/* TOP STATS Card */}
@@ -1151,6 +1219,18 @@ export default function MatchDetailsScreen() {
   );
 
   const renderH2HTab = () => {
+    // Show empty state if no H2H data
+    if (!h2h || !h2h.matches || h2h.matches.length === 0) {
+      return (
+        <View style={[styles.h2hContainer, { justifyContent: 'center', alignItems: 'center', paddingVertical: 48 }]}>
+          <MaterialCommunityIcons name="history" size={48} color={isDark ? '#9ca3af' : '#6B7280'} />
+          <Text style={{ color: isDark ? '#9ca3af' : '#6B7280', marginTop: 16, fontSize: 14 }}>
+            No head-to-head data available
+          </Text>
+        </View>
+      );
+    }
+
     const total = h2h.stats.homeWins + h2h.stats.draws + h2h.stats.awayWins;
     const homePercent = total > 0 ? (h2h.stats.homeWins / total) * 100 : 0;
     const drawPercent = total > 0 ? (h2h.stats.draws / total) * 100 : 0;
@@ -1321,6 +1401,18 @@ export default function MatchDetailsScreen() {
   };
 
   const renderTableTab = () => {
+    // Show empty state if no standings data
+    if (!table || table.length === 0) {
+      return (
+        <View style={[styles.tableContainer, { justifyContent: 'center', alignItems: 'center', paddingVertical: 48 }]}>
+          <MaterialCommunityIcons name="table" size={48} color={isDark ? '#9ca3af' : '#6B7280'} />
+          <Text style={{ color: isDark ? '#9ca3af' : '#6B7280', marginTop: 16, fontSize: 14 }}>
+            Standings not available
+          </Text>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.tableContainer}>
         {/* Table Card */}
