@@ -50,30 +50,63 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
       setLoading(true);
       setError(null);
 
+      console.log('[useMatchData] Fetching fixture details for ID:', fixtureId);
+
       // Fetch main fixture data first
       const fixture = await getFixtureDetails(fixtureId);
+      
+      // DEFENSIVE: Check if fixture data is valid
+      if (!fixture || !fixture.teams || !fixture.league) {
+        console.error('[useMatchData] Invalid fixture data returned:', fixture);
+        setError('Failed to load match data - invalid response from server');
+        setLoading(false);
+        return;
+      }
+
+      console.log('[useMatchData] Fixture loaded successfully:', fixture.teams.home.name, 'vs', fixture.teams.away.name);
       setMatchData(fixture);
 
-      // Extract team and league IDs for subsequent calls
-      const homeTeamId = fixture.teams.home.id;
-      const awayTeamId = fixture.teams.away.id;
-      const leagueId = fixture.league.id;
-      const season = fixture.league.season;
+      // Extract team and league IDs for subsequent calls (with defensive checks)
+      const homeTeamId = fixture.teams?.home?.id;
+      const awayTeamId = fixture.teams?.away?.id;
+      const leagueId = fixture.league?.id;
+      const season = fixture.league?.season;
+
+      // Validate required IDs
+      if (!homeTeamId || !awayTeamId || !leagueId || !season) {
+        console.warn('[useMatchData] Some IDs are missing, fetching available data only');
+      }
 
       // Fetch all other data in parallel
       console.log('[useMatchData] Fetching additional data for fixture:', fixtureId);
       console.log('[useMatchData] Home team ID:', homeTeamId, 'Away team ID:', awayTeamId);
       console.log('[useMatchData] League ID:', leagueId, 'Season:', season);
 
+      // Build promises array based on what IDs we have
+      const promises: Promise<any>[] = [
+        getFixtureLineups(fixtureId),
+        getFixtureStatistics(fixtureId),
+        getFixtureEvents(fixtureId),
+      ];
+
+      // Only fetch H2H if we have both team IDs
+      if (homeTeamId && awayTeamId) {
+        promises.push(getHeadToHead(homeTeamId, awayTeamId));
+      } else {
+        promises.push(Promise.resolve(null));
+      }
+
+      // Only fetch standings if we have league info
+      if (leagueId && season) {
+        promises.push(getStandings(leagueId, season));
+      } else {
+        promises.push(Promise.resolve(null));
+      }
+
+      promises.push(getPredictions(fixtureId));
+
       const [lineupsData, statsData, eventsData, h2hData, standingsData, predictionsData] =
-        await Promise.allSettled([
-          getFixtureLineups(fixtureId),
-          getFixtureStatistics(fixtureId),
-          getFixtureEvents(fixtureId),
-          getHeadToHead(homeTeamId, awayTeamId),
-          getStandings(leagueId, season),
-          getPredictions(fixtureId),
-        ]);
+        await Promise.allSettled(promises);
 
       // Log results of each API call
       console.log('[useMatchData] Lineups:', lineupsData.status, lineupsData.status === 'fulfilled' ? `${lineupsData.value?.length || 0} items` : lineupsData.reason?.message);
@@ -91,7 +124,7 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
       if (standingsData.status === 'fulfilled') setStandings(standingsData.value);
       if (predictionsData.status === 'fulfilled') setPredictions(predictionsData.value);
     } catch (err: any) {
-      console.error('Error fetching match data:', err);
+      console.error('[useMatchData] Error fetching match data:', err);
       setError(err.response?.data?.message || err.message || 'Failed to fetch match data');
     } finally {
       setLoading(false);

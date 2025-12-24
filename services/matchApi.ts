@@ -19,11 +19,25 @@ export interface FootballApiResponse<T> {
  * Get fixture details by ID
  */
 export const getFixtureDetails = async (fixtureId: string | number) => {
+  console.log('[matchApi] Fetching fixture details for ID:', fixtureId);
+  
   const response = await api.get<FootballApiResponse<FootballApiFixture>>(
     `/football/fixtures`,
     { params: { id: fixtureId } }
   );
-  return response.data.response[0]; // Return first result
+  
+  console.log('[matchApi] Fixture response:', response.data);
+  
+  // Defensive: Check if response has data
+  if (!response.data || !response.data.response || response.data.response.length === 0) {
+    console.error('[matchApi] No fixture data returned for ID:', fixtureId);
+    throw new Error(`No fixture data found for ID: ${fixtureId}`);
+  }
+  
+  const fixture = response.data.response[0];
+  console.log('[matchApi] Fixture loaded:', fixture?.teams?.home?.name, 'vs', fixture?.teams?.away?.name);
+  
+  return fixture;
 };
 
 /**

@@ -95,7 +95,8 @@ export default function HomeScreen() {
       }
 
       const match: UIMatch = {
-        id: fixture.id,
+        // Use the Football-API fixture ID, not the backend database ID
+        id: rawJson.fixture.id,
         homeTeam: {
           name: rawJson.teams.home.name,
           logo: rawJson.teams.home.logo,
