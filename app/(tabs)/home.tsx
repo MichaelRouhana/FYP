@@ -5,10 +5,12 @@ import {
 import { useTheme } from '@/context/ThemeContext';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,36 +31,58 @@ export default function HomeScreen() {
   const [expandedLeagues, setExpandedLeagues] = useState<Set<string>>(new Set());
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [leagues, setLeagues] = useState<UILeague[]>([]);
 
   const dates = useMemo(() => generateDates(), []);
 
-  // Fetch fixtures from backend
+  // Fetch fixtures from backend on initial load
   useEffect(() => {
     fetchFixtures();
   }, []);
 
-  const fetchFixtures = async () => {
+  // Refresh when screen comes into focus (navigating back to Home)
+  useFocusEffect(
+    useCallback(() => {
+      // Only refresh if we already have data (not initial load)
+      if (leagues.length > 0) {
+        fetchFixtures(true); // Silent refresh
+      }
+    }, [leagues.length])
+  );
+
+  const fetchFixtures = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
+      
       const response = await api.get<FixtureViewDTO[]>('/fixtures/public');
       const fixtures = response.data;
+      
+      console.log(`[HomeScreen] Fetched ${fixtures.length} fixtures`);
       
       // Transform backend data to UI format
       const transformedLeagues = transformFixturesToLeagues(fixtures);
       setLeagues(transformedLeagues);
       
-      // Auto-expand first league if any exist
-      if (transformedLeagues.length > 0) {
+      // Auto-expand first league if any exist (only on initial load)
+      if (!silent && transformedLeagues.length > 0) {
         setExpandedLeagues(new Set([String(transformedLeagues[0].id)]));
       }
     } catch (error) {
       console.error('Failed to fetch fixtures:', error);
-      // Optionally show error to user
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
+
+  // Pull-to-refresh handler
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchFixtures(true);
+  }, []);
 
   // Transform FixtureViewDTO[] to UILeague[]
   const transformFixturesToLeagues = (fixtures: FixtureViewDTO[]): UILeague[] => {
@@ -423,6 +447,14 @@ export default function HomeScreen() {
         style={styles.leaguesScrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.leaguesContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
+          />
+        }
       >
         {loading ? (
           <View style={styles.loadingContainer}>
