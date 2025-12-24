@@ -80,7 +80,8 @@ export default function BiddingScreen() {
   };
 
   const renderBidCard = (bid: any) => {
-    const timeparts = bid.matchTime.split(' ');
+    // Defensive: handle null matchTime
+    const timeparts = (bid.matchTime || '').split(' ');
     return (
       <TouchableOpacity
         key={bid.id}

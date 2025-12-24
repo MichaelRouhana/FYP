@@ -28,10 +28,17 @@ export const getFixtureDetails = async (fixtureId: string | number) => {
   
   console.log('[matchApi] Fixture response:', response.data);
   
+  // Check for API errors (rate limiting, etc.)
+  if (response.data?.errors && Object.keys(response.data.errors).length > 0) {
+    const errorMessage = Object.values(response.data.errors)[0] as string;
+    console.error('[matchApi] API Error:', errorMessage);
+    throw new Error(errorMessage || 'API request failed');
+  }
+  
   // Defensive: Check if response has data
   if (!response.data || !response.data.response || response.data.response.length === 0) {
     console.error('[matchApi] No fixture data returned for ID:', fixtureId);
-    throw new Error(`No fixture data found for ID: ${fixtureId}`);
+    throw new Error(`Match not found. Please try again later.`);
   }
   
   const fixture = response.data.response[0];
@@ -49,8 +56,8 @@ export const getFixtureLineups = async (fixtureId: string | number) => {
     `/football/fixtures/lineups`,
     { params: { fixture: fixtureId } }
   );
-  console.log('[matchApi] Lineups response:', response.data?.response?.length, 'items');
-  return response.data.response;
+  console.log('[matchApi] Lineups response:', response.data?.response?.length || 0, 'items');
+  return response.data?.response || [];
 };
 
 /**
@@ -62,8 +69,8 @@ export const getFixtureStatistics = async (fixtureId: string | number) => {
     `/football/fixtures/statistics`,
     { params: { fixture: fixtureId } }
   );
-  console.log('[matchApi] Statistics response:', response.data?.response?.length, 'items');
-  return response.data.response;
+  console.log('[matchApi] Statistics response:', response.data?.response?.length || 0, 'items');
+  return response.data?.response || [];
 };
 
 /**
@@ -75,8 +82,8 @@ export const getFixtureEvents = async (fixtureId: string | number) => {
     `/football/fixtures/events`,
     { params: { fixture: fixtureId } }
   );
-  console.log('[matchApi] Events response:', response.data?.response?.length, 'items');
-  return response.data.response;
+  console.log('[matchApi] Events response:', response.data?.response?.length || 0, 'items');
+  return response.data?.response || [];
 };
 
 /**
@@ -88,8 +95,8 @@ export const getHeadToHead = async (homeTeamId: number, awayTeamId: number) => {
     `/football/fixtures/headtohead`,
     { params: { h2h: `${homeTeamId}-${awayTeamId}` } }
   );
-  console.log('[matchApi] H2H response:', response.data?.response?.length, 'matches');
-  return response.data.response;
+  console.log('[matchApi] H2H response:', response.data?.response?.length || 0, 'matches');
+  return response.data?.response || [];
 };
 
 /**
@@ -101,8 +108,8 @@ export const getStandings = async (leagueId: number, season: number) => {
     `/football/standings`,
     { params: { league: leagueId, season } }
   );
-  console.log('[matchApi] Standings response:', response.data?.response?.length, 'items');
-  return response.data.response;
+  console.log('[matchApi] Standings response:', response.data?.response?.length || 0, 'items');
+  return response.data?.response || [];
 };
 
 /**
@@ -114,7 +121,8 @@ export const getPredictions = async (fixtureId: string | number) => {
     `/football/fixtures/predictions`,
     { params: { fixture: fixtureId } }
   );
-  console.log('[matchApi] Predictions response:', response.data?.response ? 'success' : 'empty');
-  return response.data.response[0];
+  console.log('[matchApi] Predictions response:', response.data?.response?.length || 0, 'items');
+  // Defensive: Return first item or null if empty
+  return response.data?.response?.[0] || null;
 };
 

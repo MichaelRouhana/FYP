@@ -196,21 +196,35 @@ export default function MatchDetailsScreen() {
 
   // Show error state
   if (error || !matchData || !match) {
+    // Check if it's a rate limit error
+    const isRateLimitError = error?.toLowerCase().includes('limit') || error?.toLowerCase().includes('request');
+    
     return (
       <View style={[styles.container, { paddingTop: insets.top, backgroundColor: isDark ? '#080C17' : '#F3F4F6', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 }]}>
-        <MaterialCommunityIcons name="alert-circle-outline" size={64} color={isDark ? '#9ca3af' : '#6B7280'} />
-        <Text style={{ color: isDark ? '#ffffff' : '#18223A', marginTop: 16, fontSize: 16, textAlign: 'center' }}>
-          Failed to load match data
+        <MaterialCommunityIcons 
+          name={isRateLimitError ? "clock-alert-outline" : "alert-circle-outline"} 
+          size={64} 
+          color={isDark ? '#9ca3af' : '#6B7280'} 
+        />
+        <Text style={{ color: isDark ? '#ffffff' : '#18223A', marginTop: 16, fontSize: 16, textAlign: 'center', fontWeight: 'bold' }}>
+          {isRateLimitError ? 'API Limit Reached' : 'Failed to load match data'}
         </Text>
         <Text style={{ color: isDark ? '#9ca3af' : '#6B7280', marginTop: 8, fontSize: 14, textAlign: 'center' }}>
           {error || 'Please try again later'}
         </Text>
-        <TouchableOpacity 
-          style={{ marginTop: 24, backgroundColor: '#22c55e', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 }}
-          onPress={() => router.back()}
-        >
-          <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: 'bold' }}>Go Back</Text>
-        </TouchableOpacity>
+        {isRateLimitError && (
+          <Text style={{ color: isDark ? '#6b7280' : '#9ca3af', marginTop: 8, fontSize: 12, textAlign: 'center' }}>
+            The API has a daily request limit. Try again tomorrow or upgrade your plan.
+          </Text>
+        )}
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
+          <TouchableOpacity 
+            style={{ backgroundColor: isDark ? '#1f2937' : '#e5e7eb', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 }}
+            onPress={() => router.back()}
+          >
+            <Text style={{ color: isDark ? '#ffffff' : '#18223A', fontSize: 14, fontWeight: 'bold' }}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
