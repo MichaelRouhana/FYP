@@ -21,7 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '@/services/api';
 import { FixtureViewDTO, UILeague, UIMatch } from '@/types/fixture';
 
-type FilterType = 'all' | 'live' | 'upcoming' | 'finished';
+type FilterType = 'all' | 'live' | 'upcoming';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -156,38 +156,16 @@ export default function HomeScreen() {
     return Array.from(leagueMap.values());
   };
 
-  // Get the actual date object for the selected date
-  const selectedDateObj = useMemo(() => {
-    const dateOption = dates.find(d => d.id === selectedDate);
-    return dateOption?.date || new Date();
-  }, [selectedDate, dates]);
-
   const filteredLeagues = useMemo(() => {
-    // Helper to check if a match date matches the selected date
-    const isSameDay = (matchDateStr: string, targetDate: Date): boolean => {
-      const matchDate = new Date(matchDateStr);
-      return (
-        matchDate.getFullYear() === targetDate.getFullYear() &&
-        matchDate.getMonth() === targetDate.getMonth() &&
-        matchDate.getDate() === targetDate.getDate()
-      );
-    };
-
+    if (selectedFilter === 'all') return leagues;
+    
     return leagues
       .map((league) => ({
         ...league,
-        matches: league.matches.filter((match) => {
-          // First filter by date
-          const matchesDate = isSameDay(match.date, selectedDateObj);
-          if (!matchesDate) return false;
-          
-          // Then filter by status (all/live/upcoming)
-          if (selectedFilter === 'all') return true;
-          return match.status === selectedFilter;
-        }),
+        matches: league.matches.filter((match) => match.status === selectedFilter),
       }))
       .filter((league) => league.matches.length > 0);
-  }, [leagues, selectedFilter, selectedDateObj]);
+  }, [leagues, selectedFilter]);
 
   const toggleLeague = useCallback((leagueId: number) => {
     const leagueIdStr = String(leagueId);
@@ -460,22 +438,6 @@ export default function HomeScreen() {
             selectedFilter === 'upcoming' && { color: theme.colors.primaryText }
           ]}>
             UPCOMING
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterTab, 
-            { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
-            selectedFilter === 'finished' && { backgroundColor: theme.colors.primary }
-          ]}
-          onPress={() => setSelectedFilter('finished')}
-        >
-          <Text style={[
-            styles.filterText, 
-            { color: theme.colors.text },
-            selectedFilter === 'finished' && { color: theme.colors.primaryText }
-          ]}>
-            FINISHED
           </Text>
         </TouchableOpacity>
       </View>
