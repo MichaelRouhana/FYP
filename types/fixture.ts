@@ -104,6 +104,7 @@ export interface UIMatch {
   };
   time: string;
   status: 'upcoming' | 'live' | 'finished';
+  statusShort?: string; // e.g., 'PST', 'FT', 'NS', '1H', etc.
   homeScore?: number;
   awayScore?: number;
   betsCount: number;

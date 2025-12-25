@@ -131,6 +131,7 @@ export default function HomeScreen() {
         },
         time: timeDisplay,
         status,
+        statusShort: statusShort, // Include statusShort for postponed detection
         homeScore: rawJson.goals.home ?? undefined,
         awayScore: rawJson.goals.away ?? undefined,
         betsCount: fixture.bets,
@@ -259,7 +260,12 @@ export default function HomeScreen() {
               <Text style={[styles.liveText, { color: '#ffffff' }]}>LIVE</Text>
             </View>
           ) : (
-            <Text style={[styles.matchTime, { color: theme.colors.textSecondary }]}>{match.time}</Text>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={[styles.matchTime, { color: theme.colors.textSecondary }]}>{match.time}</Text>
+              {match.statusShort === 'PST' && (
+                <Text style={{ color: '#ef4444', fontSize: 10, marginTop: 2 }}>Postponed</Text>
+              )}
+            </View>
           )}
         </View>
 
