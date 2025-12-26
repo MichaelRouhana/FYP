@@ -1,10 +1,12 @@
 import { InfoCard, StatRow, StatSection } from '@/components/player';
 import { useTheme } from '@/context/ThemeContext';
-import { getPlayerData } from '@/mock/playerData';
+import api from '@/services/api';
+import { PlayerStats } from '@/types/player';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
     Image,
     ScrollView,
     StyleSheet,
@@ -20,10 +22,214 @@ export default function PlayerDetailsScreen() {
   const { theme, isDark } = useTheme();
   const playerId = typeof id === 'string' ? id : 'default';
   const [isFavorite, setIsFavorite] = useState(false);
-  
-  const playerData = getPlayerData(playerId);
+  const [loading, setLoading] = useState(true);
+  const [playerData, setPlayerData] = useState<PlayerStats | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchPlayerData = async () => {
+      if (!playerId || playerId === 'default') {
+        setError('Invalid player ID');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Try season 2025 first, fallback to 2023
+        let response;
+        try {
+          response = await api.get(`/football/players?id=${playerId}&season=2025`);
+        } catch (e) {
+          // Fallback to 2023 if 2025 fails
+          response = await api.get(`/football/players?id=${playerId}&season=2023`);
+        }
+
+        const apiData = response.data;
+        
+        // API-Sports structure: response.data.response[0]
+        if (!apiData?.response || !Array.isArray(apiData.response) || apiData.response.length === 0) {
+          setError('Player data not found');
+          setLoading(false);
+          return;
+        }
+
+        const playerResponse = apiData.response[0];
+        
+        // Extract player info
+        const playerInfo = playerResponse.player;
+        if (!playerInfo) {
+          setError('Player information not available');
+          setLoading(false);
+          return;
+        }
+
+        // Extract statistics (take first one or filter by league if needed)
+        const statisticsArray = playerResponse.statistics || [];
+        if (statisticsArray.length === 0) {
+          setError('Player statistics not available');
+          setLoading(false);
+          return;
+        }
+
+        // Map API response to PlayerStats type
+        const mappedData: PlayerStats = {
+          player: {
+            id: playerInfo.id ?? 0,
+            name: playerInfo.name ?? 'Unknown',
+            firstname: playerInfo.firstname ?? '',
+            lastname: playerInfo.lastname ?? '',
+            age: playerInfo.age ?? 0,
+            birth: {
+              date: playerInfo.birth?.date ?? 'N/A',
+              place: playerInfo.birth?.place ?? 'N/A',
+              country: playerInfo.birth?.country ?? 'N/A',
+            },
+            nationality: playerInfo.nationality ?? 'N/A',
+            height: playerInfo.height ?? 'N/A',
+            weight: playerInfo.weight ?? 'N/A',
+            photo: playerInfo.photo ?? '',
+            position: playerInfo.position ?? 'N/A',
+          },
+          statistics: statisticsArray.map((stat: any) => ({
+            team: {
+              id: stat.team?.id ?? 0,
+              name: stat.team?.name ?? 'Unknown',
+              logo: stat.team?.logo ?? '',
+            },
+            league: {
+              name: stat.league?.name ?? 'Unknown',
+              season: stat.league?.season ?? new Date().getFullYear(),
+            },
+            games: {
+              appearences: stat.games?.appearences ?? 0,
+              lineups: stat.games?.lineups ?? 0,
+              minutes: stat.games?.minutes ?? 0,
+              rating: stat.games?.rating ?? '0.0',
+            },
+            shots: {
+              total: stat.shots?.total ?? 0,
+              on: stat.shots?.on ?? 0,
+            },
+            goals: {
+              total: stat.goals?.total ?? 0,
+              assists: stat.goals?.assists ?? 0,
+              saves: stat.goals?.saves ?? 0,
+              conceded: stat.goals?.conceded ?? 0,
+            },
+            passes: {
+              total: stat.passes?.total ?? 0,
+              key: stat.passes?.key ?? 0,
+              accuracy: stat.passes?.accuracy ?? 0,
+            },
+            tackles: {
+              total: stat.tackles?.total ?? 0,
+              blocks: stat.tackles?.blocks ?? 0,
+              interceptions: stat.tackles?.interceptions ?? 0,
+            },
+            duels: {
+              total: stat.duels?.total ?? 0,
+              won: stat.duels?.won ?? 0,
+            },
+            dribbles: {
+              attempts: stat.dribbles?.attempts ?? 0,
+              success: stat.dribbles?.success ?? 0,
+            },
+            fouls: {
+              drawn: stat.fouls?.drawn ?? 0,
+              committed: stat.fouls?.committed ?? 0,
+            },
+            cards: {
+              yellow: stat.cards?.yellow ?? 0,
+              yellowred: stat.cards?.yellowred ?? 0,
+              red: stat.cards?.red ?? 0,
+            },
+            penalty: {
+              won: stat.penalty?.won ?? 0,
+              commited: stat.penalty?.commited ?? 0,
+              scored: stat.penalty?.scored ?? 0,
+              missed: stat.penalty?.missed ?? 0,
+              saved: stat.penalty?.saved ?? 0,
+            },
+            substitutes: {
+              in: stat.substitutes?.in ?? 0,
+              out: stat.substitutes?.out ?? 0,
+              bench: stat.substitutes?.bench ?? 0,
+            },
+          })),
+        };
+
+        setPlayerData(mappedData);
+      } catch (err: any) {
+        console.error('Error fetching player data:', err);
+        setError(err.response?.data?.error || err.message || 'Failed to load player data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPlayerData();
+  }, [playerId]);
+
+  // Show loading indicator
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+        <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+            <Feather name="chevron-left" size={24} color={theme.colors.icon} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading player data...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Show error state
+  if (error || !playerData) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+        <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+            <Feather name="chevron-left" size={24} color={theme.colors.icon} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.loadingContainer}>
+          <MaterialCommunityIcons name="alert-circle-outline" size={48} color={theme.colors.textSecondary} />
+          <Text style={[styles.loadingText, { color: theme.colors.textSecondary, marginTop: 16 }]}>
+            {error || 'Player not found'}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const { player, statistics } = playerData;
-  const stats = statistics[0]; // Get first season stats
+  const stats = statistics?.[0]; // Get first season stats
+
+  // Safety check: if no stats available, show message
+  if (!stats) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+        <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+            <Feather name="chevron-left" size={24} color={theme.colors.icon} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.loadingContainer}>
+          <MaterialCommunityIcons name="information-outline" size={48} color={theme.colors.textSecondary} />
+          <Text style={[styles.loadingText, { color: theme.colors.textSecondary, marginTop: 16 }]}>
+            Player statistics not available
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
@@ -296,6 +502,17 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontFamily: 'Montserrat_500Medium',
+    marginTop: 16,
   },
 });
 
