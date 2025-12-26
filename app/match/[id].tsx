@@ -10,7 +10,7 @@ import { TeamStanding } from '@/mock/matchTable';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -27,6 +27,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMatchData } from '@/hooks/useMatchData';
 import { useUserBalance } from '@/hooks/useUserBalance';
 import { placeBet, createMatchWinnerBet } from '@/services/betApi';
+import { getFixtureInjuries } from '@/services/matchApi';
+import { FootballApiInjury } from '@/types/fixture';
 import {
   mapLineupsToUI,
   mapStatsToUI,
@@ -134,6 +136,7 @@ export default function MatchDetailsScreen() {
   } = useMatchData(id || '');
   const { balance, refetch: refetchBalance } = useUserBalance();
   const [submitting, setSubmitting] = useState(false);
+  const [injuries, setInjuries] = useState<FootballApiInjury[]>([]);
   
   // All state hooks MUST be called unconditionally
   const [selectedTab, setSelectedTab] = useState<TabType>('details');
@@ -180,6 +183,21 @@ export default function MatchDetailsScreen() {
       }
     }
   }, [matchData, matchStatus, availableTabs, hasAutoSelectedTab]);
+
+  // Fetch injuries data
+  useEffect(() => {
+    const fetchInjuries = async () => {
+      if (!id) return;
+      try {
+        const injuriesData = await getFixtureInjuries(id);
+        setInjuries(injuriesData || []);
+      } catch (error) {
+        console.error('[MatchDetails] Error fetching injuries:', error);
+        setInjuries([]);
+      }
+    };
+    fetchInjuries();
+  }, [id]);
 
   // Keep mock data for tabs that aren't integrated yet (Commentary and Power)
   const commentary = getMatchCommentary(id || 'default');
@@ -1111,6 +1129,20 @@ export default function MatchDetailsScreen() {
     );
   };
 
+  // Helper function to get injury icon based on type
+  const getInjuryIcon = (type: string) => {
+    const typeLower = (type || '').toLowerCase();
+    if (typeLower.includes('out') || typeLower === 'out') {
+      return { name: 'close-circle', color: '#ef4444' }; // Red X icon
+    } else if (typeLower.includes('doubtful') || typeLower === 'doubtful') {
+      return { name: 'alert-circle', color: '#f97316' }; // Orange alert icon
+    } else if (typeLower.includes('questionable') || typeLower === 'questionable') {
+      return { name: 'help-circle', color: '#eab308' }; // Yellow question icon
+    } else {
+      return { name: 'information', color: '#6b7280' }; // Gray info icon (default)
+    }
+  };
+
   const renderPlayerNode = (player: Player) => {
     // Defensive coding: ensure player has required fields
     if (!player || !player.id || !player.name) {
@@ -1125,21 +1157,23 @@ export default function MatchDetailsScreen() {
         onPress={() => router.push(`/player/${player.id}` as any)}
         activeOpacity={0.7}
       >
-        <View style={styles.playerPhoto}>
-          {player.photo ? (
-            <Image
-              source={{ uri: player.photo }}
-              style={{ width: 40, height: 40, borderRadius: 20 }}
-              resizeMode="cover"
-            />
-          ) : (
-            <Text style={styles.playerInitial}>{player.name.charAt(0).toUpperCase()}</Text>
-          )}
-        </View>
-        <View style={[styles.playerRating, { backgroundColor: getRatingColor(player.rating || 0) }]}>
-          <Text style={styles.playerRatingText}>
-            {player.rating && player.rating > 0 ? player.rating.toFixed(1) : '--'}
-          </Text>
+        <View style={styles.playerPhotoContainer}>
+          <View style={styles.playerPhoto}>
+            {player.photo ? (
+              <Image
+                source={{ uri: player.photo }}
+                style={{ width: 40, height: 40, borderRadius: 20 }}
+                resizeMode="cover"
+              />
+            ) : (
+              <Text style={styles.playerInitial}>{player.name.charAt(0).toUpperCase()}</Text>
+            )}
+          </View>
+          <View style={[styles.playerRating, { backgroundColor: getRatingColor(player.rating || 0) }]}>
+            <Text style={styles.playerRatingText}>
+              {player.rating && player.rating > 0 ? player.rating.toFixed(1) : '--'}
+            </Text>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -1218,6 +1252,18 @@ export default function MatchDetailsScreen() {
     }
 
     const { homeTeam, awayTeam } = lineups;
+    
+    // Get coach information from raw lineups data
+    const homeCoach = lineupsData?.find((l: any) => l.team?.id === matchData?.teams?.home?.id)?.coach;
+    const awayCoach = lineupsData?.find((l: any) => l.team?.id === matchData?.teams?.away?.id)?.coach;
+    
+    // Filter injuries by team
+    const homeInjuries = injuries.filter((injury: FootballApiInjury) => 
+      injury.team?.id === matchData?.teams?.home?.id
+    );
+    const awayInjuries = injuries.filter((injury: FootballApiInjury) => 
+      injury.team?.id === matchData?.teams?.away?.id
+    );
 
     return (
       <View style={styles.lineupsContainer}>
@@ -1286,16 +1332,198 @@ export default function MatchDetailsScreen() {
           <Text style={[styles.teamLineupFormation, { color: isDark ? '#B4B4B4' : '#6B7280' }]}>{homeTeam.formation}</Text>
         </View>
 
+        {/* Referee Section */}
+        {matchData?.fixture?.referee && (
+          <View style={[styles.refereesSection, {
+            backgroundColor: isDark ? '#111828' : '#FFFFFF',
+            borderWidth: isDark ? 0 : 1,
+            borderColor: '#18223A',
+          }]}>
+            <Text style={[styles.sectionTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>REFEREE</Text>
+            <View style={[styles.refereeCard, {
+              backgroundColor: isDark ? '#1f2937' : '#F9FAFB',
+              borderColor: isDark ? '#374151' : '#E5E7EB',
+            }]}>
+              <Text style={[styles.refereeName, { color: isDark ? '#ffffff' : '#18223A' }]}>
+                {matchData.fixture.referee}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Managers Section */}
+        {(homeCoach || awayCoach) && (
+          <View style={[styles.managersSection, {
+            backgroundColor: isDark ? '#111828' : '#FFFFFF',
+            borderWidth: isDark ? 0 : 1,
+            borderColor: '#18223A',
+          }]}>
+            <Text style={[styles.sectionTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>MANAGERS</Text>
+            <View style={styles.managersRow}>
+              <View style={[styles.managerCard, { 
+                flex: 1,
+                backgroundColor: isDark ? '#1f2937' : '#F9FAFB',
+                borderColor: isDark ? '#374151' : '#E5E7EB',
+              }]}>
+                {homeCoach?.photo ? (
+                  <Image
+                    source={{ uri: homeCoach.photo }}
+                    style={styles.managerPhoto}
+                    defaultSource={require('@/images/SerieA.jpg')}
+                  />
+                ) : (
+                  <View style={[styles.managerPhoto, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                    <MaterialCommunityIcons name="account" size={24} color={isDark ? '#9ca3af' : '#6B7280'} />
+                  </View>
+                )}
+                <Text style={[styles.managerName, { color: isDark ? '#ffffff' : '#18223A' }]}>
+                  {homeCoach?.name || 'N/A'}
+                </Text>
+              </View>
+              <View style={[styles.managerCard, { 
+                flex: 1,
+                backgroundColor: isDark ? '#1f2937' : '#F9FAFB',
+                borderColor: isDark ? '#374151' : '#E5E7EB',
+              }]}>
+                {awayCoach?.photo ? (
+                  <Image
+                    source={{ uri: awayCoach.photo }}
+                    style={styles.managerPhoto}
+                    defaultSource={require('@/images/SerieA.jpg')}
+                  />
+                ) : (
+                  <View style={[styles.managerPhoto, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                    <MaterialCommunityIcons name="account" size={24} color={isDark ? '#9ca3af' : '#6B7280'} />
+                  </View>
+                )}
+                <Text style={[styles.managerName, { color: isDark ? '#ffffff' : '#18223A' }]}>
+                  {awayCoach?.name || 'N/A'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Substitutes Section */}
         <View style={styles.substitutesSection}>
           <Text style={[styles.substitutesTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>SUBSTITUTES</Text>
           <View style={styles.substitutesGrid}>
-            {[...(homeTeam.substitutes || []), ...(awayTeam.substitutes || [])]
-              .slice(0, 6)
-              .map(renderSubstituteCard)
-              .filter(Boolean)}
+            {/* Left Column - Home Team Substitutes */}
+            <View style={{ flex: 1 }}>
+              {(homeTeam.substitutes || []).map(renderSubstituteCard).filter(Boolean)}
+            </View>
+            {/* Right Column - Away Team Substitutes */}
+            <View style={{ flex: 1 }}>
+              {(awayTeam.substitutes || []).map(renderSubstituteCard).filter(Boolean)}
+            </View>
           </View>
         </View>
+
+        {/* Injuries & Suspensions Section */}
+        {(homeInjuries.length > 0 || awayInjuries.length > 0) && (
+          <View style={[styles.injuriesSection, {
+            backgroundColor: isDark ? '#111828' : '#FFFFFF',
+            borderWidth: isDark ? 0 : 1,
+            borderColor: '#18223A',
+          }]}>
+            <Text style={[styles.sectionTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>INJURIES & SUSPENSIONS</Text>
+            <View style={styles.injuriesGrid}>
+              {/* Left Column - Home Team Injuries */}
+              <View style={{ flex: 1 }}>
+                {homeInjuries.length > 0 ? (
+                  homeInjuries.map((injury: FootballApiInjury) => {
+                    const icon = getInjuryIcon(injury.player.type || '');
+                    return (
+                      <TouchableOpacity
+                        key={injury.player.id}
+                        style={[styles.injuryCard, { 
+                          backgroundColor: isDark ? '#1f2937' : '#F9FAFB',
+                          borderColor: isDark ? '#374151' : '#E5E7EB',
+                        }]}
+                        onPress={() => router.push(`/player/${injury.player.id}` as any)}
+                        activeOpacity={0.7}
+                      >
+                        <Image
+                          source={{ uri: injury.player.photo || '' }}
+                          style={styles.injuryPhoto}
+                          defaultSource={require('@/images/SerieA.jpg')}
+                        />
+                        <View style={styles.injuryInfo}>
+                          <Text style={[styles.injuryPlayerName, { color: isDark ? '#ffffff' : '#18223A' }]}>
+                            {injury.player.name}
+                          </Text>
+                          <View style={styles.injuryStatusRow}>
+                            <MaterialCommunityIcons 
+                              name={icon.name as any} 
+                              size={16} 
+                              color={icon.color} 
+                              style={styles.injuryIcon}
+                            />
+                            <Text style={[styles.injuryStatusText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                              {injury.player.type || 'N/A'}
+                              {injury.player.reason ? ` - ${injury.player.reason}` : ''}
+                            </Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <Text style={[styles.emptyStateText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                    No injuries reported
+                  </Text>
+                )}
+              </View>
+              {/* Right Column - Away Team Injuries */}
+              <View style={{ flex: 1 }}>
+                {awayInjuries.length > 0 ? (
+                  awayInjuries.map((injury: FootballApiInjury) => {
+                    const icon = getInjuryIcon(injury.player.type || '');
+                    return (
+                      <TouchableOpacity
+                        key={injury.player.id}
+                        style={[styles.injuryCard, { 
+                          backgroundColor: isDark ? '#1f2937' : '#F9FAFB',
+                          borderColor: isDark ? '#374151' : '#E5E7EB',
+                        }]}
+                        onPress={() => router.push(`/player/${injury.player.id}` as any)}
+                        activeOpacity={0.7}
+                      >
+                        <Image
+                          source={{ uri: injury.player.photo || '' }}
+                          style={styles.injuryPhoto}
+                          defaultSource={require('@/images/SerieA.jpg')}
+                        />
+                        <View style={styles.injuryInfo}>
+                          <Text style={[styles.injuryPlayerName, { color: isDark ? '#ffffff' : '#18223A' }]}>
+                            {injury.player.name}
+                          </Text>
+                          <View style={styles.injuryStatusRow}>
+                            <MaterialCommunityIcons 
+                              name={icon.name as any} 
+                              size={16} 
+                              color={icon.color} 
+                              style={styles.injuryIcon}
+                            />
+                            <Text style={[styles.injuryStatusText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                              {injury.player.type || 'N/A'}
+                              {injury.player.reason ? ` - ${injury.player.reason}` : ''}
+                            </Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })
+                ) : (
+                  <Text style={[styles.emptyStateText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                    No injuries reported
+                  </Text>
+                )}
+              </View>
+            </View>
+          </View>
+        )}
+
       </View>
     );
   };
@@ -2478,10 +2706,15 @@ const styles = StyleSheet.create({
   playerNode: {
     alignItems: 'center',
   },
+  playerPhotoContainer: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   playerPhoto: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#1f2937',
     borderWidth: 2,
     borderColor: '#ffffff',
@@ -2494,10 +2727,15 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   playerRating: {
-    marginTop: 2,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 6,
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 8,
+    minWidth: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   playerRatingText: {
     fontSize: 9,
@@ -2515,19 +2753,23 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginBottom: 16,
   },
+  sectionTitle: {
+    fontSize: 16,
+    fontFamily: 'Montserrat_800ExtraBold',
+    marginBottom: 12,
+  },
   substitutesGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 12,
   },
   substituteCard: {
-    width: '48%',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#111828',
     borderRadius: 8,
     padding: 12,
     gap: 12,
+    marginBottom: 8,
   },
   substitutePhoto: {
     width: 40,
@@ -2555,6 +2797,107 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_400Regular',
     color: '#9ca3af',
     marginTop: 2,
+  },
+  // Managers Section
+  managersSection: {
+    marginTop: 24,
+    padding: 16,
+    borderRadius: 8,
+  },
+  managersRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  managerCard: {
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  managerPhoto: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  managerName: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_700Bold',
+    textAlign: 'center',
+  },
+  // Injuries Section
+  injuriesSection: {
+    marginTop: 24,
+    padding: 16,
+    borderRadius: 8,
+  },
+  injuriesGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  injuryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  injuryPhoto: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  injuryInfo: {
+    flex: 1,
+  },
+  injuryPlayerName: {
+    fontSize: 13,
+    fontFamily: 'Montserrat_700Bold',
+    marginBottom: 4,
+  },
+  injuryStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  injuryIcon: {
+    marginRight: 2,
+  },
+  injuryStatusText: {
+    fontSize: 11,
+    fontFamily: 'Montserrat_500Medium',
+    flex: 1,
+  },
+  emptyStateText: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+  // Referees Section
+  refereesSection: {
+    marginTop: 24,
+    padding: 16,
+    borderRadius: 8,
+  },
+  refereeCard: {
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    backgroundColor: 'transparent',
+  },
+  refereeName: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_700Bold',
   },
   // Stats Tab
   statsContainer: {

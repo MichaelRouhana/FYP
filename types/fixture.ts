@@ -166,3 +166,24 @@ export interface FootballApiPredictions {
   bookmakers?: Array<any>;
 }
 
+export interface FootballApiInjury {
+  player: {
+    id: number;
+    name: string;
+    photo: string;
+    type: string; // e.g., "Missing Fixture"
+    reason: string; // e.g., "Knee Injury"
+  };
+  team: {
+    id: number;
+    name: string;
+    logo: string;
+  };
+  fixture: {
+    id: number;
+    timezone: string;
+    date: string;
+    timestamp: number;
+  };
+}
+

@@ -154,3 +154,16 @@ export const getTeamDetails = async (teamId: number) => {
   return response.data?.response?.[0] || null;
 };
 
+/**
+ * Get fixture injuries
+ */
+export const getFixtureInjuries = async (fixtureId: string | number) => {
+  console.log('[matchApi] Fetching injuries for fixture:', fixtureId);
+  const response = await api.get<FootballApiResponse<any>>(
+    `/football/injuries`,
+    { params: { fixture: fixtureId } }
+  );
+  console.log('[matchApi] Injuries response:', response.data?.response?.length || 0, 'items');
+  return response.data?.response || [];
+};
+
