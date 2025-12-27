@@ -9,6 +9,7 @@ import {
   getPredictions,
   getFixturePlayers,
   getTeamDetails,
+  getLastMatchForTeam,
 } from '@/services/matchApi';
 import { FootballApiFixture } from '@/types/fixture';
 
@@ -17,6 +18,7 @@ interface UseMatchDataReturn {
   error: string | null;
   matchData: FootballApiFixture | null;
   lineups: any | null;
+  isProjectedLineup: boolean; // Indicates if lineups are from previous match (fallback)
   playerStats: any | null; // Player statistics with ratings and photos
   homeTeamVenue: any | null; // Home team venue details (capacity, surface)
   stats: any | null;
@@ -37,6 +39,7 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
   const [error, setError] = useState<string | null>(null);
   const [matchData, setMatchData] = useState<FootballApiFixture | null>(null);
   const [lineups, setLineups] = useState<any | null>(null);
+  const [isProjectedLineup, setIsProjectedLineup] = useState(false);
   const [playerStats, setPlayerStats] = useState<any | null>(null);
   const [homeTeamVenue, setHomeTeamVenue] = useState<any | null>(null);
   const [stats, setStats] = useState<any | null>(null);
@@ -133,7 +136,66 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
       console.log('[useMatchData] Predictions:', predictionsData.status, predictionsData.status === 'fulfilled' ? 'success' : predictionsData.reason?.message);
 
       // Set data from settled promises
-      if (lineupsData.status === 'fulfilled') setLineups(lineupsData.value);
+      let lineupsResult = null;
+      let projectedLineup = false;
+
+      if (lineupsData.status === 'fulfilled') {
+        lineupsResult = lineupsData.value;
+      }
+
+      // Check if lineups are empty and implement fallback logic
+      if (!lineupsResult || lineupsResult.length === 0) {
+        console.log('[useMatchData] No official lineups found, attempting fallback from previous matches');
+        projectedLineup = true;
+        setIsProjectedLineup(true);
+
+        // Fetch last matches for both teams
+        let homeTeamPreviousLineup = null;
+        let awayTeamPreviousLineup = null;
+
+        if (homeTeamId) {
+          try {
+            const homeLastMatch = await getLastMatchForTeam(homeTeamId);
+            if (homeLastMatch) {
+              console.log('[useMatchData] Found last match for home team:', homeLastMatch.fixture.id);
+              const homeLastMatchLineups = await getFixtureLineups(homeLastMatch.fixture.id);
+              if (homeLastMatchLineups && homeLastMatchLineups.length > 0) {
+                homeTeamPreviousLineup = homeLastMatchLineups.find((l: any) => l.team?.id === homeTeamId);
+                console.log('[useMatchData] Found previous lineup for home team:', homeTeamPreviousLineup ? 'Yes' : 'No');
+              }
+            }
+          } catch (err) {
+            console.warn('[useMatchData] Failed to fetch previous lineup for home team:', err);
+          }
+        }
+
+        if (awayTeamId) {
+          try {
+            const awayLastMatch = await getLastMatchForTeam(awayTeamId);
+            if (awayLastMatch) {
+              console.log('[useMatchData] Found last match for away team:', awayLastMatch.fixture.id);
+              const awayLastMatchLineups = await getFixtureLineups(awayLastMatch.fixture.id);
+              if (awayLastMatchLineups && awayLastMatchLineups.length > 0) {
+                awayTeamPreviousLineup = awayLastMatchLineups.find((l: any) => l.team?.id === awayTeamId);
+                console.log('[useMatchData] Found previous lineup for away team:', awayTeamPreviousLineup ? 'Yes' : 'No');
+              }
+            }
+          } catch (err) {
+            console.warn('[useMatchData] Failed to fetch previous lineup for away team:', err);
+          }
+        }
+
+        // Construct fallback lineups array
+        lineupsResult = [homeTeamPreviousLineup, awayTeamPreviousLineup];
+        console.log('[useMatchData] Fallback lineups constructed:', {
+          home: homeTeamPreviousLineup ? 'Found' : 'Missing',
+          away: awayTeamPreviousLineup ? 'Found' : 'Missing',
+        });
+      } else {
+        setIsProjectedLineup(false);
+      }
+
+      setLineups(lineupsResult);
       if (statsData.status === 'fulfilled') setStats(statsData.value);
       if (eventsData.status === 'fulfilled') setEvents(eventsData.value);
       if (playerStatsData.status === 'fulfilled') setPlayerStats(playerStatsData.value);
@@ -159,6 +221,7 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
     error,
     matchData,
     lineups,
+    isProjectedLineup,
     playerStats,
     homeTeamVenue,
     stats,

@@ -167,3 +167,18 @@ export const getFixtureInjuries = async (fixtureId: string | number) => {
   return response.data?.response || [];
 };
 
+/**
+ * Get the last finished match for a team
+ * Used as fallback when official lineups are not available
+ */
+export const getLastMatchForTeam = async (teamId: number) => {
+  console.log('[matchApi] Fetching last finished match for team:', teamId);
+  // Fetch the last 1 match with status 'FT' (Finished) for this team
+  const response = await api.get<FootballApiResponse<FootballApiFixture>>(
+    '/football/fixtures',
+    { params: { team: teamId, last: 1, status: 'FT' } }
+  );
+  console.log('[matchApi] Last match response:', response.data?.response?.length || 0, 'items');
+  return response.data?.response?.[0] || null;
+};
+

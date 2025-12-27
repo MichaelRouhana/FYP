@@ -126,6 +126,7 @@ export default function MatchDetailsScreen() {
     error, 
     matchData,
     lineups: lineupsData,
+    isProjectedLineup,
     playerStats: playerStatsData,
     homeTeamVenue,
     stats: statsData,
@@ -204,8 +205,15 @@ export default function MatchDetailsScreen() {
   const powerData = getMatchPowerData(id || 'default');
 
   // Transform API data to UI format using memoization
+  // Note: If isProjectedLineup is true, lineupsData is already in array format [home, away]
+  // and will be handled in renderLineupsTab
   const lineups = useMemo(() => {
-    const result = matchData && lineupsData ? mapLineupsToUI(lineupsData, matchData, playerStatsData) : null;
+    // Only map if lineupsData is not an array (official lineups format)
+    if (Array.isArray(lineupsData) && lineupsData.length > 0 && typeof lineupsData[0] === 'object' && lineupsData[0].team) {
+      // This is the fallback array format, don't map here
+      return null;
+    }
+    const result = matchData && lineupsData && !Array.isArray(lineupsData) ? mapLineupsToUI(lineupsData, matchData, playerStatsData) : null;
     console.log('[MatchDetails] Lineups transformed:', result ? 'Success' : 'Null');
     return result;
   }, [matchData, lineupsData, playerStatsData]);
@@ -1239,8 +1247,41 @@ export default function MatchDetailsScreen() {
   };
 
   const renderLineupsTab = () => {
-    // Show empty state if no lineup data
-    if (!lineups || !lineups.homeTeam || !lineups.awayTeam) {
+    // Check if lineupsData is an array (fallback format) or mapped UI format
+    const isArrayFormat = Array.isArray(lineupsData) && lineupsData.length > 0 && lineupsData[0]?.team;
+    const homeLineupRaw = isArrayFormat ? lineupsData?.[0] : (Array.isArray(lineupsData) ? lineupsData?.find((l: any) => l?.team?.id === matchData?.teams?.home?.id) : null);
+    const awayLineupRaw = isArrayFormat ? lineupsData?.[1] : (Array.isArray(lineupsData) ? lineupsData?.find((l: any) => l?.team?.id === matchData?.teams?.away?.id) : null);
+
+    // Map lineups to UI format if we have raw data
+    let homeTeam = null;
+    let awayTeam = null;
+    
+    if (isArrayFormat && matchData) {
+      // Fallback format: try to map what we have
+      const lineupsToMap = [homeLineupRaw, awayLineupRaw].filter(Boolean);
+      if (lineupsToMap.length > 0) {
+        // Create a minimal fixture structure for mapping
+        const mapped = mapLineupsToUI(lineupsToMap, matchData, playerStatsData);
+        if (mapped) {
+          homeTeam = mapped.homeTeam;
+          awayTeam = mapped.awayTeam;
+        }
+      }
+    } else if (lineups && lineups.homeTeam && lineups.awayTeam) {
+      // Already in mapped format (official lineups)
+      homeTeam = lineups.homeTeam;
+      awayTeam = lineups.awayTeam;
+    } else if (lineupsData && !isArrayFormat && matchData) {
+      // Try to map from raw API format
+      const mapped = mapLineupsToUI(lineupsData, matchData, playerStatsData);
+      if (mapped) {
+        homeTeam = mapped.homeTeam;
+        awayTeam = mapped.awayTeam;
+      }
+    }
+
+    // Show empty state if no lineup data at all
+    if ((!homeTeam && !awayTeam) || (!lineupsData || (isArrayFormat && !homeLineupRaw && !awayLineupRaw))) {
       return (
         <View style={[styles.lineupsContainer, { justifyContent: 'center', alignItems: 'center', paddingVertical: 48 }]}>
           <MaterialCommunityIcons name="account-group-outline" size={48} color={isDark ? '#9ca3af' : '#6B7280'} />
@@ -1250,12 +1291,10 @@ export default function MatchDetailsScreen() {
         </View>
       );
     }
-
-    const { homeTeam, awayTeam } = lineups;
     
     // Get coach information from raw lineups data
-    const homeCoach = lineupsData?.find((l: any) => l.team?.id === matchData?.teams?.home?.id)?.coach;
-    const awayCoach = lineupsData?.find((l: any) => l.team?.id === matchData?.teams?.away?.id)?.coach;
+    const homeCoach = homeLineupRaw?.coach;
+    const awayCoach = awayLineupRaw?.coach;
     
     // Filter injuries by team
     const homeInjuries = injuries.filter((injury: FootballApiInjury) => 
@@ -1267,70 +1306,135 @@ export default function MatchDetailsScreen() {
 
     return (
       <View style={styles.lineupsContainer}>
+        {/* Warning Banner for Projected Lineups */}
+        {isProjectedLineup && (
+          <View style={[styles.projectedLineupBanner, {
+            backgroundColor: isDark ? '#7c2d12' : '#fef3c7',
+            borderColor: isDark ? '#9a3412' : '#fde68a',
+          }]}>
+            <MaterialCommunityIcons 
+              name="alert-circle" 
+              size={20} 
+              color={isDark ? '#fbbf24' : '#d97706'} 
+              style={styles.bannerIcon}
+            />
+            <Text style={[styles.projectedLineupText, { color: isDark ? '#fbbf24' : '#d97706' }]}>
+              Official lineups not available. Showing lineups from previous match.
+            </Text>
+          </View>
+        )}
+
         {/* Away Team Header */}
-        <View style={[
-          styles.teamLineupHeader,
-          {
+        {awayTeam ? (
+          <>
+            <View style={[
+              styles.teamLineupHeader,
+              {
+                backgroundColor: isDark ? '#111828' : '#FFFFFF',
+                borderWidth: isDark ? 0 : 1,
+                borderColor: '#18223A',
+                borderTopLeftRadius: 8,
+                borderTopRightRadius: 8,
+                borderBottomLeftRadius: 0,
+                borderBottomRightRadius: 0,
+              }
+            ]}>
+              <View style={[styles.teamLineupLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                <Text style={[styles.teamLineupLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>{awayTeam.teamName.charAt(0)}</Text>
+              </View>
+              <Text style={[styles.teamLineupName, { color: isDark ? '#ffffff' : '#18223A' }]}>{awayTeam.teamName}</Text>
+              <Text style={[styles.teamLineupFormation, { color: isDark ? '#B4B4B4' : '#6B7280' }]}>{awayTeam.formation}</Text>
+            </View>
+
+            {/* Football Pitch */}
+            <View style={styles.pitchContainer}>
+              <ImageBackground
+                source={require('@/images/Field.jpg')}
+                style={styles.pitchImage}
+                resizeMode="cover"
+              >
+                {/* Away Team (Top - attacking down) */}
+                {awayTeam && (
+                  <View style={styles.teamFormation}>
+                    {renderFormationRow(awayTeam.starters.goalkeeper)}
+                    {renderFormationRow(awayTeam.starters.defenders)}
+                    {renderFormationRow(awayTeam.starters.midfielders)}
+                    {renderFormationRow(awayTeam.starters.forwards)}
+                  </View>
+                )}
+
+                {/* Home Team (Bottom - attacking up) */}
+                {homeTeam && (
+                  <View style={styles.teamFormation}>
+                    {renderFormationRow(homeTeam.starters.forwards)}
+                    {renderFormationRow(homeTeam.starters.midfielders)}
+                    {renderFormationRow(homeTeam.starters.defenders)}
+                    {renderFormationRow(homeTeam.starters.goalkeeper)}
+                  </View>
+                )}
+
+                {/* Show message if one team is missing */}
+                {!awayTeam && (
+                  <View style={[styles.missingLineupMessage, { top: '20%' }]}>
+                    <Text style={[styles.missingLineupText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                      Lineups not available yet
+                    </Text>
+                  </View>
+                )}
+                {!homeTeam && (
+                  <View style={[styles.missingLineupMessage, { bottom: '20%' }]}>
+                    <Text style={[styles.missingLineupText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                      Lineups not available yet
+                    </Text>
+                  </View>
+                )}
+              </ImageBackground>
+            </View>
+
+            {/* Home Team Header */}
+            {homeTeam ? (
+              <View style={[
+                styles.teamLineupHeader,
+                {
+                  backgroundColor: isDark ? '#111828' : '#FFFFFF',
+                  borderWidth: isDark ? 0 : 1,
+                  borderColor: '#18223A',
+                  borderTopLeftRadius: 0,
+                  borderTopRightRadius: 0,
+                  borderBottomLeftRadius: 8,
+                  borderBottomRightRadius: 8,
+                }
+              ]}>
+                <View style={[styles.teamLineupLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                  <Text style={[styles.teamLineupLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>{homeTeam.teamName.charAt(0)}</Text>
+                </View>
+                <Text style={[styles.teamLineupName, { color: isDark ? '#ffffff' : '#18223A' }]}>{homeTeam.teamName}</Text>
+                <Text style={[styles.teamLineupFormation, { color: isDark ? '#B4B4B4' : '#6B7280' }]}>{homeTeam.formation}</Text>
+              </View>
+            ) : (
+              <View style={[styles.missingTeamHeader, {
+                backgroundColor: isDark ? '#111828' : '#FFFFFF',
+                borderWidth: isDark ? 0 : 1,
+                borderColor: '#18223A',
+              }]}>
+                <Text style={[styles.missingLineupText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                  Lineups not available yet
+                </Text>
+              </View>
+            )}
+          </>
+        ) : (
+          <View style={[styles.missingTeamHeader, {
             backgroundColor: isDark ? '#111828' : '#FFFFFF',
             borderWidth: isDark ? 0 : 1,
             borderColor: '#18223A',
-            borderTopLeftRadius: 8,
-            borderTopRightRadius: 8,
-            borderBottomLeftRadius: 0,
-            borderBottomRightRadius: 0,
-          }
-        ]}>
-          <View style={[styles.teamLineupLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-            <Text style={[styles.teamLineupLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>{awayTeam.teamName.charAt(0)}</Text>
+            borderRadius: 8,
+          }]}>
+            <Text style={[styles.missingLineupText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+              Lineups not available yet
+            </Text>
           </View>
-          <Text style={[styles.teamLineupName, { color: isDark ? '#ffffff' : '#18223A' }]}>{awayTeam.teamName}</Text>
-          <Text style={[styles.teamLineupFormation, { color: isDark ? '#B4B4B4' : '#6B7280' }]}>{awayTeam.formation}</Text>
-        </View>
-
-        {/* Football Pitch */}
-        <View style={styles.pitchContainer}>
-          <ImageBackground
-            source={require('@/images/Field.jpg')}
-            style={styles.pitchImage}
-            resizeMode="cover"
-          >
-            {/* Away Team (Top - attacking down) */}
-            <View style={styles.teamFormation}>
-              {renderFormationRow(awayTeam.starters.goalkeeper)}
-              {renderFormationRow(awayTeam.starters.defenders)}
-              {renderFormationRow(awayTeam.starters.midfielders)}
-              {renderFormationRow(awayTeam.starters.forwards)}
-            </View>
-
-            {/* Home Team (Bottom - attacking up) */}
-            <View style={styles.teamFormation}>
-              {renderFormationRow(homeTeam.starters.forwards)}
-              {renderFormationRow(homeTeam.starters.midfielders)}
-              {renderFormationRow(homeTeam.starters.defenders)}
-              {renderFormationRow(homeTeam.starters.goalkeeper)}
-            </View>
-          </ImageBackground>
-        </View>
-
-        {/* Home Team Header */}
-        <View style={[
-          styles.teamLineupHeader,
-          {
-            backgroundColor: isDark ? '#111828' : '#FFFFFF',
-            borderWidth: isDark ? 0 : 1,
-            borderColor: '#18223A',
-            borderTopLeftRadius: 0,
-            borderTopRightRadius: 0,
-            borderBottomLeftRadius: 8,
-            borderBottomRightRadius: 8,
-          }
-        ]}>
-          <View style={[styles.teamLineupLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-            <Text style={[styles.teamLineupLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>{homeTeam.teamName.charAt(0)}</Text>
-          </View>
-          <Text style={[styles.teamLineupName, { color: isDark ? '#ffffff' : '#18223A' }]}>{homeTeam.teamName}</Text>
-          <Text style={[styles.teamLineupFormation, { color: isDark ? '#B4B4B4' : '#6B7280' }]}>{homeTeam.formation}</Text>
-        </View>
+        )}
 
         {/* Referee Section */}
         {matchData?.fixture?.referee && (
@@ -1352,7 +1456,7 @@ export default function MatchDetailsScreen() {
         )}
 
         {/* Managers Section */}
-        {(homeCoach || awayCoach) && (
+        {((homeCoach || awayCoach) && (homeTeam || awayTeam)) && (
           <View style={[styles.managersSection, {
             backgroundColor: isDark ? '#111828' : '#FFFFFF',
             borderWidth: isDark ? 0 : 1,
@@ -1405,19 +1509,33 @@ export default function MatchDetailsScreen() {
         )}
 
         {/* Substitutes Section */}
-        <View style={styles.substitutesSection}>
-          <Text style={[styles.substitutesTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>SUBSTITUTES</Text>
-          <View style={styles.substitutesGrid}>
-            {/* Left Column - Home Team Substitutes */}
-            <View style={{ flex: 1 }}>
-              {(homeTeam.substitutes || []).map(renderSubstituteCard).filter(Boolean)}
-            </View>
-            {/* Right Column - Away Team Substitutes */}
-            <View style={{ flex: 1 }}>
-              {(awayTeam.substitutes || []).map(renderSubstituteCard).filter(Boolean)}
+        {(homeTeam || awayTeam) && (
+          <View style={styles.substitutesSection}>
+            <Text style={[styles.substitutesTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>SUBSTITUTES</Text>
+            <View style={styles.substitutesGrid}>
+              {/* Left Column - Home Team Substitutes */}
+              <View style={{ flex: 1 }}>
+                {homeTeam ? (
+                  (homeTeam.substitutes || []).map(renderSubstituteCard).filter(Boolean)
+                ) : (
+                  <Text style={[styles.emptyStateText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                    Lineups not available yet
+                  </Text>
+                )}
+              </View>
+              {/* Right Column - Away Team Substitutes */}
+              <View style={{ flex: 1 }}>
+                {awayTeam ? (
+                  (awayTeam.substitutes || []).map(renderSubstituteCard).filter(Boolean)
+                ) : (
+                  <Text style={[styles.emptyStateText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                    Lineups not available yet
+                  </Text>
+                )}
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
         {/* Injuries & Suspensions Section */}
         {(homeInjuries.length > 0 || awayInjuries.length > 0) && (
@@ -2881,6 +2999,45 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     paddingVertical: 16,
+  },
+  // Projected Lineup Banner
+  projectedLineupBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 16,
+    gap: 8,
+  },
+  bannerIcon: {
+    marginRight: 4,
+  },
+  projectedLineupText: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  // Missing Lineup Messages
+  missingLineupMessage: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  missingLineupText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_500Medium',
+    textAlign: 'center',
+  },
+  missingTeamHeader: {
+    padding: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
   },
   // Referees Section
   refereesSection: {
