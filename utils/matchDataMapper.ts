@@ -96,7 +96,7 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
         number: player.number || 0,
         position: player.pos || 'U', // U = Unknown
         rating: playerStatsInfo.rating, // From fixtures/players endpoint
-        photo: playerStatsInfo.photo, // From fixtures/players endpoint
+        photo: playerStatsInfo.photo || player.photo || null, // Fallback to lineup photo
       };
 
       // Categorize by position - with fallback if pos is missing
@@ -132,7 +132,7 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
         number: player.number || 0,
         position: player.pos || 'SUB',
         rating: playerStatsInfo.rating, // From fixtures/players endpoint
-        photo: playerStatsInfo.photo, // From fixtures/players endpoint
+        photo: playerStatsInfo.photo || player.photo || null, // Fallback to lineup photo
       });
     });
 

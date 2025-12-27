@@ -26,8 +26,8 @@ export interface TeamLineup {
 
 export interface MatchLineups {
   matchId: string;
-  homeTeam: TeamLineup;
-  awayTeam: TeamLineup;
+  homeTeam: TeamLineup | null; // Can be null in fallback scenarios
+  awayTeam: TeamLineup | null; // Can be null in fallback scenarios
 }
 
 // Mock lineup data based on the provided image
