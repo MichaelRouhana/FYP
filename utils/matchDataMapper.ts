@@ -24,11 +24,12 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
     return null;
   }
 
-  const homeLineup = lineupsData.find(l => l.team.id === matchData.teams.home.id);
-  const awayLineup = lineupsData.find(l => l.team.id === matchData.teams.away.id);
+  const homeLineup = lineupsData.find(l => l && l.team && l.team.id === matchData.teams.home.id);
+  const awayLineup = lineupsData.find(l => l && l.team && l.team.id === matchData.teams.away.id);
 
-  if (!homeLineup || !awayLineup) {
-    console.log('[matchDataMapper] Missing lineup for home or away team');
+  // Allow partial lineups (for fallback scenarios where only one team's lineup is available)
+  if (!homeLineup && !awayLineup) {
+    console.log('[matchDataMapper] No lineups found for either team');
     return null;
   }
 
@@ -51,7 +52,7 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
   }
 
   // Log a sample player to see the structure
-  if (homeLineup.startXI && homeLineup.startXI.length > 0) {
+  if (homeLineup && homeLineup.startXI && homeLineup.startXI.length > 0) {
     console.log('[matchDataMapper] Sample lineup player data:', JSON.stringify(homeLineup.startXI[0], null, 2));
   }
 
@@ -156,8 +157,8 @@ export const mapLineupsToUI = (lineupsData: any[], matchData: FootballApiFixture
 
   const lineups = {
     matchId: matchData.fixture.id.toString(),
-    homeTeam: mapTeamLineup(homeLineup, matchData.teams.home.name),
-    awayTeam: mapTeamLineup(awayLineup, matchData.teams.away.name),
+    homeTeam: homeLineup ? mapTeamLineup(homeLineup, matchData.teams.home.name) : null,
+    awayTeam: awayLineup ? mapTeamLineup(awayLineup, matchData.teams.away.name) : null,
   };
 
   console.log('[matchDataMapper] Lineups mapping complete');

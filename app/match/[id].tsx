@@ -1248,20 +1248,23 @@ export default function MatchDetailsScreen() {
 
   const renderLineupsTab = () => {
     // Check if lineupsData is an array (fallback format) or mapped UI format
-    const isArrayFormat = Array.isArray(lineupsData) && lineupsData.length > 0 && lineupsData[0]?.team;
-    const homeLineupRaw = isArrayFormat ? lineupsData?.[0] : (Array.isArray(lineupsData) ? lineupsData?.find((l: any) => l?.team?.id === matchData?.teams?.home?.id) : null);
-    const awayLineupRaw = isArrayFormat ? lineupsData?.[1] : (Array.isArray(lineupsData) ? lineupsData?.find((l: any) => l?.team?.id === matchData?.teams?.away?.id) : null);
+    // Fallback format: [homeLineup, awayLineup] where either can be null
+    const isArrayFormat = Array.isArray(lineupsData) && lineupsData.length > 0;
+    const homeLineupRaw = isArrayFormat && lineupsData[0] ? lineupsData[0] : (Array.isArray(lineupsData) ? lineupsData?.find((l: any) => l && l.team?.id === matchData?.teams?.home?.id) : null);
+    const awayLineupRaw = isArrayFormat && lineupsData[1] ? lineupsData[1] : (Array.isArray(lineupsData) ? lineupsData?.find((l: any) => l && l.team?.id === matchData?.teams?.away?.id) : null);
 
     // Map lineups to UI format if we have raw data
     let homeTeam = null;
     let awayTeam = null;
     
-    if (isArrayFormat && matchData) {
-      // Fallback format: try to map what we have
-      const lineupsToMap = [homeLineupRaw, awayLineupRaw].filter(Boolean);
-      if (lineupsToMap.length > 0) {
-        // Create a minimal fixture structure for mapping
-        const mapped = mapLineupsToUI(lineupsToMap, matchData, playerStatsData);
+    if (isArrayFormat && matchData && (homeLineupRaw || awayLineupRaw)) {
+      // Fallback format: map what we have
+      // Filter out null values and ensure each has a team property
+      const validLineups = [homeLineupRaw, awayLineupRaw].filter((l): l is any => l !== null && l !== undefined && l && l.team);
+      
+      if (validLineups.length > 0) {
+        // mapLineupsToUI now handles partial lineups (can return null for missing team)
+        const mapped = mapLineupsToUI(validLineups, matchData, playerStatsData);
         if (mapped) {
           homeTeam = mapped.homeTeam;
           awayTeam = mapped.awayTeam;
@@ -1271,12 +1274,15 @@ export default function MatchDetailsScreen() {
       // Already in mapped format (official lineups)
       homeTeam = lineups.homeTeam;
       awayTeam = lineups.awayTeam;
-    } else if (lineupsData && !isArrayFormat && matchData) {
-      // Try to map from raw API format
-      const mapped = mapLineupsToUI(lineupsData, matchData, playerStatsData);
-      if (mapped) {
-        homeTeam = mapped.homeTeam;
-        awayTeam = mapped.awayTeam;
+    } else if (lineupsData && Array.isArray(lineupsData) && !isArrayFormat && matchData) {
+      // Try to map from raw API format (normal case)
+      const validLineups = lineupsData.filter((l: any) => l && l.team);
+      if (validLineups.length > 0) {
+        const mapped = mapLineupsToUI(validLineups, matchData, playerStatsData);
+        if (mapped) {
+          homeTeam = mapped.homeTeam;
+          awayTeam = mapped.awayTeam;
+        }
       }
     }
 
