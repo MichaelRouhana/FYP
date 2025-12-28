@@ -1177,11 +1177,14 @@ export default function MatchDetailsScreen() {
               <Text style={styles.playerInitial}>{player.name.charAt(0).toUpperCase()}</Text>
             )}
           </View>
-          <View style={[styles.playerRating, { backgroundColor: getRatingColor(player.rating || 0) }]}>
-            <Text style={styles.playerRatingText}>
-              {player.rating && player.rating > 0 ? player.rating.toFixed(1) : '--'}
-            </Text>
-          </View>
+          {/* FIX: Only show rating if valid (greater than 0) */}
+          {player.rating && Number(player.rating) > 0 ? (
+            <View style={[styles.playerRating, { backgroundColor: getRatingColor(player.rating) }]}>
+              <Text style={styles.playerRatingText}>
+                {player.rating.toFixed(1)}
+              </Text>
+            </View>
+          ) : null}
         </View>
       </TouchableOpacity>
     );
