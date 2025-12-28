@@ -26,7 +26,7 @@ type FilterType = 'all' | 'live' | 'upcoming' | 'finished';
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
-  const [selectedDate, setSelectedDate] = useState<string>('date-0'); // Today
+  const [selectedDate, setSelectedDate] = useState<string>('0'); // Today
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [expandedLeagues, setExpandedLeagues] = useState<Set<string>>(new Set());
   const [favorites, setFavorites] = useState<Set<string>>(new Set());

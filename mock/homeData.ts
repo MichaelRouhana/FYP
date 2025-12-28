@@ -40,26 +40,31 @@ export const generateDates = (): DateOption[] => {
   const dates: DateOption[] = [];
   const today = new Date();
   
-  for (let i = -2; i <= 2; i++) {
+  // Generate dates from -2 to +4 days from today
+  for (let i = -2; i <= 4; i++) {
     const date = new Date(today);
     date.setDate(today.getDate() + i);
     
-    // FIX: Use local time instead of toISOString (which uses UTC)
+    // FIX: Use Local Time parts to construct YYYY-MM-DD
+    // This prevents timezone shifts (e.g. 11 PM becoming tomorrow in UTC)
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     const fullDate = `${year}-${month}-${day}`;
     
-    const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const dayName = i === 0 ? 'Today' : i === 1 ? 'Tmrw' : i === -1 ? 'Yest' : days[date.getDay()];
+    
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const formattedDate = `${date.getDate()} ${months[date.getMonth()]}`;
     
     dates.push({
-      id: `date-${i}`,
-      dayName: i === 0 ? 'TODAY' : dayNames[date.getDay()],
-      monthDay: `${monthNames[date.getMonth()]} ${date.getDate()}`,
+      id: i.toString(),
+      dayName,
+      monthDay: formattedDate,
       isToday: i === 0,
       date: date,
-      fullDate: fullDate,
+      fullDate: fullDate, // Correct local YYYY-MM-DD
     });
   }
   
