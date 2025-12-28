@@ -209,7 +209,7 @@ export default function MatchDetailsScreen() {
   // and will be handled in renderLineupsTab
   const lineups = useMemo(() => {
     // Only map if lineupsData is not an array (official lineups format)
-    if (Array.isArray(lineupsData) && lineupsData.length > 0 && typeof lineupsData[0] === 'object' && lineupsData[0].team) {
+    if (Array.isArray(lineupsData) && lineupsData.length > 0 && lineupsData[0] && typeof lineupsData[0] === 'object' && 'team' in lineupsData[0]) {
       // This is the fallback array format, don't map here
       return null;
     }
