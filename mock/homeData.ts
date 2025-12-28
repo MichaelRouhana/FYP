@@ -32,6 +32,7 @@ export interface DateOption {
   monthDay: string;
   isToday: boolean;
   date: Date;
+  fullDate: string; // YYYY-MM-DD format for API calls
 }
 
 // Generate dates for the date navigation
@@ -43,6 +44,12 @@ export const generateDates = (): DateOption[] => {
     const date = new Date(today);
     date.setDate(today.getDate() + i);
     
+    // FIX: Use local time instead of toISOString (which uses UTC)
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const fullDate = `${year}-${month}-${day}`;
+    
     const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
     const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     
@@ -52,6 +59,7 @@ export const generateDates = (): DateOption[] => {
       monthDay: `${monthNames[date.getMonth()]} ${date.getDate()}`,
       isToday: i === 0,
       date: date,
+      fullDate: fullDate,
     });
   }
   

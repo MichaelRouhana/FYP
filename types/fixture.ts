@@ -105,6 +105,7 @@ export interface UIMatch {
   time: string;
   status: 'upcoming' | 'live' | 'finished';
   statusShort?: string; // e.g., 'PST', 'FT', 'NS', '1H', etc.
+  scheduledTime?: string; // Scheduled start time (for finished matches)
   homeScore?: number;
   awayScore?: number;
   betsCount: number;

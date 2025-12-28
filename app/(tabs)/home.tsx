@@ -98,16 +98,25 @@ export default function HomeScreen() {
       
       if (['1H', '2H', 'HT', 'ET', 'P', 'LIVE', 'BT'].includes(statusShort)) {
         status = 'live';
-      } else if (['FT', 'AET', 'PEN'].includes(statusShort)) {
+      } else if (['FT', 'AET', 'PEN', 'WO', 'ABD', 'AWD'].includes(statusShort)) {
         status = 'finished';
       }
 
       // Format time
       let timeDisplay: string;
+      let scheduledTime: string | undefined; // Store scheduled time for finished matches
+      
       if (status === 'live') {
         timeDisplay = rawJson.fixture.status.elapsed ? `${rawJson.fixture.status.elapsed}'` : 'LIVE';
       } else if (status === 'finished') {
+        // For finished matches, show FT but keep the scheduled time
         timeDisplay = 'FT';
+        const date = new Date(rawJson.fixture.date);
+        scheduledTime = date.toLocaleTimeString('en-US', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          hour12: true 
+        });
       } else {
         // Format time from ISO date
         const date = new Date(rawJson.fixture.date);
@@ -132,6 +141,7 @@ export default function HomeScreen() {
         time: timeDisplay,
         status,
         statusShort: statusShort, // Include statusShort for postponed detection
+        scheduledTime: scheduledTime, // Scheduled time for finished matches
         homeScore: rawJson.goals.home ?? undefined,
         awayScore: rawJson.goals.away ?? undefined,
         betsCount: fixture.bets,
@@ -163,7 +173,33 @@ export default function HomeScreen() {
     return dateOption?.date || new Date();
   }, [selectedDate, dates]);
 
+  // Helper to check if a date is in the past
+  const isPastDate = (dateStr: string): boolean => {
+    const d = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    d.setHours(0, 0, 0, 0);
+    // Compare only dates, ignoring time
+    return d < today && d.getDate() !== today.getDate();
+  };
+
+  // Helper to check if a date is in the future
+  const isFutureDate = (dateStr: string): boolean => {
+    const d = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    d.setHours(0, 0, 0, 0);
+    // Compare only dates, ignoring time
+    return d > today && d.getDate() !== today.getDate();
+  };
+
   const filteredLeagues = useMemo(() => {
+    // 1. Determine if we should ignore filters (Past or Future Dates)
+    const selectedDateOption = dates.find(d => d.id === selectedDate);
+    const isPast = selectedDateOption ? isPastDate(selectedDateOption.fullDate) : false;
+    const isFuture = selectedDateOption ? isFutureDate(selectedDateOption.fullDate) : false;
+    const shouldIgnoreFilters = isPast || isFuture;
+
     // Helper to check if a match date matches the selected date
     const isSameDay = (matchDateStr: string, targetDate: Date): boolean => {
       const matchDate = new Date(matchDateStr);
@@ -174,6 +210,7 @@ export default function HomeScreen() {
       );
     };
 
+    // 2. Filter logic
     return leagues
       .map((league) => ({
         ...league,
@@ -182,13 +219,33 @@ export default function HomeScreen() {
           const matchesDate = isSameDay(match.date, selectedDateObj);
           if (!matchesDate) return false;
           
-          // Then filter by status (all/live/upcoming/finished)
-          if (selectedFilter === 'all') return true;
-          return match.status === selectedFilter;
+          // If it's a past or future date, show everything (no filters)
+          if (shouldIgnoreFilters) return true;
+          
+          // Extract match status
+          const statusShort = match.statusShort || '';
+          
+          // Filter by status
+          if (selectedFilter === 'live') {
+            // Only show matches that are currently live
+            return ['1H', '2H', 'HT', 'ET', 'P', 'LIVE', 'BT'].includes(statusShort);
+          }
+          
+          if (selectedFilter === 'upcoming') {
+            return ['NS', 'TBD'].includes(statusShort);
+          }
+          
+          if (selectedFilter === 'finished') {
+            // FIX: Expanded Finished Statuses
+            return ['FT', 'AET', 'PEN', 'WO', 'ABD', 'AWD'].includes(statusShort);
+          }
+          
+          // Default 'All'
+          return true;
         }),
       }))
       .filter((league) => league.matches.length > 0);
-  }, [leagues, selectedFilter, selectedDateObj]);
+  }, [leagues, selectedFilter, selectedDateObj, selectedDate, dates]);
 
   const toggleLeague = useCallback((leagueId: number) => {
     const leagueIdStr = String(leagueId);
@@ -258,6 +315,13 @@ export default function HomeScreen() {
           {match.status === 'live' ? (
             <View style={[styles.liveIndicator, { backgroundColor: isDark ? '#1f2937' : '#18223A' }]}>
               <Text style={[styles.liveText, { color: '#ffffff' }]}>LIVE</Text>
+            </View>
+          ) : match.status === 'finished' && match.scheduledTime ? (
+            <View style={{ alignItems: 'center' }}>
+              <Text style={[styles.matchTime, { color: theme.colors.textSecondary, fontWeight: '600' }]}>FT</Text>
+              <Text style={[styles.scheduledTime, { color: theme.colors.textMuted, fontSize: 11, marginTop: 2 }]}>
+                {match.scheduledTime}
+              </Text>
             </View>
           ) : (
             <View style={{ alignItems: 'center' }}>
@@ -418,73 +482,83 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      {/* Filter Tabs */}
-      <View style={[styles.filterContainer, { backgroundColor: theme.colors.background }]}>
-        <TouchableOpacity
-          style={[
-            styles.filterTab, 
-            { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
-            selectedFilter === 'all' && { backgroundColor: theme.colors.primary }
-          ]}
-          onPress={() => setSelectedFilter('all')}
-        >
-          <Text style={[
-            styles.filterText, 
-            { color: theme.colors.text },
-            selectedFilter === 'all' && { color: theme.colors.primaryText }
-          ]}>
-            ALL
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterTab, 
-            { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
-            selectedFilter === 'live' && { backgroundColor: theme.colors.primary }
-          ]}
-          onPress={() => setSelectedFilter('live')}
-        >
-          <Text style={[
-            styles.filterText, 
-            { color: theme.colors.text },
-            selectedFilter === 'live' && { color: theme.colors.primaryText }
-          ]}>
-            LIVE
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterTab, 
-            { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
-            selectedFilter === 'upcoming' && { backgroundColor: theme.colors.primary }
-          ]}
-          onPress={() => setSelectedFilter('upcoming')}
-        >
-          <Text style={[
-            styles.filterText, 
-            { color: theme.colors.text },
-            selectedFilter === 'upcoming' && { color: theme.colors.primaryText }
-          ]}>
-            UPCOMING
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterTab, 
-            { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
-            selectedFilter === 'finished' && { backgroundColor: theme.colors.primary }
-          ]}
-          onPress={() => setSelectedFilter('finished')}
-        >
-          <Text style={[
-            styles.filterText, 
-            { color: theme.colors.text },
-            selectedFilter === 'finished' && { color: theme.colors.primaryText }
-          ]}>
-            FINISHED
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* Filter Tabs - Only show for today (not past or future dates) */}
+      {(() => {
+        const selectedDateOption = dates.find(d => d.id === selectedDate);
+        const isPast = selectedDateOption ? isPastDate(selectedDateOption.fullDate) : false;
+        const isFuture = selectedDateOption ? isFutureDate(selectedDateOption.fullDate) : false;
+        
+        if (isPast || isFuture) return null; // Hide filters for past or future dates
+        
+        return (
+          <View style={[styles.filterContainer, { backgroundColor: theme.colors.background }]}>
+            <TouchableOpacity
+              style={[
+                styles.filterTab, 
+                { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+                selectedFilter === 'all' && { backgroundColor: theme.colors.primary }
+              ]}
+              onPress={() => setSelectedFilter('all')}
+            >
+              <Text style={[
+                styles.filterText, 
+                { color: theme.colors.text },
+                selectedFilter === 'all' && { color: theme.colors.primaryText }
+              ]}>
+                ALL
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.filterTab, 
+                { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+                selectedFilter === 'live' && { backgroundColor: theme.colors.primary }
+              ]}
+              onPress={() => setSelectedFilter('live')}
+            >
+              <Text style={[
+                styles.filterText, 
+                { color: theme.colors.text },
+                selectedFilter === 'live' && { color: theme.colors.primaryText }
+              ]}>
+                LIVE
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.filterTab, 
+                { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+                selectedFilter === 'upcoming' && { backgroundColor: theme.colors.primary }
+              ]}
+              onPress={() => setSelectedFilter('upcoming')}
+            >
+              <Text style={[
+                styles.filterText, 
+                { color: theme.colors.text },
+                selectedFilter === 'upcoming' && { color: theme.colors.primaryText }
+              ]}>
+                UPCOMING
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.filterTab, 
+                { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+                selectedFilter === 'finished' && { backgroundColor: theme.colors.primary }
+              ]}
+              onPress={() => setSelectedFilter('finished')}
+            >
+              <Text style={[
+                styles.filterText, 
+                { color: theme.colors.text },
+                selectedFilter === 'finished' && { color: theme.colors.primaryText }
+              ]}>
+                FINISHED
+              </Text>
+            </TouchableOpacity>
+          </View>
+        );
+      })()}
 
       {/* League Cards */}
       <ScrollView
@@ -709,6 +783,12 @@ const styles = StyleSheet.create({
   },
   matchTime: {
     fontSize: 13,
+    fontFamily: 'Montserrat_400Regular',
+    color: '#ACB1BD',
+    textAlign: 'center',
+  },
+  scheduledTime: {
+    fontSize: 11,
     fontFamily: 'Montserrat_400Regular',
     color: '#ACB1BD',
     textAlign: 'center',
