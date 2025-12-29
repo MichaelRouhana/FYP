@@ -134,6 +134,22 @@ export const useMatchData = (fixtureId: string): UseMatchDataReturn => {
       console.log('[useMatchData] H2H:', h2hData.status, h2hData.status === 'fulfilled' ? `${h2hData.value?.length || 0} items` : h2hData.reason?.message);
       console.log('[useMatchData] Standings:', standingsData.status, standingsData.status === 'fulfilled' ? 'success' : standingsData.reason?.message);
       console.log('[useMatchData] Predictions:', predictionsData.status, predictionsData.status === 'fulfilled' ? 'success' : predictionsData.reason?.message);
+      
+      // Log predictions data structure for debugging
+      if (predictionsData.status === 'fulfilled' && predictionsData.value) {
+        console.log('[useMatchData] 🔍 Predictions Data Structure:', {
+          hasData: !!predictionsData.value,
+          isArray: Array.isArray(predictionsData.value),
+          keys: predictionsData.value ? Object.keys(predictionsData.value) : [],
+          firstItemKeys: Array.isArray(predictionsData.value) && predictionsData.value[0] ? Object.keys(predictionsData.value[0]) : [],
+          hasComparison: !!(predictionsData.value?.comparison || (Array.isArray(predictionsData.value) && predictionsData.value[0]?.comparison)),
+          hasTeams: !!(predictionsData.value?.teams || (Array.isArray(predictionsData.value) && predictionsData.value[0]?.teams)),
+          hasGoals: !!(predictionsData.value?.goals || (Array.isArray(predictionsData.value) && predictionsData.value[0]?.goals)),
+          rawData: JSON.stringify(predictionsData.value).substring(0, 500), // First 500 chars
+        });
+      } else if (predictionsData.status === 'rejected') {
+        console.warn('[useMatchData] ⚠️ Predictions fetch failed:', predictionsData.reason?.message || 'Unknown error');
+      }
 
       // Set data from settled promises
       let lineupsResult = null;

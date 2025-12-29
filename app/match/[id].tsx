@@ -1,9 +1,10 @@
 import { GoalPowerChart, TeamBalanceChart, TeamPowerChart } from '@/components/charts';
 import { useTheme } from '@/context/ThemeContext';
-import { CommentaryItem, getMatchCommentary } from '@/mock/matchCommentary';
+import { CommentaryItem } from '@/mock/matchCommentary';
+import { mapEventsToCommentary } from '@/utils/commentaryMapper';
 import { H2HMatch } from '@/mock/matchH2H';
 import { getRatingColor, Player } from '@/mock/matchLineups';
-import { getMatchPowerData } from '@/mock/matchPower';
+import { mapPredictionsToPower } from '@/utils/powerMapper';
 import { CHART_COLORS } from '@/mock/matchPower/constants';
 import { eventLegend, EventType, MatchEvent } from '@/mock/matchSummary';
 import { TeamStanding } from '@/mock/matchTable';
@@ -68,21 +69,21 @@ const TABS_BY_STATUS: Record<MatchStatus, TabType[]> = {
   upcoming: ['predictions', 'lineups', 'h2h', 'table', 'power', 'details'],
   
   // Live Match (1H, 2H, HT, ET, etc.)
-  // ✅ Show: SUMMARY, STATS, LINEUP, COMMENTARY, H2H, STANDINGS, POWER, DETAILS
-  // ❌ Hide: Predictions
-  live: ['summary', 'stats', 'lineups', 'commentary', 'h2h', 'table', 'power', 'details'],
+  // ✅ Show: SUMMARY (labeled as COMMENTARY), STATS, LINEUP, H2H, STANDINGS, POWER, DETAILS
+  // ❌ Hide: Predictions, Commentary tab
+  live: ['summary', 'stats', 'lineups', 'h2h', 'table', 'power', 'details'],
   
   // Completed Match (FT, AET, PEN)
-  // ✅ Show: SUMMARY, STATS, LINEUP, COMMENTARY, H2H, STANDINGS, DETAILS
-  // ❌ Hide: Predictions, Power
-  finished: ['summary', 'stats', 'lineups', 'commentary', 'h2h', 'table', 'details'],
+  // ✅ Show: COMMENTARY (labeled as SUMMARY), STATS, LINEUP, H2H, STANDINGS, DETAILS
+  // ❌ Hide: Predictions, Power, Summary tab
+  finished: ['commentary', 'stats', 'lineups', 'h2h', 'table', 'details'],
 };
 
-// Default tabs for each status (first tab in the list)
+// Default tabs for each status - always start with details
 const DEFAULT_TAB_BY_STATUS: Record<MatchStatus, TabType> = {
-  upcoming: 'predictions',
-  live: 'summary',
-  finished: 'summary',
+  upcoming: 'details',
+  live: 'details',
+  finished: 'details',
 };
 
 /**
@@ -108,11 +109,21 @@ const getMatchStatus = (statusShort: string | undefined): MatchStatus => {
 };
 
 /**
- * Get filtered tabs based on match status
+ * Get filtered tabs based on match status with dynamic labels
  */
 const getTabsForStatus = (status: MatchStatus): { id: TabType; label: string }[] => {
   const allowedTabs = TABS_BY_STATUS[status];
-  return ALL_TABS.filter(tab => allowedTabs.includes(tab.id));
+  return ALL_TABS.filter(tab => allowedTabs.includes(tab.id)).map(tab => {
+    // For live games: "summary" tab shows as "COMMENTARY"
+    if (status === 'live' && tab.id === 'summary') {
+      return { ...tab, label: 'COMMENTARY' };
+    }
+    // For finished games: "commentary" tab shows as "SUMMARY"
+    if (status === 'finished' && tab.id === 'commentary') {
+      return { ...tab, label: 'SUMMARY' };
+    }
+    return tab;
+  });
 };
 
 export default function MatchDetailsScreen() {
@@ -200,9 +211,121 @@ export default function MatchDetailsScreen() {
     fetchInjuries();
   }, [id]);
 
-  // Keep mock data for tabs that aren't integrated yet (Commentary and Power)
-  const commentary = getMatchCommentary(id || 'default');
-  const powerData = getMatchPowerData(id || 'default');
+  // Transform events into commentary
+  const commentary = useMemo(() => {
+    if (eventsData && matchData) {
+      const items = mapEventsToCommentary(eventsData, matchData);
+      return { items };
+    }
+    // Fallback to empty commentary if no events
+    return { items: [] };
+  }, [eventsData, matchData]);
+
+  // Transform predictions data to Power tab format
+  const powerData = useMemo(() => {
+    console.log('[PowerTab] 🔄 Computing powerData for match:', matchData?.teams?.home?.name, 'vs', matchData?.teams?.away?.name);
+    console.log('[PowerTab] Predictions data available:', !!predictionsData);
+    console.log('[PowerTab] Match data available:', !!matchData);
+    
+    if (predictionsData && matchData) {
+      console.log('[PowerTab] 📥 Attempting to map predictions data...');
+      console.log('[PowerTab] Predictions data type:', Array.isArray(predictionsData) ? 'array' : typeof predictionsData);
+      console.log('[PowerTab] Predictions data keys:', predictionsData ? Object.keys(predictionsData) : 'null');
+      
+      const mapped = mapPredictionsToPower(predictionsData, matchData);
+      if (mapped) {
+        console.log('[PowerTab] ✅ Successfully mapped predictions data');
+        console.log('[PowerTab] Mapped data summary:', {
+          homeTeam: mapped.teamBalance.homeTeam.name,
+          awayTeam: mapped.teamBalance.awayTeam.name,
+          homeStrength: mapped.teamBalance.homeTeam.stats.strength,
+          awayStrength: mapped.teamBalance.awayTeam.stats.strength,
+        });
+        return mapped;
+      } else {
+        console.warn('[PowerTab] ⚠️ Mapping returned null, using fallback');
+      }
+    } else {
+      console.warn('[PowerTab] ⚠️ Missing predictions or match data, using fallback');
+    }
+    
+    // Fallback to empty/default data if predictions not available
+    console.log('[PowerTab] 🔄 Using fallback/default data');
+    const emptyGoalsByMinute = {
+      '0-15': { total: 0, percentage: '0%' },
+      '16-30': { total: 0, percentage: '0%' },
+      '31-45': { total: 0, percentage: '0%' },
+      '46-60': { total: 0, percentage: '0%' },
+      '61-75': { total: 0, percentage: '0%' },
+      '76-90': { total: 0, percentage: '0%' },
+      '91-105': { total: 0, percentage: '0%' },
+      '106-120': { total: 0, percentage: '0%' },
+    };
+
+    const defaultStats = {
+      strength: 50,
+      attacking: 50,
+      defensive: 50,
+      wins: 50,
+      draws: 50,
+      loss: 50,
+      goals: 50,
+    };
+
+    return {
+      teamBalance: {
+        homeTeam: {
+          name: matchData?.teams?.home?.name || 'Home',
+          stats: defaultStats,
+        },
+        awayTeam: {
+          name: matchData?.teams?.away?.name || 'Away',
+          stats: defaultStats,
+        },
+      },
+      teamPower: {
+        homeTeam: {
+          name: matchData?.teams?.home?.name || 'Home',
+          timeSeries: [],
+        },
+        awayTeam: {
+          name: matchData?.teams?.away?.name || 'Away',
+          timeSeries: [],
+        },
+      },
+      goalPower: {
+        homeTeam: {
+          name: matchData?.teams?.home?.name || 'Home',
+          goals: {
+            for: {
+              minute: emptyGoalsByMinute,
+            },
+          },
+        },
+        awayTeam: {
+          name: matchData?.teams?.away?.name || 'Away',
+          goals: {
+            for: {
+              minute: emptyGoalsByMinute,
+            },
+          },
+        },
+      },
+    };
+  }, [predictionsData, matchData]);
+
+  // Log powerData whenever it changes
+  useEffect(() => {
+    if (powerData) {
+      console.log('[PowerTab] 📊 Final powerData:', {
+        homeTeam: powerData.teamBalance.homeTeam.name,
+        awayTeam: powerData.teamBalance.awayTeam.name,
+        homeStats: powerData.teamBalance.homeTeam.stats,
+        awayStats: powerData.teamBalance.awayTeam.stats,
+        isUsingFallback: powerData.teamBalance.homeTeam.stats.strength === 50 && powerData.teamBalance.awayTeam.stats.strength === 50,
+      });
+    }
+  }, [powerData]);
 
   // Transform API data to UI format using memoization
   // Note: If isProjectedLineup is true, lineupsData is already in array format [home, away]
@@ -773,7 +896,7 @@ export default function MatchDetailsScreen() {
                 { backgroundColor: theme.colors.cardBackground },
                 goalsOverUnder === 'x1' && styles.predictionButtonSelected,
               ]}
-              onPress={() => setGoalsOverUnder('x1')}
+              onPress={() => setGoalsOverUnder(goalsOverUnder === 'x1' ? null : 'x1')}
             >
               <Text
                 style={[
@@ -791,7 +914,7 @@ export default function MatchDetailsScreen() {
                 { backgroundColor: theme.colors.cardBackground },
                 goalsOverUnder === '12' && styles.predictionButtonSelected,
               ]}
-              onPress={() => setGoalsOverUnder('12')}
+              onPress={() => setGoalsOverUnder(goalsOverUnder === '12' ? null : '12')}
             >
               <Text
                 style={[
@@ -809,7 +932,7 @@ export default function MatchDetailsScreen() {
                 { backgroundColor: theme.colors.cardBackground },
                 goalsOverUnder === 'x2' && styles.predictionButtonSelected,
               ]}
-              onPress={() => setGoalsOverUnder('x2')}
+              onPress={() => setGoalsOverUnder(goalsOverUnder === 'x2' ? null : 'x2')}
             >
               <Text
                 style={[
@@ -837,7 +960,7 @@ export default function MatchDetailsScreen() {
                 { backgroundColor: theme.colors.cardBackground },
                 bothTeamsScore === 'yes' && styles.predictionButtonSelected,
               ]}
-              onPress={() => setBothTeamsScore('yes')}
+              onPress={() => setBothTeamsScore(bothTeamsScore === 'yes' ? null : 'yes')}
             >
               <Text
                 style={[
@@ -856,7 +979,7 @@ export default function MatchDetailsScreen() {
                 { backgroundColor: theme.colors.cardBackground },
                 bothTeamsScore === 'no' && styles.predictionButtonSelected,
               ]}
-              onPress={() => setBothTeamsScore('no')}
+              onPress={() => setBothTeamsScore(bothTeamsScore === 'no' ? null : 'no')}
             >
               <Text
                 style={[
@@ -884,7 +1007,7 @@ export default function MatchDetailsScreen() {
                 { backgroundColor: theme.colors.cardBackground },
                 firstTeamScore === 'home' && styles.predictionButtonSelected,
               ]}
-              onPress={() => setFirstTeamScore('home')}
+              onPress={() => setFirstTeamScore(firstTeamScore === 'home' ? null : 'home')}
             >
               <Text
                 style={[
@@ -903,7 +1026,7 @@ export default function MatchDetailsScreen() {
                 { backgroundColor: theme.colors.cardBackground },
                 firstTeamScore === 'away' && styles.predictionButtonSelected,
               ]}
-              onPress={() => setFirstTeamScore('away')}
+              onPress={() => setFirstTeamScore(firstTeamScore === 'away' ? null : 'away')}
             >
               <Text
                 style={[
@@ -930,7 +1053,7 @@ export default function MatchDetailsScreen() {
                 { backgroundColor: theme.colors.cardBackground },
                 doubleChance === 'x1' && styles.predictionButtonSelected,
               ]}
-              onPress={() => setDoubleChance('x1')}
+              onPress={() => setDoubleChance(doubleChance === 'x1' ? null : 'x1')}
             >
               <Text
                 style={[
@@ -948,7 +1071,7 @@ export default function MatchDetailsScreen() {
                 { backgroundColor: theme.colors.cardBackground },
                 doubleChance === '12' && styles.predictionButtonSelected,
               ]}
-              onPress={() => setDoubleChance('12')}
+              onPress={() => setDoubleChance(doubleChance === '12' ? null : '12')}
             >
               <Text
                 style={[
@@ -966,7 +1089,7 @@ export default function MatchDetailsScreen() {
                 { backgroundColor: theme.colors.cardBackground },
                 doubleChance === 'x2' && styles.predictionButtonSelected,
               ]}
-              onPress={() => setDoubleChance('x2')}
+              onPress={() => setDoubleChance(doubleChance === 'x2' ? null : 'x2')}
             >
               <Text
                 style={[
@@ -2109,6 +2232,17 @@ export default function MatchDetailsScreen() {
   };
 
   const renderPowerTab = () => {
+    if (!powerData) {
+      return (
+        <View style={[styles.powerContainer, { justifyContent: 'center', alignItems: 'center', paddingVertical: 48 }]}>
+          <MaterialCommunityIcons name="chart-line" size={48} color={isDark ? '#9ca3af' : '#6B7280'} />
+          <Text style={{ color: isDark ? '#9ca3af' : '#6B7280', marginTop: 16, fontSize: 14 }}>
+            Power data not available
+          </Text>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.powerContainer}>
         {/* Team Balance Section */}
@@ -2179,6 +2313,17 @@ export default function MatchDetailsScreen() {
   );
 
   const renderCommentaryTab = () => {
+    if (!commentary.items || commentary.items.length === 0) {
+      return (
+        <View style={[styles.commentaryContainer, { justifyContent: 'center', alignItems: 'center', paddingVertical: 48 }]}>
+          <MaterialCommunityIcons name="comment-text-outline" size={48} color={isDark ? '#9ca3af' : '#6B7280'} />
+          <Text style={{ color: isDark ? '#9ca3af' : '#6B7280', marginTop: 16, fontSize: 14 }}>
+            Commentary not available yet
+          </Text>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.commentaryContainer}>
         {commentary.items.map(renderCommentaryItem)}
@@ -2293,13 +2438,21 @@ export default function MatchDetailsScreen() {
       >
         {selectedTab === 'details' && renderDetailsTab()}
         {selectedTab === 'predictions' && renderPredictionsTab()}
-        {selectedTab === 'summary' && renderSummaryTab()}
+        {selectedTab === 'summary' && (
+          // For live games: summary tab shows commentary content
+          // For finished games: summary tab shows summary content (but summary tab is hidden in finished)
+          matchStatus === 'live' ? renderCommentaryTab() : renderSummaryTab()
+        )}
         {selectedTab === 'lineups' && renderLineupsTab()}
         {selectedTab === 'stats' && renderStatsTab()}
         {selectedTab === 'h2h' && renderH2HTab()}
         {selectedTab === 'table' && renderTableTab()}
         {selectedTab === 'power' && renderPowerTab()}
-        {selectedTab === 'commentary' && renderCommentaryTab()}
+        {selectedTab === 'commentary' && (
+          // For finished games: commentary tab shows summary content
+          // For live games: commentary tab shows commentary content (but commentary tab is hidden in live)
+          matchStatus === 'finished' ? renderSummaryTab() : renderCommentaryTab()
+        )}
         {/* Fallback for any unhandled tab */}
         {!['details', 'predictions', 'summary', 'lineups', 'stats', 'h2h', 'table', 'power', 'commentary'].includes(selectedTab) && renderPlaceholderTab()}
     </ScrollView>

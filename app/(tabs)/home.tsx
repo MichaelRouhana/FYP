@@ -29,6 +29,7 @@ export default function HomeScreen() {
   const { theme, isDark } = useTheme();
   const [selectedDate, setSelectedDate] = useState<string>('0'); // Today
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
+  const [showTopLeaguesOnly, setShowTopLeaguesOnly] = useState(false); // Toggle for top 5 leagues
   const [expandedLeagues, setExpandedLeagues] = useState<Set<string>>(new Set());
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -37,6 +38,10 @@ export default function HomeScreen() {
   const [debugAlertShown, setDebugAlertShown] = useState(false);
 
   const dates = useMemo(() => generateDates(), []);
+
+  // Top 5 leagues: Premier League, La Liga, Bundesliga, Serie A, Ligue 1
+  // League IDs from API-Football: 39 (Premier League), 140 (La Liga), 78 (Bundesliga), 135 (Serie A), 61 (Ligue 1)
+  const TOP_LEAGUE_IDS = new Set([39, 140, 78, 135, 61]);
 
   // Fetch fixtures from backend on initial load
   useEffect(() => {
@@ -388,8 +393,14 @@ export default function HomeScreen() {
     }
     
 
-    // 2. Filter logic
-    return leagues
+    // 2. Filter by top leagues if toggle is enabled
+    let filteredLeaguesList = leagues;
+    if (showTopLeaguesOnly) {
+      filteredLeaguesList = leagues.filter(league => TOP_LEAGUE_IDS.has(league.id));
+    }
+
+    // 3. Filter logic
+    return filteredLeaguesList
       .map((league) => ({
         ...league,
         matches: league.matches.filter((match) => {
@@ -470,7 +481,7 @@ export default function HomeScreen() {
         }),
       }))
       .filter((league) => league.matches.length > 0);
-  }, [leagues, selectedFilter, selectedDateObj, selectedDate, dates]);
+  }, [leagues, selectedFilter, selectedDateObj, selectedDate, dates, showTopLeaguesOnly]);
 
   const toggleLeague = useCallback((leagueId: number) => {
     const leagueIdStr = String(leagueId);
@@ -707,80 +718,115 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      {/* Filter Tabs - Only show for today (not past or future dates) */}
+      {/* Filter Section - Toggle always visible, filter tabs only for today */}
       {(() => {
         const selectedDateOption = dates.find(d => d.id === selectedDate);
         const isPast = selectedDateOption ? isPastDate(selectedDateOption.fullDate) : false;
         const isFuture = selectedDateOption ? isFutureDate(selectedDateOption.fullDate) : false;
-        
-        if (isPast || isFuture) return null; // Hide filters for past or future dates
+        const showFilterTabs = !isPast && !isFuture; // Only show filter tabs for today
         
         return (
           <View style={[styles.filterContainer, { backgroundColor: theme.colors.background }]}>
-            <TouchableOpacity
-              style={[
-                styles.filterTab, 
-                { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
-                selectedFilter === 'all' && { backgroundColor: theme.colors.primary }
-              ]}
-              onPress={() => setSelectedFilter('all')}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScrollContent}
             >
-              <Text style={[
-                styles.filterText, 
-                { color: theme.colors.text },
-                selectedFilter === 'all' && { color: theme.colors.primaryText }
-              ]}>
-                ALL
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.filterTab, 
-                { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
-                selectedFilter === 'live' && { backgroundColor: theme.colors.primary }
-              ]}
-              onPress={() => setSelectedFilter('live')}
-            >
-              <Text style={[
-                styles.filterText, 
-                { color: theme.colors.text },
-                selectedFilter === 'live' && { color: theme.colors.primaryText }
-              ]}>
-                LIVE
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.filterTab, 
-                { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
-                selectedFilter === 'upcoming' && { backgroundColor: theme.colors.primary }
-              ]}
-              onPress={() => setSelectedFilter('upcoming')}
-            >
-              <Text style={[
-                styles.filterText, 
-                { color: theme.colors.text },
-                selectedFilter === 'upcoming' && { color: theme.colors.primaryText }
-              ]}>
-                UPCOMING
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.filterTab, 
-                { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
-                selectedFilter === 'finished' && { backgroundColor: theme.colors.primary }
-              ]}
-              onPress={() => setSelectedFilter('finished')}
-            >
-              <Text style={[
-                styles.filterText, 
-                { color: theme.colors.text },
-                selectedFilter === 'finished' && { color: theme.colors.primaryText }
-              ]}>
-                FINISHED
-              </Text>
-            </TouchableOpacity>
+              {/* Top Leagues Toggle Button - Always visible */}
+              <TouchableOpacity
+                style={[
+                  styles.topLeaguesToggle,
+                  { 
+                    backgroundColor: showTopLeaguesOnly ? theme.colors.primary : theme.colors.filterInactive,
+                    borderWidth: isDark ? 0 : 1,
+                    borderColor: theme.colors.border,
+                  }
+                ]}
+                onPress={() => setShowTopLeaguesOnly(!showTopLeaguesOnly)}
+              >
+                <MaterialCommunityIcons
+                  name={showTopLeaguesOnly ? 'star' : 'star-outline'}
+                  size={16}
+                  color={showTopLeaguesOnly ? theme.colors.primaryText : theme.colors.text}
+                />
+                <Text style={[
+                  styles.topLeaguesToggleText,
+                  { color: showTopLeaguesOnly ? theme.colors.primaryText : theme.colors.text }
+                ]}>
+                  TOP 5
+                </Text>
+              </TouchableOpacity>
+              
+              {/* Filter Tabs - Only show for today */}
+              {showFilterTabs && (
+                <>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterTab, 
+                      { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+                      selectedFilter === 'all' && { backgroundColor: theme.colors.primary }
+                    ]}
+                    onPress={() => setSelectedFilter('all')}
+                  >
+                    <Text style={[
+                      styles.filterText, 
+                      { color: theme.colors.text },
+                      selectedFilter === 'all' && { color: theme.colors.primaryText }
+                    ]}>
+                      ALL
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterTab, 
+                      { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+                      selectedFilter === 'live' && { backgroundColor: theme.colors.primary }
+                    ]}
+                    onPress={() => setSelectedFilter('live')}
+                  >
+                    <Text style={[
+                      styles.filterText, 
+                      { color: theme.colors.text },
+                      selectedFilter === 'live' && { color: theme.colors.primaryText }
+                    ]}>
+                      LIVE
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterTab, 
+                      { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+                      selectedFilter === 'upcoming' && { backgroundColor: theme.colors.primary }
+                    ]}
+                    onPress={() => setSelectedFilter('upcoming')}
+                  >
+                    <Text style={[
+                      styles.filterText, 
+                      { color: theme.colors.text },
+                      selectedFilter === 'upcoming' && { color: theme.colors.primaryText }
+                    ]}>
+                      UPCOMING
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.filterTab, 
+                      { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+                      selectedFilter === 'finished' && { backgroundColor: theme.colors.primary }
+                    ]}
+                    onPress={() => setSelectedFilter('finished')}
+                  >
+                    <Text style={[
+                      styles.filterText, 
+                      { color: theme.colors.text },
+                      selectedFilter === 'finished' && { color: theme.colors.primaryText }
+                    ]}>
+                      FINISHED
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </ScrollView>
           </View>
         );
       })()}
@@ -908,10 +954,25 @@ const styles = StyleSheet.create({
   },
   // Filter Tabs
   filterContainer: {
+    paddingVertical: 16,
+  },
+  filterScrollContent: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 16,
     gap: 12,
+    alignItems: 'center',
+  },
+  topLeaguesToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  topLeaguesToggleText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_800ExtraBold',
   },
   filterTab: {
     paddingHorizontal: 20,
