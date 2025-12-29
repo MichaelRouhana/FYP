@@ -9,6 +9,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   RefreshControl,
   ScrollView,
@@ -33,6 +34,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [leagues, setLeagues] = useState<UILeague[]>([]);
+  const [debugAlertShown, setDebugAlertShown] = useState(false);
 
   const dates = useMemo(() => generateDates(), []);
 
@@ -50,6 +52,11 @@ export default function HomeScreen() {
       }
     }, [leagues.length])
   );
+
+  // Reset debug alert when date/filter changes
+  useEffect(() => {
+    setDebugAlertShown(false);
+  }, [selectedDate, selectedFilter]);
 
   const fetchFixtures = async (silent = false) => {
     try {
@@ -140,7 +147,7 @@ export default function HomeScreen() {
         },
         time: timeDisplay,
         status,
-        statusShort: statusShort, // Include statusShort for postponed detection
+        statusShort: statusShort, // Include statusShort for postponed detection - CRITICAL for filtering
         scheduledTime: scheduledTime, // Scheduled time for finished matches
         homeScore: rawJson.goals.home ?? undefined,
         awayScore: rawJson.goals.away ?? undefined,
@@ -149,6 +156,33 @@ export default function HomeScreen() {
         leagueId: rawJson.league.id,
         leagueName: rawJson.league.name,
       };
+      
+      // Debug: Log finished matches to verify they're being processed
+      if (statusShort === 'FT' || status === 'finished') {
+        console.log('[HomeScreen] ✅ Processed finished match:', {
+          id: match.id,
+          home: match.homeTeam.name,
+          away: match.awayTeam.name,
+          statusShort,
+          status,
+          date: match.date,
+          dateFormatted: new Date(match.date).toLocaleDateString(),
+        });
+      }
+      
+      // Also log if we see Ivory Coast or Cameroon (the known finished match)
+      if (match.homeTeam.name.includes('Ivory') || match.awayTeam.name.includes('Ivory') || 
+          match.homeTeam.name.includes('Cameroon') || match.awayTeam.name.includes('Cameroon')) {
+        console.log('[HomeScreen] 🔍 Found Ivory Coast/Cameroon match:', {
+          id: match.id,
+          home: match.homeTeam.name,
+          away: match.awayTeam.name,
+          statusShort,
+          status,
+          date: match.date,
+          dateFormatted: new Date(match.date).toLocaleDateString(),
+        });
+      }
 
       // Group by league
       if (!leagueMap.has(leagueId)) {
@@ -167,10 +201,13 @@ export default function HomeScreen() {
     return Array.from(leagueMap.values());
   };
 
-  // Get the actual date object for the selected date
+  // Get the actual date object for the selected date (normalized to midnight)
   const selectedDateObj = useMemo(() => {
     const dateOption = dates.find(d => d.id === selectedDate);
-    return dateOption?.date || new Date();
+    const date = dateOption?.date || new Date();
+    // Normalize to local midnight to avoid timezone issues
+    const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    return normalized;
   }, [selectedDate, dates]);
 
   // Helper to check if a date is in the past
@@ -193,37 +230,215 @@ export default function HomeScreen() {
     return d > today && d.getDate() !== today.getDate();
   };
 
+  // Helper to check if a match date matches the selected date
+  // FIX: Use local date parts to avoid timezone issues
+  const isSameDay = useCallback((matchDateStr: string, targetDate: Date): boolean => {
+    const matchDate = new Date(matchDateStr);
+    // Normalize both dates to local midnight for accurate comparison
+    const matchLocal = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate());
+    const targetLocal = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+    return matchLocal.getTime() === targetLocal.getTime();
+  }, []);
+
   const filteredLeagues = useMemo(() => {
     // 1. Determine if we should ignore filters (Past or Future Dates)
     const selectedDateOption = dates.find(d => d.id === selectedDate);
     const isPast = selectedDateOption ? isPastDate(selectedDateOption.fullDate) : false;
     const isFuture = selectedDateOption ? isFutureDate(selectedDateOption.fullDate) : false;
-    const shouldIgnoreFilters = isPast || isFuture;
-
-    // Helper to check if a match date matches the selected date
-    const isSameDay = (matchDateStr: string, targetDate: Date): boolean => {
-      const matchDate = new Date(matchDateStr);
-      return (
-        matchDate.getFullYear() === targetDate.getFullYear() &&
-        matchDate.getMonth() === targetDate.getMonth() &&
-        matchDate.getDate() === targetDate.getDate()
-      );
-    };
+    
+    // Debug: Collect info for past dates (only show alert once)
+    if (isPast && !debugAlertShown) {
+      let allMatchesOnDate: any[] = [];
+      let finishedMatchesOnDate: any[] = [];
+      let otherMatchesOnDate: any[] = [];
+      let allFinishedMatches: any[] = []; // All finished matches regardless of date
+      
+      // First, collect ALL finished matches to see if they exist
+      leagues.forEach(league => {
+        league.matches.forEach(match => {
+          const statusShort = match.statusShort || '';
+          if (statusShort === 'FT' || match.status === 'finished') {
+            allFinishedMatches.push({
+              id: match.id,
+              home: match.homeTeam.name,
+              away: match.awayTeam.name,
+              statusShort,
+              status: match.status,
+              matchDate: match.date,
+              dateFormatted: new Date(match.date).toLocaleDateString(),
+            });
+          }
+        });
+      });
+      
+      // Check ALL matches for the selected date
+      leagues.forEach(league => {
+        league.matches.forEach(match => {
+          const statusShort = match.statusShort || '';
+          const matchesDate = isSameDay(match.date, selectedDateObj);
+          
+          if (matchesDate) {
+            allMatchesOnDate.push({
+              id: match.id,
+              home: match.homeTeam.name,
+              away: match.awayTeam.name,
+              statusShort,
+              status: match.status,
+              matchDate: match.date,
+            });
+            
+            const isFinished = ['FT', 'AET', 'PEN', 'WO', 'ABD', 'AWD'].includes(statusShort) || match.status === 'finished';
+            if (isFinished) {
+              finishedMatchesOnDate.push({
+                id: match.id,
+                home: match.homeTeam.name,
+                away: match.awayTeam.name,
+                statusShort,
+                status: match.status,
+              });
+            } else {
+              otherMatchesOnDate.push({
+                id: match.id,
+                home: match.homeTeam.name,
+                away: match.awayTeam.name,
+                statusShort,
+                status: match.status,
+              });
+            }
+          }
+        });
+      });
+      
+      // Show alert with debug info
+      setTimeout(() => {
+        const matchList = allMatchesOnDate.map(m => 
+          `${m.home} vs ${m.away}\n  Status: ${m.statusShort} (${m.status})`
+        ).join('\n\n');
+        
+        const finishedList = allFinishedMatches.map(m => 
+          `${m.home} vs ${m.away}\n  Date: ${m.dateFormatted}\n  Status: ${m.statusShort}`
+        ).join('\n\n');
+        
+        Alert.alert(
+          'Past Date Debug',
+          `Selected: ${selectedDateOption?.fullDate}\n\nOn this date:\nTotal: ${allMatchesOnDate.length}\nFinished: ${finishedMatchesOnDate.length}\nOther: ${otherMatchesOnDate.length}\n\nAll finished matches in data (${allFinishedMatches.length}):\n${finishedList || 'None'}\n\nMatches on selected date:\n${matchList || 'None'}`,
+          [{ text: 'OK', onPress: () => setDebugAlertShown(true) }]
+        );
+      }, 300);
+    }
+    
+    // Debug: Collect info for finished filter debugging (only show alert once)
+    if (selectedFilter === 'finished' && !debugAlertShown && !isPast) {
+      let finishedMatchesInfo: any[] = [];
+      let allMatchesWithFT: any[] = [];
+      
+      // Check ALL matches, not just filtered ones
+      leagues.forEach(league => {
+        league.matches.forEach(match => {
+          const statusShort = match.statusShort || '';
+          const matchesDate = isSameDay(match.date, selectedDateObj);
+          
+          // Collect all FT matches
+          if (statusShort === 'FT' || match.status === 'finished') {
+            allMatchesWithFT.push({
+              id: match.id,
+              home: match.homeTeam.name,
+              away: match.awayTeam.name,
+              statusShort,
+              status: match.status,
+              matchDate: match.date,
+              matchesDate,
+            });
+            
+            // Only include if date matches
+            if (matchesDate) {
+              finishedMatchesInfo.push({
+                id: match.id,
+                home: match.homeTeam.name,
+                away: match.awayTeam.name,
+                statusShort,
+                status: match.status,
+              });
+            }
+          }
+        });
+      });
+      
+      // Show alert with debug info
+      setTimeout(() => {
+        if (allMatchesWithFT.length > 0) {
+          const dateMatchInfo = allMatchesWithFT.map(m => 
+            `${m.home} vs ${m.away}\n  Status: ${m.statusShort}\n  Date matches: ${m.matchesDate}\n  Match date: ${new Date(m.matchDate).toLocaleDateString()}\n  Selected: ${selectedDateObj.toLocaleDateString()}`
+          ).join('\n\n');
+          
+          Alert.alert(
+            'Finished Matches Debug',
+            `Total FT matches found: ${allMatchesWithFT.length}\nMatches with date match: ${finishedMatchesInfo.length}\n\nSelected date: ${selectedDateOption?.fullDate}\n\nDetails:\n${dateMatchInfo}`,
+            [{ text: 'OK', onPress: () => setDebugAlertShown(true) }]
+          );
+        } else {
+          const totalMatches = leagues.reduce((sum, league) => sum + league.matches.length, 0);
+          Alert.alert(
+            'No Finished Matches Found',
+            `Total matches in data: ${totalMatches}\nSelected date: ${selectedDateOption?.fullDate}\n\nNo matches with FT status found in the data.`,
+            [{ text: 'OK', onPress: () => setDebugAlertShown(true) }]
+          );
+        }
+      }, 300);
+    }
+    
 
     // 2. Filter logic
     return leagues
       .map((league) => ({
         ...league,
         matches: league.matches.filter((match) => {
+          // Extract match status - ensure we have the statusShort (do this BEFORE date filter for debugging)
+          const statusShort = match.statusShort || '';
+          
           // First filter by date
           const matchesDate = isSameDay(match.date, selectedDateObj);
-          if (!matchesDate) return false;
           
-          // If it's a past or future date, show everything (no filters)
-          if (shouldIgnoreFilters) return true;
+          // Debug: Log all finished matches to see what's being filtered
+          if (selectedFilter === 'finished' && (statusShort === 'FT' || match.status === 'finished')) {
+            console.log('[HomeScreen] Checking finished match:', {
+              id: match.id,
+              home: match.homeTeam.name,
+              away: match.awayTeam.name,
+              statusShort,
+              status: match.status,
+              matchDate: match.date,
+              selectedDate: selectedDateObj.toISOString(),
+              matchesDate,
+              isPast,
+              isFuture,
+            });
+          }
           
-          // Extract match status
-          const statusShort = match.statusShort || '';
+          if (!matchesDate) {
+            // Debug: Log why finished matches are being filtered out
+            if (selectedFilter === 'finished' && (statusShort === 'FT' || match.status === 'finished')) {
+              console.warn('[HomeScreen] Finished match filtered out by date:', {
+                id: match.id,
+                matchDate: match.date,
+                selectedDate: selectedDateObj.toISOString(),
+                matchLocal: new Date(match.date).toLocaleDateString(),
+                selectedLocal: selectedDateObj.toLocaleDateString(),
+              });
+            }
+            return false;
+          }
+          
+          // If it's a past date, show all matches (API might not have updated status yet)
+          // Prioritize finished matches but also show others in case of stale API data
+          if (isPast) {
+            // Show all matches for past dates - API status might be stale
+            // Finished matches will show scores, others will show as scheduled
+            return true;
+          }
+          
+          // If it's a future date, show everything (no filters)
+          if (isFuture) return true;
           
           // Filter by status
           if (selectedFilter === 'live') {
@@ -236,8 +451,18 @@ export default function HomeScreen() {
           }
           
           if (selectedFilter === 'finished') {
-            // FIX: Expanded Finished Statuses
-            return ['FT', 'AET', 'PEN', 'WO', 'ABD', 'AWD'].includes(statusShort);
+            // FIX: Expanded Finished Statuses - check both statusShort and status
+            const isFinished = ['FT', 'AET', 'PEN', 'WO', 'ABD', 'AWD'].includes(statusShort) || match.status === 'finished';
+            if (isFinished) {
+              console.log('[HomeScreen] ✅ Including finished match:', {
+                id: match.id,
+                home: match.homeTeam.name,
+                away: match.awayTeam.name,
+                statusShort,
+                status: match.status,
+              });
+            }
+            return isFinished;
           }
           
           // Default 'All'
