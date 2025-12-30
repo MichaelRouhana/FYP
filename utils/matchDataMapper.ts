@@ -8,6 +8,8 @@ import { MatchStats, StatItem } from '@/mock/matchStats';
 import { H2HData, H2HMatch, H2HStats } from '@/mock/matchH2H';
 import { MatchSummary, MatchEvent, EventType, TeamSide } from '@/mock/matchSummary';
 import { TeamStanding } from '@/mock/matchTable';
+import { MatchPowerData } from '@/mock/matchPower/types';
+import { mapPredictionsToPower } from '@/utils/powerMapper';
 
 /**
  * Map lineups API response to UI format
@@ -526,6 +528,217 @@ export const extractOdds = (predictionsData: any) => {
     home: 1.85,
     draw: 3.40,
     away: 2.10,
+  };
+};
+
+/**
+ * Map predictions data to Power tab format with smart fallback using odds
+ * @param predictionsData - Predictions data from API
+ * @param matchData - Main fixture data
+ * @param odds - Optional odds object (if not provided, will try to extract from predictionsData)
+ * @returns MatchPowerData with smart fallback if predictions are missing
+ */
+export const mapPowerData = (
+  predictionsData: any,
+  matchData: FootballApiFixture,
+  odds?: { home: number; draw: number; away: number }
+): MatchPowerData => {
+  console.log('[mapPowerData] 🔄 Starting power data mapping');
+  console.log('[mapPowerData] Match:', matchData?.teams?.home?.name, 'vs', matchData?.teams?.away?.name);
+  
+  // 1. Try to use predictions data first
+  if (predictionsData && matchData) {
+    console.log('[mapPowerData] 📥 Attempting to map predictions data...');
+    const mapped = mapPredictionsToPower(predictionsData, matchData);
+    if (mapped) {
+      console.log('[mapPowerData] ✅ Successfully mapped predictions data');
+      return mapped;
+    } else {
+      console.warn('[mapPowerData] ⚠️ Mapping returned null, trying odds fallback');
+    }
+  } else {
+    console.warn('[mapPowerData] ⚠️ Missing predictions or match data, trying odds fallback');
+  }
+
+  // 2. Smart Fallback: Try to calculate from Odds
+  let calculatedOdds = odds;
+  if (!calculatedOdds && predictionsData) {
+    // Try to extract odds from predictionsData
+    calculatedOdds = extractOdds(predictionsData);
+  }
+
+  if (calculatedOdds && calculatedOdds.home && calculatedOdds.away && matchData) {
+    console.log('[mapPowerData] 🎲 Calculating fallback from odds:', calculatedOdds);
+    
+    const homeOdd = parseFloat(String(calculatedOdds.home));
+    const awayOdd = parseFloat(String(calculatedOdds.away));
+    
+    // Calculate implied probabilities
+    const homeProb = 1 / homeOdd;
+    const awayProb = 1 / awayOdd;
+    const totalProb = homeProb + awayProb;
+
+    // Normalize to percentages (0-100)
+    const homeStrength = Math.round((homeProb / totalProb) * 100);
+    const awayStrength = 100 - homeStrength;
+
+    // Calculate Goal Power based on the Favorite's odds
+    // Lower odds = higher expected goals for the favorite
+    const lowestOdd = Math.min(homeOdd, awayOdd);
+    // Formula: GoalPower = 100 - (lowestOdd * 25)
+    // Clamp between 35 and 85 to be safe
+    let calculatedGoalPower = Math.round(100 - (lowestOdd * 25));
+    calculatedGoalPower = Math.max(35, Math.min(85, calculatedGoalPower));
+
+    console.log(`[mapPowerData] ✅ Generated fallback from odds. Home: ${homeStrength}%, Away: ${awayStrength}%`);
+    console.log(`[mapPowerData] 🎯 Goal Power calculated: ${calculatedGoalPower}% (from lowest odd: ${lowestOdd})`);
+
+    // Empty goals by minute structure
+    const emptyGoalsByMinute = {
+      '0-15': { total: 0, percentage: '0%' },
+      '16-30': { total: 0, percentage: '0%' },
+      '31-45': { total: 0, percentage: '0%' },
+      '46-60': { total: 0, percentage: '0%' },
+      '61-75': { total: 0, percentage: '0%' },
+      '76-90': { total: 0, percentage: '0%' },
+      '91-105': { total: 0, percentage: '0%' },
+      '106-120': { total: 0, percentage: '0%' },
+    };
+
+    // Generate time series based on strength
+    const generateTimeSeries = (baseStrength: number) => [
+      { minute: 5, value: Math.max(0, baseStrength - 10) },
+      { minute: 10, value: Math.max(0, baseStrength - 5) },
+      { minute: 15, value: baseStrength },
+      { minute: 20, value: Math.min(100, baseStrength + 5) },
+      { minute: 25, value: Math.min(100, baseStrength + 10) },
+      { minute: 30, value: baseStrength },
+      { minute: 35, value: Math.max(0, baseStrength - 5) },
+      { minute: 40, value: baseStrength },
+      { minute: 45, value: Math.min(100, baseStrength + 5) },
+    ];
+
+    return {
+      teamBalance: {
+        homeTeam: {
+          name: matchData.teams.home.name,
+          stats: {
+            strength: homeStrength,
+            attacking: homeStrength, // Assumption: Stronger team attacks more
+            defensive: homeStrength, // Assumption: Stronger team defends better
+            goals: calculatedGoalPower, // Calculated from favorite's odds
+            draws: 50,
+            loss: 100 - homeStrength,
+            wins: homeStrength,
+          },
+        },
+        awayTeam: {
+          name: matchData.teams.away.name,
+          stats: {
+            strength: awayStrength,
+            attacking: awayStrength,
+            defensive: awayStrength,
+            goals: calculatedGoalPower, // Calculated from favorite's odds
+            draws: 50,
+            loss: 100 - awayStrength,
+            wins: awayStrength,
+          },
+        },
+      },
+      teamPower: {
+        homeTeam: {
+          name: matchData.teams.home.name,
+          timeSeries: generateTimeSeries(homeStrength),
+        },
+        awayTeam: {
+          name: matchData.teams.away.name,
+          timeSeries: generateTimeSeries(awayStrength),
+        },
+      },
+      goalPower: {
+        homeTeam: {
+          name: matchData.teams.home.name,
+          goals: {
+            for: {
+              minute: emptyGoalsByMinute,
+            },
+          },
+        },
+        awayTeam: {
+          name: matchData.teams.away.name,
+          goals: {
+            for: {
+              minute: emptyGoalsByMinute,
+            },
+          },
+        },
+      },
+    };
+  }
+
+  // 3. Final Fallback: 50/50 (existing behavior)
+  console.warn('[mapPowerData] ⚠️ Missing predictions AND odds, using 50/50 fallback');
+  
+  const emptyGoalsByMinute = {
+    '0-15': { total: 0, percentage: '0%' },
+    '16-30': { total: 0, percentage: '0%' },
+    '31-45': { total: 0, percentage: '0%' },
+    '46-60': { total: 0, percentage: '0%' },
+    '61-75': { total: 0, percentage: '0%' },
+    '76-90': { total: 0, percentage: '0%' },
+    '91-105': { total: 0, percentage: '0%' },
+    '106-120': { total: 0, percentage: '0%' },
+  };
+
+  const defaultStats = {
+    strength: 50,
+    attacking: 50,
+    defensive: 50,
+    wins: 50,
+    draws: 50,
+    loss: 50,
+    goals: 50,
+  };
+
+  return {
+    teamBalance: {
+      homeTeam: {
+        name: matchData?.teams?.home?.name || 'Home',
+        stats: defaultStats,
+      },
+      awayTeam: {
+        name: matchData?.teams?.away?.name || 'Away',
+        stats: defaultStats,
+      },
+    },
+    teamPower: {
+      homeTeam: {
+        name: matchData?.teams?.home?.name || 'Home',
+        timeSeries: [],
+      },
+      awayTeam: {
+        name: matchData?.teams?.away?.name || 'Away',
+        timeSeries: [],
+      },
+    },
+    goalPower: {
+      homeTeam: {
+        name: matchData?.teams?.home?.name || 'Home',
+        goals: {
+          for: {
+            minute: emptyGoalsByMinute,
+          },
+        },
+      },
+      awayTeam: {
+        name: matchData?.teams?.away?.name || 'Away',
+        goals: {
+          for: {
+            minute: emptyGoalsByMinute,
+          },
+        },
+      },
+    },
   };
 };
 

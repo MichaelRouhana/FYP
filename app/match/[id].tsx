@@ -4,7 +4,6 @@ import { CommentaryItem } from '@/mock/matchCommentary';
 import { mapEventsToCommentary } from '@/utils/commentaryMapper';
 import { H2HMatch } from '@/mock/matchH2H';
 import { getRatingColor, Player } from '@/mock/matchLineups';
-import { mapPredictionsToPower } from '@/utils/powerMapper';
 import { CHART_COLORS } from '@/mock/matchPower/constants';
 import { eventLegend, EventType, MatchEvent } from '@/mock/matchSummary';
 import { TeamStanding } from '@/mock/matchTable';
@@ -38,6 +37,7 @@ import {
   mapStandingsToUI,
   extractVenueAndWeather,
   extractOdds,
+  mapPowerData,
 } from '@/utils/matchDataMapper';
 
 type TabType = 'details' | 'predictions' | 'summary' | 'lineups' | 'stats' | 'h2h' | 'table' | 'power' | 'commentary';
@@ -221,111 +221,32 @@ export default function MatchDetailsScreen() {
     return { items: [] };
   }, [eventsData, matchData]);
 
-  // Transform predictions data to Power tab format
+  // Transform predictions data to Power tab format with smart fallback using odds
   const powerData = useMemo(() => {
-    console.log('[PowerTab] 🔄 Computing powerData for match:', matchData?.teams?.home?.name, 'vs', matchData?.teams?.away?.name);
-    console.log('[PowerTab] Predictions data available:', !!predictionsData);
-    console.log('[PowerTab] Match data available:', !!matchData);
-    
-    if (predictionsData && matchData) {
-      console.log('[PowerTab] 📥 Attempting to map predictions data...');
-      console.log('[PowerTab] Predictions data type:', Array.isArray(predictionsData) ? 'array' : typeof predictionsData);
-      console.log('[PowerTab] Predictions data keys:', predictionsData ? Object.keys(predictionsData) : 'null');
-      
-      const mapped = mapPredictionsToPower(predictionsData, matchData);
-      if (mapped) {
-        console.log('[PowerTab] ✅ Successfully mapped predictions data');
-        console.log('[PowerTab] Mapped data summary:', {
-          homeTeam: mapped.teamBalance.homeTeam.name,
-          awayTeam: mapped.teamBalance.awayTeam.name,
-          homeStrength: mapped.teamBalance.homeTeam.stats.strength,
-          awayStrength: mapped.teamBalance.awayTeam.stats.strength,
-        });
-        return mapped;
-      } else {
-        console.warn('[PowerTab] ⚠️ Mapping returned null, using fallback');
-      }
-    } else {
-      console.warn('[PowerTab] ⚠️ Missing predictions or match data, using fallback');
+    if (!matchData) {
+      console.warn('[PowerTab] ⚠️ No match data available');
+      return null;
     }
+
+    // Extract odds if available (for fallback)
+    const odds = extractOdds(predictionsData);
     
-    // Fallback to empty/default data if predictions not available
-    console.log('[PowerTab] 🔄 Using fallback/default data');
-    const emptyGoalsByMinute = {
-      '0-15': { total: 0, percentage: '0%' },
-      '16-30': { total: 0, percentage: '0%' },
-      '31-45': { total: 0, percentage: '0%' },
-      '46-60': { total: 0, percentage: '0%' },
-      '61-75': { total: 0, percentage: '0%' },
-      '76-90': { total: 0, percentage: '0%' },
-      '91-105': { total: 0, percentage: '0%' },
-      '106-120': { total: 0, percentage: '0%' },
-    };
-
-    const defaultStats = {
-      strength: 50,
-      attacking: 50,
-      defensive: 50,
-      wins: 50,
-      draws: 50,
-      loss: 50,
-      goals: 50,
-    };
-
-    return {
-      teamBalance: {
-        homeTeam: {
-          name: matchData?.teams?.home?.name || 'Home',
-          stats: defaultStats,
-        },
-        awayTeam: {
-          name: matchData?.teams?.away?.name || 'Away',
-          stats: defaultStats,
-        },
-      },
-      teamPower: {
-        homeTeam: {
-          name: matchData?.teams?.home?.name || 'Home',
-          timeSeries: [],
-        },
-        awayTeam: {
-          name: matchData?.teams?.away?.name || 'Away',
-          timeSeries: [],
-        },
-      },
-      goalPower: {
-        homeTeam: {
-          name: matchData?.teams?.home?.name || 'Home',
-          goals: {
-            for: {
-              minute: emptyGoalsByMinute,
-            },
-          },
-        },
-        awayTeam: {
-          name: matchData?.teams?.away?.name || 'Away',
-          goals: {
-            for: {
-              minute: emptyGoalsByMinute,
-            },
-          },
-        },
-      },
-    };
+    // Use the new mapPowerData function with smart fallback
+    const result = mapPowerData(predictionsData, matchData, odds);
+    
+    // Log the result for debugging
+    console.log('[PowerTab] 📊 Final powerData:', {
+      homeTeam: result.teamBalance.homeTeam.name,
+      awayTeam: result.teamBalance.awayTeam.name,
+      homeStats: result.teamBalance.homeTeam.stats,
+      awayStats: result.teamBalance.awayTeam.stats,
+      isUsingFallback: result.teamBalance.homeTeam.stats.strength === 50 && result.teamBalance.awayTeam.stats.strength === 50,
+      isUsingOddsFallback: result.teamBalance.homeTeam.stats.strength !== 50 && result.teamBalance.awayTeam.stats.strength !== 50 && !predictionsData,
+    });
+    
+    return result;
   }, [predictionsData, matchData]);
 
-  // Log powerData whenever it changes
-  useEffect(() => {
-    if (powerData) {
-      console.log('[PowerTab] 📊 Final powerData:', {
-        homeTeam: powerData.teamBalance.homeTeam.name,
-        awayTeam: powerData.teamBalance.awayTeam.name,
-        homeStats: powerData.teamBalance.homeTeam.stats,
-        awayStats: powerData.teamBalance.awayTeam.stats,
-        isUsingFallback: powerData.teamBalance.homeTeam.stats.strength === 50 && powerData.teamBalance.awayTeam.stats.strength === 50,
-      });
-    }
-  }, [powerData]);
 
   // Transform API data to UI format using memoization
   // Note: If isProjectedLineup is true, lineupsData is already in array format [home, away]
