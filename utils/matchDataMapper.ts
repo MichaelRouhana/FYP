@@ -742,3 +742,170 @@ export const mapPowerData = (
   };
 };
 
+/**
+ * Extract predictions from predictions data
+ * @param predictionsData - Predictions data from API
+ * @returns Object with match winner, double chance, goals over/under, both teams to score, and first team to score
+ */
+export interface ExtractedPredictions {
+  matchWinner: 'Home' | 'Draw' | 'Away' | null;
+  doubleChance: 'x1' | '12' | 'x2' | null;
+  goalsOverUnder: 'Over 2.5' | 'Under 2.5' | null;
+  bothTeamsScore: 'Yes' | 'No' | null;
+  firstTeamScore: 'Home' | 'Away' | null;
+}
+
+/**
+ * Helper function to parse percentage string to number
+ * @param value - String like "45%" or number
+ * @returns Parsed number or 0 if invalid
+ */
+const parsePercentage = (value: string | number | null | undefined): number => {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const cleaned = value.replace('%', '').trim();
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+};
+
+export const extractPredictions = (predictionsData: any): ExtractedPredictions => {
+  console.log('[extractPredictions] 🔍 Extracting predictions from data');
+  
+  // Handle array response
+  let actualPredictionsData = predictionsData;
+  if (Array.isArray(predictionsData) && predictionsData.length > 0) {
+    actualPredictionsData = predictionsData[0];
+    console.log('[extractPredictions] 📦 Predictions is array, using first item');
+  }
+
+  if (!actualPredictionsData) {
+    console.warn('[extractPredictions] ⚠️ No predictions data available');
+    return {
+      matchWinner: null,
+      doubleChance: null,
+      goalsOverUnder: null,
+      bothTeamsScore: null,
+      firstTeamScore: null,
+    };
+  }
+
+  // Extract predictions object (may be nested)
+  const predictions = actualPredictionsData.predictions || actualPredictionsData;
+  
+  // 1. Match Winner: Compare Home, Draw, Away percentages
+  let matchWinner: 'Home' | 'Draw' | 'Away' | null = null;
+  
+  // Try different possible structures for match winner percentages
+  // Structure 1: predictions.winner.home, predictions.winner.draw, predictions.winner.away
+  // Structure 2: predictions.match_winner.home, etc.
+  // Structure 3: comparison.wins.home, comparison.wins.draw, comparison.wins.away
+  const comparison = actualPredictionsData.comparison || predictions.comparison || {};
+  const wins = comparison.wins || {};
+  
+  let homePercent = parsePercentage(predictions.winner?.home || predictions.match_winner?.home || wins.home || '0%');
+  let drawPercent = parsePercentage(predictions.winner?.draw || predictions.match_winner?.draw || wins.draw || '0%');
+  let awayPercent = parsePercentage(predictions.winner?.away || predictions.match_winner?.away || wins.away || '0%');
+  
+  // If all are 0, try to extract from form percentages as fallback
+  if (homePercent === 0 && drawPercent === 0 && awayPercent === 0) {
+    const form = comparison.form || {};
+    homePercent = parsePercentage(form.home || '0%');
+    awayPercent = parsePercentage(form.away || '0%');
+    // Estimate draw as remainder
+    if (homePercent > 0 || awayPercent > 0) {
+      drawPercent = Math.max(0, 100 - homePercent - awayPercent);
+    }
+  }
+
+  console.log('[extractPredictions] 📊 Match Winner percentages:', { homePercent, drawPercent, awayPercent });
+
+  if (homePercent > 0 || drawPercent > 0 || awayPercent > 0) {
+    if (homePercent >= drawPercent && homePercent >= awayPercent) {
+      matchWinner = 'Home';
+    } else if (drawPercent >= homePercent && drawPercent >= awayPercent) {
+      matchWinner = 'Draw';
+    } else {
+      matchWinner = 'Away';
+    }
+  }
+
+  console.log('[extractPredictions] 🏆 Match Winner:', matchWinner);
+
+  // 2. Double Chance: Calculate x1, 12, x2
+  let doubleChance: 'x1' | '12' | 'x2' | null = null;
+  
+  if (homePercent > 0 || drawPercent > 0 || awayPercent > 0) {
+    const x1 = homePercent + drawPercent; // Home or Draw
+    const x12 = homePercent + awayPercent; // Home or Away (no draw)
+    const x2 = awayPercent + drawPercent; // Away or Draw
+
+    console.log('[extractPredictions] 🎲 Double Chance calculations:', { x1, x12, x2 });
+
+    if (x1 >= x12 && x1 >= x2) {
+      doubleChance = 'x1';
+    } else if (x12 >= x1 && x12 >= x2) {
+      doubleChance = '12'; // Use '12' not 'x12' to match type definition
+    } else {
+      doubleChance = 'x2';
+    }
+  }
+
+  console.log('[extractPredictions] 🎯 Double Chance:', doubleChance);
+
+  // 3. Goals Over/Under: Parse prediction.goals.home and prediction.goals.away
+  let goalsOverUnder: 'Over 2.5' | 'Under 2.5' | null = null;
+  
+  const goals = predictions.goals || actualPredictionsData.goals || {};
+  const homeGoals = typeof goals.home === 'number' ? goals.home : parseFloat(String(goals.home || 0));
+  const awayGoals = typeof goals.away === 'number' ? goals.away : parseFloat(String(goals.away || 0));
+  const totalGoals = Math.abs(homeGoals) + Math.abs(awayGoals);
+
+  console.log('[extractPredictions] ⚽ Goals data:', { homeGoals, awayGoals, totalGoals });
+
+  if (totalGoals > 2.5) {
+    goalsOverUnder = 'Over 2.5';
+  } else if (totalGoals > 0) {
+    goalsOverUnder = 'Under 2.5';
+  } else {
+    // Fallback: Check if prediction.advice contains the word "Over"
+    const advice = predictions.advice || actualPredictionsData.advice || '';
+    if (advice.toLowerCase().includes('over')) {
+      goalsOverUnder = 'Over 2.5';
+    } else if (advice.toLowerCase().includes('under')) {
+      goalsOverUnder = 'Under 2.5';
+    }
+  }
+
+  console.log('[extractPredictions] 📈 Goals Over/Under:', goalsOverUnder);
+
+  // 4. Both Teams To Score: If match winner % < 50% AND Over 2.5, return "Yes"
+  let bothTeamsScore: 'Yes' | 'No' | null = null;
+  
+  if (matchWinner) {
+    const matchWinnerPercent = matchWinner === 'Home' ? homePercent : matchWinner === 'Draw' ? drawPercent : awayPercent;
+    
+    if (matchWinnerPercent < 50 && goalsOverUnder === 'Over 2.5') {
+      bothTeamsScore = 'Yes';
+    } else {
+      bothTeamsScore = 'No';
+    }
+  }
+
+  console.log('[extractPredictions] 🎪 Both Teams To Score:', bothTeamsScore);
+
+  // 5. First Team To Score: Return the matchWinner
+  const firstTeamScore: 'Home' | 'Away' | null = matchWinner === 'Home' ? 'Home' : matchWinner === 'Away' ? 'Away' : null;
+
+  console.log('[extractPredictions] 🥅 First Team To Score:', firstTeamScore);
+
+  return {
+    matchWinner,
+    doubleChance,
+    goalsOverUnder,
+    bothTeamsScore,
+    firstTeamScore,
+  };
+};
+
