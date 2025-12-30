@@ -40,8 +40,8 @@ export default function BiddingScreen() {
 
   const handleMatchPress = (bid: any) => {
     router.push({
-      pathname: '/match/[id]',
-      params: { id: bid.matchId },
+      pathname: '/bidding/[id]',
+      params: { id: String(bid.id) },
     });
   };
 
