@@ -2,9 +2,12 @@
 
 export interface H2HMatch {
   id: string;
-  date: string;
+  date: string; // Formatted date string for display
+  rawDate?: string; // ISO date string for sorting
   homeTeam: string;
   awayTeam: string;
+  homeTeamLogo?: string; // Team logo URL
+  awayTeamLogo?: string; // Team logo URL
   homeScore?: number;
   awayScore?: number;
   time?: string; // For upcoming matches

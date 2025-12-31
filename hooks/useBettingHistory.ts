@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
-import { getAllBets } from '@/services/betApi';
+import { useState, useEffect, useCallback } from 'react';
+import { getAllBets, getAllMockBets, getBetById } from '@/services/betApi';
 import { BetViewAllDTO } from '@/types/bet';
 import api from '@/services/api';
 import { FixtureViewDTO } from '@/types/fixture';
 
 export interface UIBet {
   id: number;
+  originalId?: string; // Store original ID for mock bets (e.g., "bet-1")
   matchId: string;
   homeTeam: string;
   awayTeam: string;
@@ -46,61 +47,98 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
   const [pendingBidsByDate, setPendingBidsByDate] = useState<BidsByDate[]>([]);
   const [resultBidsByDate, setResultBidsByDate] = useState<BidsByDate[]>([]);
 
-  const fetchBets = async () => {
+  const fetchBets = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      // Fetch all user bets
-      const betsResponse = await getAllBets();
-      const bets = betsResponse.content;
+      // Fetch mock bets first
+      const mockBets = getAllMockBets();
+      
+      // Transform mock bets to UI format
+      const mockUiBets: UIBet[] = mockBets.map((bet, index) => {
+        const timeparts = bet.matchTime.split(' ');
+        // Extract numeric ID from "bet-1" format, or use index as fallback
+        const numericId = bet.id.startsWith('bet-') 
+          ? parseInt(bet.id.replace('bet-', '')) || (index + 1000) // Use 1000+ to avoid conflicts
+          : parseInt(bet.id) || (index + 1000);
+        
+        return {
+          id: numericId,
+          originalId: bet.id, // Store original ID for navigation
+          matchId: String(bet.fixtureId),
+          homeTeam: bet.homeTeam,
+          awayTeam: bet.awayTeam,
+          homeTeamLogo: bet.homeTeamLogo,
+          awayTeamLogo: bet.awayTeamLogo,
+          homeScore: bet.homeScore,
+          awayScore: bet.awayScore,
+          matchTime: timeparts[0] || bet.matchTime,
+          matchDate: bet.matchDate,
+          points: bet.wagerAmount,
+          status: bet.status.toLowerCase() as 'pending' | 'won' | 'lost',
+          selection: bet.legs.map((leg) => leg.selection).join(' + '),
+          marketType: bet.legs.length > 1 ? 'MULTI_LEG' : bet.legs[0]?.marketType || 'MATCH_WINNER',
+        };
+      });
 
-      // Fetch all public fixtures to map bet data
-      const fixturesResponse = await api.get<FixtureViewDTO[]>('/fixtures/public');
-      const fixtures = fixturesResponse.data;
+      // Also try to fetch real bets (if API is available)
+      let realUiBets: UIBet[] = [];
+      try {
+        const betsResponse = await getAllBets();
+        const bets = betsResponse.content;
 
-      // Create a map for quick fixture lookup
-      const fixtureMap = new Map<number, FixtureViewDTO>();
-      fixtures.forEach((fixture) => fixtureMap.set(fixture.id, fixture));
+        // Fetch all public fixtures to map bet data
+        const fixturesResponse = await api.get<FixtureViewDTO[]>('/fixtures/public');
+        const fixtures = fixturesResponse.data;
 
-      // Transform bets to UI format
-      const uiBets: UIBet[] = bets
-        .map((bet: BetViewAllDTO) => {
-          // Find fixture by ID - note: bet might not have fixtureId exposed
-          // If BetViewAllDTO doesn't include fixtureId, we need to get it from another source
-          // For now, assuming we can access it somehow or need backend update
-          
-          // Placeholder - you may need to adjust based on actual API response
-          const fixtureId = (bet as any).fixtureId; 
-          const fixture = fixtureMap.get(fixtureId);
+        // Create a map for quick fixture lookup
+        const fixtureMap = new Map<number, FixtureViewDTO>();
+        fixtures.forEach((fixture) => fixtureMap.set(fixture.id, fixture));
 
-          if (!fixture) {
-            return null; // Skip bets without fixture data
-          }
+        // Transform real bets to UI format
+        realUiBets = bets
+          .map((bet: BetViewAllDTO) => {
+            const fixtureId = (bet as any).fixtureId; 
+            const fixture = fixtureMap.get(fixtureId);
 
-          const matchDate = new Date(fixture.rawJson.fixture.date);
-          
-          return {
-            id: bet.id,
-            matchId: String(fixtureId),
-            homeTeam: fixture.rawJson.teams.home.name,
-            awayTeam: fixture.rawJson.teams.away.name,
-            homeTeamLogo: fixture.rawJson.teams.home.logo,
-            awayTeamLogo: fixture.rawJson.teams.away.logo,
-            homeScore: fixture.rawJson.goals.home ?? undefined,
-            awayScore: fixture.rawJson.goals.away ?? undefined,
-            matchTime: matchDate.toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-            }),
-            matchDate: matchDate.toISOString(),
-            points: bet.stake,
-            status: bet.status.toLowerCase() as 'pending' | 'won' | 'lost',
-            selection: bet.selection,
-            marketType: bet.marketType,
-          };
-        })
-        .filter((bet): bet is UIBet => bet !== null);
+            if (!fixture) {
+              return null;
+            }
+
+            const matchDate = new Date(fixture.rawJson.fixture.date);
+            
+            return {
+              id: bet.id,
+              matchId: String(fixtureId),
+              homeTeam: fixture.rawJson.teams.home.name,
+              awayTeam: fixture.rawJson.teams.away.name,
+              homeTeamLogo: fixture.rawJson.teams.home.logo,
+              awayTeamLogo: fixture.rawJson.teams.away.logo,
+              homeScore: fixture.rawJson.goals.home ?? undefined,
+              awayScore: fixture.rawJson.goals.away ?? undefined,
+              matchTime: matchDate.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+              matchDate: matchDate.toISOString(),
+              points: bet.stake,
+              status: bet.status.toLowerCase() as 'pending' | 'won' | 'lost',
+              selection: bet.selection,
+              marketType: bet.marketType,
+            };
+          })
+          .filter((bet): bet is UIBet => bet !== null);
+      } catch (apiError) {
+        // If API fails, just use mock bets - don't log every time
+        // console.log('[useBettingHistory] Using mock bets only');
+      }
+
+      // Combine mock and real bets, removing duplicates by ID
+      const allUiBets = [...mockUiBets, ...realUiBets];
+      const uniqueBets = allUiBets.filter((bet, index, self) => 
+        index === self.findIndex((b) => b.id === bet.id)
+      );
 
       // Group bets by date
       const groupByDate = (bets: UIBet[]): BidsByDate[] => {
@@ -129,10 +167,10 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
       };
 
       // Filter and group by status
-      const allBids = groupByDate(uiBets);
-      const pendingBids = groupByDate(uiBets.filter((bet) => bet.status === 'pending'));
+      const allBids = groupByDate(uniqueBets);
+      const pendingBids = groupByDate(uniqueBets.filter((bet) => bet.status === 'pending'));
       const resultBids = groupByDate(
-        uiBets.filter((bet) => bet.status === 'won' || bet.status === 'lost')
+        uniqueBets.filter((bet) => bet.status === 'won' || bet.status === 'lost')
       );
 
       setAllBidsByDate(allBids);
@@ -144,11 +182,11 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // Empty dependency array since fetchBets doesn't depend on any props or state
 
   useEffect(() => {
     fetchBets();
-  }, []);
+  }, [fetchBets]);
 
   return {
     loading,

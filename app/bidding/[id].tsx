@@ -1,49 +1,63 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/context/ThemeContext';
+import { getBetById, getAllMockBets } from '@/services/betApi';
 
-// Bet Leg Status
-type LegStatus = 'Pending' | 'Won' | 'Lost' | 'Void';
+// Helper to map market type to display name
+const getMarketDisplayName = (marketType: string): string => {
+  const marketMap: Record<string, string> = {
+    'MATCH_WINNER': 'Match Winner',
+    'GOALS_OVER_UNDER': 'Goals Over/Under',
+    'BOTH_TEAMS_TO_SCORE': 'Both Teams To Score',
+    'FIRST_TEAM_TO_SCORE': 'First Team To Score',
+    'DOUBLE_CHANCE': 'Double Chance',
+    'SCORE_PREDICTION': 'Score Prediction',
+    'MULTI_LEG': 'Multi-Leg Bet',
+  };
+  return marketMap[marketType] || marketType;
+};
 
-// Bet Leg Interface
-interface BetLeg {
-  id: string;
-  selectionName: string;
-  marketName: string;
-  odds: number;
-  status: LegStatus;
-}
+// Helper to format selection name
+const formatSelectionName = (marketType: string, selection: string): string => {
+  if (marketType === 'MATCH_WINNER') {
+    if (selection === 'HOME') return 'Home to Win';
+    if (selection === 'DRAW') return 'Draw';
+    if (selection === 'AWAY') return 'Away to Win';
+  }
+  if (marketType === 'GOALS_OVER_UNDER') {
+    return selection; // Already formatted as "Over 2.5" or "Under 2.5"
+  }
+  if (marketType === 'BOTH_TEAMS_TO_SCORE') {
+    return selection === 'Yes' ? 'Both Teams to Score - Yes' : 'Both Teams to Score - No';
+  }
+  if (marketType === 'FIRST_TEAM_TO_SCORE') {
+    return selection === 'HOME' ? 'Home to Score First' : 'Away to Score First';
+  }
+  if (marketType === 'DOUBLE_CHANCE') {
+    if (selection === 'X1') return 'Home or Draw (1X)';
+    if (selection === '12') return 'Home or Away (12)';
+    if (selection === 'X2') return 'Away or Draw (X2)';
+  }
+  if (marketType === 'SCORE_PREDICTION') {
+    return `Exact Score: ${selection}`;
+  }
+  return selection;
+};
 
-// Bet Slip Interface
-interface BetSlip {
-  id: string;
-  matchId: string;
-  homeTeam: string;
-  awayTeam: string;
-  homeTeamLogo: string;
-  awayTeamLogo: string;
-  homeScore?: number;
-  awayScore?: number;
-  matchTime: string;
-  matchDate: string;
-  wagerAmount: number;
-  status: 'Pending' | 'Won' | 'Lost';
-  legs: BetLeg[];
-}
-
-// Mock Bet Slip Data Generator
-const generateMockBetSlip = (betId: string): BetSlip | null => {
+// Mock Bet Slip Data Generator (fallback)
+const generateMockBetSlip = (betId: string): any | null => {
   // Mock data based on bet ID
   const mockSlips: Record<string, BetSlip> = {
     '1': {
@@ -190,11 +204,64 @@ export default function BetDetailsScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const [betSlip, setBetSlip] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Get mock bet slip data
-  const betSlip = useMemo(() => {
-    if (!id) return null;
-    return generateMockBetSlip(id);
+  // Fetch bet data
+  useEffect(() => {
+    const fetchBet = async () => {
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        // Try to get from mock API first
+        // Handle both "bet-1" format and numeric "1" format
+        const betIdToSearch = id.startsWith('bet-') ? id : `bet-${id}`;
+        const mockBet = await getBetById(betIdToSearch);
+        
+        if (mockBet) {
+          // Transform mock bet to BetSlip format
+          const transformedBet = {
+            id: mockBet.id,
+            matchId: String(mockBet.fixtureId),
+            homeTeam: mockBet.homeTeam,
+            awayTeam: mockBet.awayTeam,
+            homeTeamLogo: mockBet.homeTeamLogo,
+            awayTeamLogo: mockBet.awayTeamLogo,
+            homeScore: mockBet.homeScore,
+            awayScore: mockBet.awayScore,
+            matchTime: mockBet.matchTime,
+            matchDate: mockBet.matchDate,
+            wagerAmount: mockBet.wagerAmount,
+            status: mockBet.status,
+            legs: mockBet.legs.map((leg: any) => ({
+              id: leg.id,
+              selectionName: formatSelectionName(leg.marketType, leg.selection),
+              marketName: getMarketDisplayName(leg.marketType),
+              odds: leg.odds,
+              status: leg.status,
+            })),
+          };
+          setBetSlip(transformedBet);
+        } else {
+          // Fallback to hardcoded mock data
+          const fallbackBet = generateMockBetSlip(id);
+          setBetSlip(fallbackBet);
+        }
+      } catch (error) {
+        console.error('Error fetching bet:', error);
+        // Fallback to hardcoded mock data
+        const fallbackBet = generateMockBetSlip(id);
+        setBetSlip(fallbackBet);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBet();
   }, [id]);
 
   // Calculate total odds
@@ -249,6 +316,26 @@ export default function BetDetailsScreen() {
         return null;
     }
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
+        <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>BET DETAILS</Text>
+          <View style={{ width: 24 }} />
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+            Loading bet details...
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   if (!betSlip) {
     return (
@@ -441,6 +528,17 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 14,
     fontFamily: 'Montserrat_400Regular',
   },
 

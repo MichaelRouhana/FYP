@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getUserSession } from '@/services/betApi';
+import { getUserSession, getMockUserBalance, setMockUserBalance } from '@/services/betApi';
 import { UserSession } from '@/types/bet';
 
 interface UseUserBalanceReturn {
@@ -23,8 +23,27 @@ export const useUserBalance = (): UseUserBalanceReturn => {
     try {
       setLoading(true);
       setError(null);
-      const session = await getUserSession();
-      setUserSession(session);
+      
+      // Check if mock balance is set
+      let mockBalance = getMockUserBalance();
+      
+      if (mockBalance === null) {
+        // Initialize from API on first load
+        const session = await getUserSession();
+        mockBalance = session.points || 0;
+        // Set mock balance for future use
+        setMockUserBalance(mockBalance);
+        setUserSession(session);
+      } else {
+        // Use mock balance
+        setUserSession({
+          points: mockBalance,
+          email: '',
+          username: '',
+          pfp: '',
+          roles: [],
+        });
+      }
     } catch (err: any) {
       console.error('Error fetching user balance:', err);
       setError(err.response?.data?.message || err.message || 'Failed to fetch user balance');

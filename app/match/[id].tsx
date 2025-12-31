@@ -26,7 +26,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMatchData } from '@/hooks/useMatchData';
 import { useUserBalance } from '@/hooks/useUserBalance';
-import { placeBet, createMatchWinnerBet } from '@/services/betApi';
+import { placeBet, createMatchWinnerBet, placeMultiLegBet, MultiLegBetRequest, getOddsForSelection } from '@/services/betApi';
+import { MarketType } from '@/types/bet';
 import { getFixtureInjuries } from '@/services/matchApi';
 import { FootballApiInjury } from '@/types/fixture';
 import {
@@ -284,11 +285,141 @@ export default function MatchDetailsScreen() {
     return result;
   }, [matchData, h2hData]);
 
+  // Filter H2H matches based on selected filter (must be at top level, not in render function)
+  const filteredH2HMatches = useMemo(() => {
+    if (!h2h || !h2h.matches) return [];
+    
+    let filtered = h2h.matches;
+    
+    if (h2hFilter === 'home') {
+      // Show only matches where the home team WON
+      const homeTeamName = h2h.homeTeam.toLowerCase();
+      filtered = h2h.matches.filter(match => {
+        if (!match.isCompleted) return false; // Only show completed matches for wins
+        const isHomeTeam = match.homeTeam.toLowerCase() === homeTeamName;
+        const isAwayTeam = match.awayTeam.toLowerCase() === homeTeamName;
+        
+        if (isHomeTeam) {
+          // Home team won if homeScore > awayScore
+          return match.homeScore !== undefined && match.awayScore !== undefined && 
+                 match.homeScore > match.awayScore;
+        } else if (isAwayTeam) {
+          // Away team won if awayScore > homeScore
+          return match.homeScore !== undefined && match.awayScore !== undefined && 
+                 match.awayScore > match.homeScore;
+        }
+        return false;
+      });
+    } else if (h2hFilter === 'away') {
+      // Show only matches where the away team WON
+      const awayTeamName = h2h.awayTeam.toLowerCase();
+      filtered = h2h.matches.filter(match => {
+        if (!match.isCompleted) return false; // Only show completed matches for wins
+        const isHomeTeam = match.homeTeam.toLowerCase() === awayTeamName;
+        const isAwayTeam = match.awayTeam.toLowerCase() === awayTeamName;
+        
+        if (isHomeTeam) {
+          // Home team won if homeScore > awayScore
+          return match.homeScore !== undefined && match.awayScore !== undefined && 
+                 match.homeScore > match.awayScore;
+        } else if (isAwayTeam) {
+          // Away team won if awayScore > homeScore
+          return match.homeScore !== undefined && match.awayScore !== undefined && 
+                 match.awayScore > match.homeScore;
+        }
+        return false;
+      });
+    }
+    // 'meetings' shows all matches (no filtering)
+    
+    // Ensure matches are sorted by date (most recent first)
+    return filtered.sort((a, b) => {
+      const dateA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
+      const dateB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
+      return dateB - dateA; // Descending order (newest first)
+    });
+  }, [h2h, h2hFilter]);
+
   const table = useMemo(() => {
-    const result = standingsData ? mapStandingsToUI(standingsData) : null;
-    console.log('[MatchDetails] Standings transformed:', result ? `${result.standings?.length || 0} teams` : 'Null');
-    return result;
-  }, [standingsData]);
+    if (!standingsData) return null;
+    
+    const baseResult = mapStandingsToUI(standingsData);
+    if (!baseResult || !baseResult.standings) return null;
+
+    // If filter is 'all', return base result
+    if (tableFilter === 'all') {
+      return baseResult;
+    }
+
+    // For 'home' or 'away' filters, we need to re-map using filtered stats
+    const leagueData = standingsData[0]?.league;
+    const standings = leagueData?.standings?.[0];
+    
+    if (!standings) return baseResult;
+
+    // Map standings with filtered stats
+    const filteredStandings = standings.map((team: any) => {
+      // Select stats based on filter
+      const stats = tableFilter === 'home' ? team.home : team.away;
+      
+      if (!stats) {
+        // Fallback to 'all' stats if home/away stats not available
+        const allStats = team.all;
+        const points = (allStats.win * 3) + (allStats.draw * 1);
+        
+        return {
+          position: team.rank,
+          teamName: team.team.name,
+          played: allStats.played,
+          won: allStats.win,
+          drawn: allStats.draw,
+          lost: allStats.lose,
+          goalsFor: allStats.goals.for,
+          goalsAgainst: allStats.goals.against,
+          points: points,
+        };
+      }
+
+      // Calculate points: 3 for win, 1 for draw, 0 for loss
+      const points = (stats.win * 3) + (stats.draw * 1);
+
+      return {
+        position: 0, // Will be recalculated after sorting
+        teamName: team.team.name,
+        played: stats.played,
+        won: stats.win,
+        drawn: stats.draw,
+        lost: stats.lose,
+        goalsFor: stats.goals.for,
+        goalsAgainst: stats.goals.against,
+        points: points,
+      };
+    });
+
+    // Sort by points (descending), then goal difference (descending), then goals for (descending)
+    filteredStandings.sort((a: any, b: any) => {
+      if (b.points !== a.points) {
+        return b.points - a.points;
+      }
+      // Calculate goal difference for sorting
+      const aGoalDiff = a.goalsFor - a.goalsAgainst;
+      const bGoalDiff = b.goalsFor - b.goalsAgainst;
+      if (bGoalDiff !== aGoalDiff) {
+        return bGoalDiff - aGoalDiff;
+      }
+      return b.goalsFor - a.goalsFor;
+    });
+
+    // Reassign positions after sorting
+    filteredStandings.forEach((team: any, index: number) => {
+      team.position = index + 1;
+    });
+
+    return {
+      leagueName: baseResult.leagueName,
+      standings: filteredStandings,
+    };
+  }, [standingsData, tableFilter]);
 
   // Transform API data to match UI expectations (with null checks)
   const match = useMemo(() => {
@@ -790,17 +921,165 @@ export default function MatchDetailsScreen() {
     );
   };
 
+  // Helper to get odds for a prediction selection
+  const getPredictionOdds = (marketType: MarketType, selection: string): number => {
+    return getOddsForSelection(marketType, selection);
+  };
+
   const renderPredictionsTab = () => {
-    const handleSubmitPredictions = () => {
-      // TODO: Submit predictions to backend
-      console.log('Submitting predictions:', {
-        goalsOverUnder,
-        bothTeamsScore,
-        firstTeamScore,
-        doubleChance,
-        homeScore,
-        awayScore,
-      });
+    const handleSubmitPredictions = async () => {
+      if (!matchData) {
+        Alert.alert('Error', 'Match data not available');
+        return;
+      }
+
+      // Collect all selected predictions
+      const legs: Array<{ marketType: MarketType; selection: string }> = [];
+
+      // Match Winner (from betSelection state)
+      if (betSelection) {
+        const selection = betSelection === 'home' ? 'HOME' : betSelection === 'draw' ? 'DRAW' : 'AWAY';
+        legs.push({
+          marketType: MarketType.MATCH_WINNER,
+          selection,
+        });
+      }
+
+      // Goals Over/Under
+      // Note: The UI uses 'x1', '12', 'x2' but these seem to be for Double Chance
+      // For now, we'll treat them as Over/Under options
+      // x1 = Over 2.5, x2 = Under 2.5, 12 = Over 2.5 (or could be a different threshold)
+      if (goalsOverUnder) {
+        let selection = '';
+        if (goalsOverUnder === 'x1') {
+          selection = 'Over 2.5';
+        } else if (goalsOverUnder === 'x2') {
+          selection = 'Under 2.5';
+        } else if (goalsOverUnder === '12') {
+          // 12 might mean Over 1.5 or could be a different market
+          // For now, defaulting to Over 2.5
+          selection = 'Over 2.5';
+        }
+        
+        if (selection) {
+          legs.push({
+            marketType: MarketType.GOALS_OVER_UNDER,
+            selection,
+          });
+        }
+      }
+
+      // Both Teams to Score
+      if (bothTeamsScore) {
+        legs.push({
+          marketType: MarketType.BOTH_TEAMS_TO_SCORE,
+          selection: bothTeamsScore === 'yes' ? 'Yes' : 'No',
+        });
+      }
+
+      // First Team to Score
+      if (firstTeamScore) {
+        legs.push({
+          marketType: MarketType.FIRST_TEAM_TO_SCORE,
+          selection: firstTeamScore === 'home' ? 'HOME' : 'AWAY',
+        });
+      }
+
+      // Double Chance
+      if (doubleChance) {
+        legs.push({
+          marketType: MarketType.DOUBLE_CHANCE,
+          selection: doubleChance.toUpperCase(),
+        });
+      }
+
+      // Score Prediction
+      if (homeScore && awayScore) {
+        legs.push({
+          marketType: MarketType.SCORE_PREDICTION,
+          selection: `${homeScore}-${awayScore}`,
+        });
+      }
+
+      // Validate that at least one selection is made
+      if (legs.length === 0) {
+        Alert.alert('No Selection', 'Please select at least one prediction before submitting.');
+        return;
+      }
+
+      // Validate stake
+      const stakeNum = parseFloat(stake);
+      if (!stake || isNaN(stakeNum) || stakeNum <= 0) {
+        Alert.alert('Invalid Stake', 'Please enter a valid stake amount.');
+        return;
+      }
+
+      try {
+        // Prepare match info
+        const matchDate = new Date(matchData.fixture.date);
+        const matchTime = matchDate.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        const matchDateStr = matchDate.toISOString();
+
+        // Create multi-leg bet request
+        const betRequest: MultiLegBetRequest = {
+          fixtureId: matchData.fixture.id,
+          homeTeam: matchData.teams.home.name,
+          awayTeam: matchData.teams.away.name,
+          homeTeamLogo: matchData.teams.home.logo,
+          awayTeamLogo: matchData.teams.away.logo,
+          matchTime,
+          matchDate: matchDateStr,
+          wagerAmount: stakeNum,
+          legs,
+        };
+
+        // Check balance
+        if (balance < stakeNum) {
+          Alert.alert('Insufficient Balance', `You need ${stakeNum} PTS but only have ${balance} PTS.`);
+          return;
+        }
+
+        // Submit bet (pass current balance for deduction)
+        const betSlip = await placeMultiLegBet(betRequest, balance);
+
+        // Refresh balance
+        await refetchBalance();
+
+        // Calculate total odds and potential winnings
+        const totalOdds = betSlip.legs.reduce((acc, leg) => acc * leg.odds, 1);
+        const potentialWinnings = Math.round(stakeNum * totalOdds);
+
+        // Show success message
+        Alert.alert(
+          'Bet Placed Successfully!',
+          `Your ${legs.length}-leg bet has been placed.\n\n` +
+          `Stake: ${stakeNum} PTS\n` +
+          `Total Odds: x${totalOdds.toFixed(2)}\n` +
+          `Potential Winnings: ${potentialWinnings} PTS`,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Reset form
+                setBetSelection(null);
+                setGoalsOverUnder(null);
+                setBothTeamsScore(null);
+                setFirstTeamScore(null);
+                setDoubleChance(null);
+                setHomeScore('');
+                setAwayScore('');
+                setStake('');
+              },
+            },
+          ]
+        );
+      } catch (error: any) {
+        console.error('Error placing bet:', error);
+        Alert.alert('Error', error.message || 'Failed to place bet. Please try again.');
+      }
     };
 
     return (
@@ -828,6 +1107,9 @@ export default function MatchDetailsScreen() {
               >
                 X1
               </Text>
+              <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
+                {getPredictionOdds(MarketType.GOALS_OVER_UNDER, 'Over 2.5').toFixed(2)}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -846,6 +1128,9 @@ export default function MatchDetailsScreen() {
               >
                 12
               </Text>
+              <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
+                {getPredictionOdds(MarketType.GOALS_OVER_UNDER, 'Over 2.5').toFixed(2)}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -863,6 +1148,9 @@ export default function MatchDetailsScreen() {
                 ]}
               >
                 X2
+              </Text>
+              <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
+                {getPredictionOdds(MarketType.GOALS_OVER_UNDER, 'Under 2.5').toFixed(2)}
               </Text>
             </TouchableOpacity>
           </View>
@@ -892,6 +1180,9 @@ export default function MatchDetailsScreen() {
               >
                 YES
               </Text>
+              <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
+                {getPredictionOdds(MarketType.BOTH_TEAMS_TO_SCORE, 'Yes').toFixed(2)}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -910,6 +1201,9 @@ export default function MatchDetailsScreen() {
                 ]}
               >
                 NO
+              </Text>
+              <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
+                {getPredictionOdds(MarketType.BOTH_TEAMS_TO_SCORE, 'No').toFixed(2)}
               </Text>
             </TouchableOpacity>
           </View>
@@ -939,6 +1233,9 @@ export default function MatchDetailsScreen() {
               >
                 HOME
               </Text>
+              <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
+                {getPredictionOdds(MarketType.FIRST_TEAM_TO_SCORE, 'HOME').toFixed(2)}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -957,6 +1254,9 @@ export default function MatchDetailsScreen() {
                 ]}
               >
                 AWAY
+              </Text>
+              <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
+                {getPredictionOdds(MarketType.FIRST_TEAM_TO_SCORE, 'AWAY').toFixed(2)}
               </Text>
             </TouchableOpacity>
           </View>
@@ -985,6 +1285,9 @@ export default function MatchDetailsScreen() {
               >
                 X1
               </Text>
+              <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
+                {getPredictionOdds(MarketType.DOUBLE_CHANCE, 'x1').toFixed(2)}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -1003,6 +1306,9 @@ export default function MatchDetailsScreen() {
               >
                 12
               </Text>
+              <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
+                {getPredictionOdds(MarketType.DOUBLE_CHANCE, '12').toFixed(2)}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -1020,6 +1326,9 @@ export default function MatchDetailsScreen() {
                 ]}
               >
                 X2
+              </Text>
+              <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
+                {getPredictionOdds(MarketType.DOUBLE_CHANCE, 'x2').toFixed(2)}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1086,6 +1395,40 @@ export default function MatchDetailsScreen() {
               />
             </View>
           </View>
+        </View>
+
+        {/* Stake Input */}
+        <View style={styles.predictionSection}>
+          <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
+            STAKE
+          </Text>
+          <TextInput
+            style={[
+              styles.stakeInput,
+              {
+                backgroundColor: theme.colors.cardBackground,
+                color: theme.colors.text,
+                borderColor: theme.colors.border,
+              },
+            ]}
+            placeholder="Enter stake amount"
+            placeholderTextColor={theme.colors.textSecondary}
+            value={stake}
+            onChangeText={(text) => {
+              // Only allow numbers and decimal point
+              const num = text.replace(/[^0-9.]/g, '');
+              // Prevent multiple decimal points
+              const parts = num.split('.');
+              if (parts.length > 2) return;
+              setStake(num);
+            }}
+            keyboardType="decimal-pad"
+          />
+          {stake && !isNaN(parseFloat(stake)) && (
+            <Text style={[styles.stakeHint, { color: theme.colors.textSecondary }]}>
+              Available Balance: {balance} PTS
+            </Text>
+          )}
         </View>
 
         {/* Submit Button */}
@@ -1841,11 +2184,29 @@ export default function MatchDetailsScreen() {
 
   const renderH2HMatchRow = (h2hMatch: H2HMatch) => (
     <View key={h2hMatch.id} style={[styles.h2hMatchRow, { borderTopColor: isDark ? '#202D4B' : '#E5E7EB' }]}>
-      {/* Home Team */}
+      {/* Home Team Section: Name + Logo */}
       <View style={styles.h2hTeamLeft}>
-        <Text style={[styles.h2hTeamName, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hMatch.homeTeam}</Text>
-        <View style={[styles.h2hTeamLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-          <Text style={[styles.h2hTeamLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hMatch.homeTeam.charAt(0)}</Text>
+        <Text 
+          style={[styles.h2hTeamName, { color: isDark ? '#ffffff' : '#18223A' }]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {h2hMatch.homeTeam}
+        </Text>
+        <View style={styles.h2hLogoContainer}>
+          {h2hMatch.homeTeamLogo ? (
+            <Image
+              source={{ uri: h2hMatch.homeTeamLogo }}
+              style={styles.h2hTeamLogoImage}
+              defaultSource={require('@/images/SerieA.jpg')}
+            />
+          ) : (
+            <View style={[styles.h2hTeamLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+              <Text style={[styles.h2hTeamLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>
+                {h2hMatch.homeTeam.charAt(0)}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
 
@@ -1855,6 +2216,7 @@ export default function MatchDetailsScreen() {
         {h2hMatch.isCompleted ? (
           <View style={styles.h2hScoreRow}>
             <Text style={[styles.h2hScore, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hMatch.homeScore}</Text>
+            <Text style={[styles.h2hScoreSeparator, { color: isDark ? '#9ca3af' : '#6B7280' }]}>-</Text>
             <Text style={[styles.h2hScore, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hMatch.awayScore}</Text>
           </View>
         ) : (
@@ -1862,12 +2224,30 @@ export default function MatchDetailsScreen() {
         )}
       </View>
 
-      {/* Away Team */}
+      {/* Away Team Section: Logo + Name */}
       <View style={styles.h2hTeamRight}>
-        <View style={[styles.h2hTeamLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-          <Text style={[styles.h2hTeamLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hMatch.awayTeam.charAt(0)}</Text>
+        <View style={styles.h2hLogoContainer}>
+          {h2hMatch.awayTeamLogo ? (
+            <Image
+              source={{ uri: h2hMatch.awayTeamLogo }}
+              style={styles.h2hTeamLogoImage}
+              defaultSource={require('@/images/SerieA.jpg')}
+            />
+          ) : (
+            <View style={[styles.h2hTeamLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+              <Text style={[styles.h2hTeamLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>
+                {h2hMatch.awayTeam.charAt(0)}
+              </Text>
+            </View>
+          )}
         </View>
-        <Text style={[styles.h2hTeamName, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hMatch.awayTeam}</Text>
+        <Text 
+          style={[styles.h2hTeamName, { color: isDark ? '#ffffff' : '#18223A' }]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {h2hMatch.awayTeam}
+        </Text>
       </View>
     </View>
   );
@@ -1892,8 +2272,12 @@ export default function MatchDetailsScreen() {
 
     return (
       <View style={styles.h2hContainer}>
-        {/* Filter Tabs */}
-        <View style={styles.h2hFilterContainer}>
+        {/* Filter Tabs - Scrollable */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.h2hFilterContainer}
+        >
           <TouchableOpacity
             style={[
               styles.h2hFilterTab, 
@@ -1951,7 +2335,7 @@ export default function MatchDetailsScreen() {
               {h2h.awayTeam}
             </Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
 
         {/* Stats Card */}
         <View style={[
@@ -1992,10 +2376,10 @@ export default function MatchDetailsScreen() {
           </View>
 
           {/* Match History */}
-          {(h2hShowAll ? h2h.matches : h2h.matches.slice(0, 6)).map(renderH2HMatchRow)}
+          {(h2hShowAll ? filteredH2HMatches : filteredH2HMatches.slice(0, 6)).map(renderH2HMatchRow)}
 
           {/* See All / Show Less Button */}
-          {h2h.matches.length > 6 && (
+          {filteredH2HMatches.length > 6 && (
             <TouchableOpacity style={[styles.h2hSeeAllButton, { borderTopColor: isDark ? '#202D4B' : '#E5E7EB' }]} onPress={() => setH2hShowAll(!h2hShowAll)}>
               <Text style={[styles.h2hSeeAllText, { color: isDark ? '#ffffff' : '#18223A' }]}>{h2hShowAll ? 'SHOW LESS' : 'SEE ALL MATCHES'}</Text>
             </TouchableOpacity>
@@ -2293,10 +2677,28 @@ export default function MatchDetailsScreen() {
         {/* Score Section */}
         <View style={styles.scoreSection}>
           <View style={styles.teamContainer}>
-            <View style={[styles.teamLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-              <Text style={[styles.teamLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.homeTeam.name.charAt(0)}</Text>
+            <View style={styles.teamLogoContainer}>
+              {match.homeTeam.logo ? (
+                <Image
+                  source={{ uri: match.homeTeam.logo }}
+                  style={styles.teamLogoImage}
+                  defaultSource={require('@/images/SerieA.jpg')}
+                />
+              ) : (
+                <View style={[styles.teamLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                  <Text style={[styles.teamLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>
+                    {match.homeTeam.name.charAt(0)}
+                  </Text>
+                </View>
+              )}
             </View>
-            <Text style={[styles.teamName, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.homeTeam.name}</Text>
+            <Text 
+              style={[styles.teamName, { color: isDark ? '#ffffff' : '#18223A' }]}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+            >
+              {match.homeTeam.name}
+            </Text>
           </View>
 
           <View style={styles.scoreContainer}>
@@ -2315,10 +2717,28 @@ export default function MatchDetailsScreen() {
           </View>
 
           <View style={styles.teamContainer}>
-            <View style={[styles.teamLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-              <Text style={[styles.teamLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.awayTeam.name.charAt(0)}</Text>
+            <View style={styles.teamLogoContainer}>
+              {match.awayTeam.logo ? (
+                <Image
+                  source={{ uri: match.awayTeam.logo }}
+                  style={styles.teamLogoImage}
+                  defaultSource={require('@/images/SerieA.jpg')}
+                />
+              ) : (
+                <View style={[styles.teamLogo, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                  <Text style={[styles.teamLogoText, { color: isDark ? '#ffffff' : '#18223A' }]}>
+                    {match.awayTeam.name.charAt(0)}
+                  </Text>
+                </View>
+              )}
             </View>
-            <Text style={[styles.teamName, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.awayTeam.name}</Text>
+            <Text 
+              style={[styles.teamName, { color: isDark ? '#ffffff' : '#18223A' }]}
+              numberOfLines={2}
+              ellipsizeMode="tail"
+            >
+              {match.awayTeam.name}
+            </Text>
           </View>
         </View>
       </LinearGradient>
@@ -2424,6 +2844,19 @@ const styles = StyleSheet.create({
   teamContainer: {
     alignItems: 'center',
     flex: 1,
+    maxWidth: '40%', // Prevent long team names from breaking layout
+  },
+  teamLogoContainer: {
+    width: 64, // Fixed width for logo container
+    height: 64, // Fixed height for logo container
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  teamLogoImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
   },
   teamLogo: {
     width: 64,
@@ -2432,7 +2865,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#1f2937',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
   },
   teamLogoText: {
     fontSize: 24,
@@ -2443,6 +2875,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Montserrat_400Regular',
     color: '#ffffff',
+    textAlign: 'center',
+    maxWidth: '100%', // Prevent overflow
+    flexShrink: 1, // Allow text to shrink if needed
   },
   scoreContainer: {
     alignItems: 'center',
@@ -3347,18 +3782,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    justifyContent: 'flex-end',
+    minWidth: 0, // Allow flexbox to shrink
+    paddingRight: 4, // Reduced padding to bring logo closer to center
   },
   h2hTeamRight: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
     gap: 8,
+    justifyContent: 'flex-start',
+    minWidth: 0, // Allow flexbox to shrink
+    paddingLeft: 4, // Reduced padding to bring logo closer to center
+  },
+  h2hLogoContainer: {
+    width: 32, // Fixed width for logo container
+    height: 32, // Fixed height for logo container
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0, // Prevent logo container from shrinking
   },
   h2hTeamName: {
     fontSize: 13,
     fontFamily: 'Montserrat_600SemiBold',
     color: '#ffffff',
+    flexShrink: 1, // Allow text to shrink if needed
+    minWidth: 0, // Allow text to shrink below content size
+    maxWidth: 100, // Limit width to prevent overflow
+  },
+  h2hTeamNameInline: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_600SemiBold',
+    color: '#ffffff',
+    maxWidth: 80, // Limit width to prevent overflow
+    flexShrink: 1,
   },
   h2hTeamLogo: {
     width: 32,
@@ -3368,24 +3825,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  h2hTeamLogoImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
   h2hTeamLogoText: {
     fontSize: 12,
     fontFamily: 'Montserrat_700Bold',
     color: '#ffffff',
   },
   h2hMatchCenter: {
+    flex: 0, // Don't take extra space, just fit content
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 4, // Reduced padding to bring score closer to logos
+    minWidth: 0, // Allow flexbox to shrink
   },
   h2hMatchDate: {
     fontSize: 12,
     fontFamily: 'Montserrat_400Regular',
     color: '#ffffff',
+    marginBottom: 4,
   },
   h2hScoreRow: {
     flexDirection: 'row',
-    gap: 24,
+    alignItems: 'center',
+    gap: 8,
+    justifyContent: 'center',
     marginTop: 4,
+  },
+  h2hScoreSeparator: {
+    fontSize: 16,
+    fontFamily: 'Montserrat_400Regular',
+    marginHorizontal: 4,
   },
   h2hScore: {
     fontSize: 16,
@@ -3638,6 +4110,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_700Bold',
     letterSpacing: 0.5,
   },
+  predictionOdds: {
+    fontSize: 11,
+    fontFamily: 'Montserrat_400Regular',
+    marginTop: 4,
+  },
   predictionButtonTextSelected: {
     color: '#ffffff',
   },
@@ -3661,6 +4138,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
     textAlign: 'center',
     borderWidth: 1,
+  },
+  stakeHint: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+    marginTop: 8,
   },
   submitPredictionsButton: {
     borderRadius: 12,

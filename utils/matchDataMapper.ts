@@ -274,6 +274,7 @@ export const mapH2HToUI = (h2hData: any[], homeTeamName: string, awayTeamName: s
     const isCompleted = match.fixture.status.short === 'FT';
     const homeScore = match.goals.home;
     const awayScore = match.goals.away;
+    const rawDate = match.fixture.date; // ISO date string for sorting
 
     if (isCompleted) {
       if (homeScore > awayScore) homeWins++;
@@ -288,8 +289,11 @@ export const mapH2HToUI = (h2hData: any[], homeTeamName: string, awayTeamName: s
         month: 'short', 
         day: 'numeric' 
       }),
+      rawDate, // Store raw date for sorting
       homeTeam: match.teams.home.name,
       awayTeam: match.teams.away.name,
+      homeTeamLogo: match.teams.home.logo || undefined,
+      awayTeamLogo: match.teams.away.logo || undefined,
       homeScore: isCompleted ? homeScore : undefined,
       awayScore: isCompleted ? awayScore : undefined,
       time: !isCompleted ? new Date(match.fixture.date).toLocaleTimeString('en-US', {
@@ -298,6 +302,13 @@ export const mapH2HToUI = (h2hData: any[], homeTeamName: string, awayTeamName: s
       }) : undefined,
       isCompleted,
     };
+  });
+
+  // Sort matches by date (most recent first)
+  matches.sort((a, b) => {
+    const dateA = a.rawDate ? new Date(a.rawDate).getTime() : 0;
+    const dateB = b.rawDate ? new Date(b.rawDate).getTime() : 0;
+    return dateB - dateA; // Descending order (newest first)
   });
 
   const stats: H2HStats = {

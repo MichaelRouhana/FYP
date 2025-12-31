@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,15 +15,29 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { useBettingHistory } from '@/hooks/useBettingHistory';
 import { useUserBalance } from '@/hooks/useUserBalance';
+import { useFocusEffect } from 'expo-router';
 
 type FilterType = 'all' | 'pending' | 'results';
 
 export default function BiddingScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
-  const { loading, allBidsByDate, pendingBidsByDate, resultBidsByDate } = useBettingHistory();
+  const { loading, allBidsByDate, pendingBidsByDate, resultBidsByDate, refetch } = useBettingHistory();
   const { balance } = useUserBalance();
   const [filter, setFilter] = useState<FilterType>('all');
+
+  // Refresh bets when screen comes into focus (only once per focus)
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      if (isMounted) {
+        refetch();
+      }
+      return () => {
+        isMounted = false;
+      };
+    }, [refetch])
+  );
 
   const getFilteredBids = (): BidsByDate[] => {
     switch (filter) {
@@ -39,9 +53,11 @@ export default function BiddingScreen() {
   const filteredBids = getFilteredBids();
 
   const handleMatchPress = (bid: any) => {
+    // Use originalId if available (for mock bets), otherwise use numeric ID
+    const betId = bid.originalId || (bid.id ? `bet-${bid.id}` : String(bid.id));
     router.push({
       pathname: '/bidding/[id]',
-      params: { id: String(bid.id) },
+      params: { id: betId },
     });
   };
 
