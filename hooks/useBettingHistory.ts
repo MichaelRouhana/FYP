@@ -20,6 +20,7 @@ export interface UIBet {
   status: 'pending' | 'won' | 'lost';
   selection: string;
   marketType: string;
+  createdDate?: string; // For grouping accumulator bets
 }
 
 export interface BidsByDate {
@@ -126,7 +127,7 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
             mappedCount++;
             const matchDate = new Date(fixture.rawJson.fixture.date);
             
-            return {
+            const uiBet: UIBet = {
               id: bet.id,
               matchId: String(fixtureId),
               homeTeam: fixture.rawJson.teams.home.name,
@@ -144,7 +145,11 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
               status: bet.status.toLowerCase() as 'pending' | 'won' | 'lost',
               selection: bet.selection,
               marketType: bet.marketType,
+              createdDate: bet.createdDate ? new Date(bet.createdDate).toISOString() : undefined, // Convert LocalDateTime to ISO string
             };
+            
+            console.log(`[useBettingHistory] 📝 Mapped bet ${bet.id}: stake=${bet.stake}, createdDate=${uiBet.createdDate || 'N/A'}, selection=${bet.selection}`);
+            return uiBet;
           })
           .filter((bet): bet is UIBet => bet !== null);
         
@@ -163,6 +168,105 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
       );
 
       console.log(`[useBettingHistory] 📦 Combined bets: ${mockUiBets.length} mock + ${realUiBets.length} real = ${allUiBets.length} total, ${uniqueBets.length} unique`);
+
+      // Group accumulator bets together
+      // Accumulator bets are bets with the same stake and created within 2 seconds of each other
+      const groupAccumulatorBets = (bets: UIBet[]): UIBet[] => {
+        console.log(`[useBettingHistory] 🔍 Starting accumulator grouping for ${bets.length} bets`);
+        
+        // Sort bets by createdDate (if available) or by ID
+        const sortedBets = [...bets].sort((a, b) => {
+          if (a.createdDate && b.createdDate) {
+            return new Date(a.createdDate).getTime() - new Date(b.createdDate).getTime();
+          }
+          return a.id - b.id;
+        });
+        
+        // Log bet details for debugging
+        sortedBets.forEach((bet, idx) => {
+          console.log(`[useBettingHistory] 📋 Bet ${idx + 1}: ID=${bet.id}, stake=${bet.points}, matchId=${bet.matchId}, createdDate=${bet.createdDate || 'N/A'}, selection=${bet.selection}`);
+        });
+        
+        const grouped: UIBet[] = [];
+        const processed = new Set<number>();
+        
+        for (let i = 0; i < sortedBets.length; i++) {
+          if (processed.has(sortedBets[i].id)) continue;
+          
+          const currentBet = sortedBets[i];
+          const accumulatorGroup: UIBet[] = [currentBet];
+          processed.add(currentBet.id);
+          
+          // Look for other bets with the same stake created within 2 seconds
+          const currentTime = currentBet.createdDate 
+            ? new Date(currentBet.createdDate).getTime() 
+            : currentBet.id; // Fallback to ID if no createdDate
+          
+          console.log(`[useBettingHistory] 🔎 Checking bet ${currentBet.id} (stake=${currentBet.points}, time=${currentTime})`);
+          
+          for (let j = i + 1; j < sortedBets.length; j++) {
+            const nextBet = sortedBets[j];
+            if (processed.has(nextBet.id)) continue;
+            
+            const nextTime = nextBet.createdDate 
+              ? new Date(nextBet.createdDate).getTime() 
+              : nextBet.id;
+            
+            // Group if: same stake and created within 2 seconds (or sequential IDs if no timestamp)
+            // Note: Accumulator bets can be on different matches, so we don't require same matchId
+            const timeDiff = Math.abs(nextTime - currentTime);
+            const idDiff = Math.abs(nextBet.id - currentBet.id);
+            const isWithinTimeWindow = currentBet.createdDate 
+              ? timeDiff <= 2000 // 2 seconds in milliseconds
+              : idDiff <= 10; // Within 10 IDs if no timestamp (more lenient for accumulator bets)
+            
+            const hasSameStake = Math.abs(nextBet.points - currentBet.points) < 0.01; // Account for floating point precision
+            
+            console.log(`[useBettingHistory] Checking bet ${nextBet.id}: stake=${nextBet.points} vs ${currentBet.points}, sameStake=${hasSameStake}, timeDiff=${timeDiff}ms, idDiff=${idDiff}, withinWindow=${isWithinTimeWindow}`);
+            
+            if (hasSameStake && isWithinTimeWindow) {
+              accumulatorGroup.push(nextBet);
+              processed.add(nextBet.id);
+              console.log(`[useBettingHistory] ✅ Added bet ${nextBet.id} to accumulator group (now ${accumulatorGroup.length} bets)`);
+            } else if (currentBet.createdDate && timeDiff > 2000) {
+              // If we have timestamps and the gap is too large, stop looking
+              console.log(`[useBettingHistory] ⏹️ Stopping search: timeDiff ${timeDiff}ms > 2000ms`);
+              break;
+            } else if (!currentBet.createdDate && idDiff > 10) {
+              // If no timestamp and IDs are too far apart, stop looking
+              console.log(`[useBettingHistory] ⏹️ Stopping search: ID diff ${idDiff} > 10`);
+              break;
+            } else if (!hasSameStake && idDiff > 3) {
+              // If stakes don't match and IDs are getting far apart, stop looking
+              console.log(`[useBettingHistory] ⏹️ Stopping search: different stake and ID diff ${idDiff} > 3`);
+              break;
+            }
+          }
+          
+          // If we found multiple bets, combine them into one accumulator bet
+          if (accumulatorGroup.length > 1) {
+            // Use the first bet's ID and combine selections
+            const combinedBet: UIBet = {
+              ...currentBet,
+              selection: accumulatorGroup.map(b => b.selection).join(' + '),
+              marketType: 'MULTI_LEG',
+            };
+            grouped.push(combinedBet);
+            console.log(`[useBettingHistory] 🔗 Grouped ${accumulatorGroup.length} bets into accumulator: ${combinedBet.id} (${combinedBet.selection})`);
+          } else {
+            // Single bet, add as is
+            grouped.push(currentBet);
+            console.log(`[useBettingHistory] ➕ Added single bet: ${currentBet.id}`);
+          }
+        }
+        
+        console.log(`[useBettingHistory] 📊 Grouping complete: ${bets.length} → ${grouped.length} bets`);
+        return grouped;
+      };
+
+      // Group accumulator bets before grouping by date
+      const groupedBets = groupAccumulatorBets(uniqueBets);
+      console.log(`[useBettingHistory] 📊 After accumulator grouping: ${uniqueBets.length} → ${groupedBets.length} bets`);
 
       // Group bets by date
       const groupByDate = (bets: UIBet[]): BidsByDate[] => {
@@ -190,12 +294,12 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
           });
       };
 
-      // Filter and group by status
-      const allBids = groupByDate(uniqueBets);
-      const pendingBids = groupByDate(uniqueBets.filter((bet) => bet.status === 'pending'));
-      const resultBids = groupByDate(
-        uniqueBets.filter((bet) => bet.status === 'won' || bet.status === 'lost')
-      );
+            // Filter and group by status (using grouped bets)
+            const allBids = groupByDate(groupedBets);
+            const pendingBids = groupByDate(groupedBets.filter((bet) => bet.status === 'pending'));
+            const resultBids = groupByDate(
+              groupedBets.filter((bet) => bet.status === 'won' || bet.status === 'lost')
+            );
       
       console.log(`[useBettingHistory] 📅 Grouped bets: ${allBids.length} date groups (all), ${pendingBids.length} date groups (pending), ${resultBids.length} date groups (results)`);
       console.log(`[useBettingHistory] 📊 Total bets by status: ${uniqueBets.filter(b => b.status === 'pending').length} pending, ${uniqueBets.filter(b => b.status === 'won' || b.status === 'lost').length} results`);

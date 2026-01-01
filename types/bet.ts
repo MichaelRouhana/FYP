@@ -16,22 +16,35 @@ export enum BetStatus {
   VOID = 'VOID',
 }
 
-// Request DTO for placing a bet
-export interface BetRequestDTO {
+// Leg of an accumulator bet
+export interface BetLeg {
   fixtureId: number;
   marketType: MarketType;
   selection: string; // e.g., "HOME", "DRAW", "AWAY" for MATCH_WINNER
-  stake: number; // Amount to bet
-  odd?: number; // Odds for this selection (optional, but recommended)
+  odd: number; // Odds for this selection
+}
+
+// Request DTO for placing an accumulator bet (single ticket)
+export interface BetRequestDTO {
+  stake: number; // Total stake for the accumulator bet
+  legs: BetLeg[]; // Array of predictions/legs
 }
 
 // Response DTO for bet creation
 export interface BetResponseDTO {
   id: number;
-  fixtureId: number;
-  marketType: MarketType;
-  selection: string;
+  stake: number;
+  totalOdds: number; // Combined odds of all legs
+  potentialWinnings: number; // stake * totalOdds
   status: BetStatus;
+  legs: Array<{
+    id: number;
+    fixtureId: number;
+    marketType: MarketType;
+    selection: string;
+    odd: number;
+    status: BetStatus;
+  }>;
 }
 
 // View DTO for bet details
@@ -47,10 +60,12 @@ export interface BetViewDTO {
 // All bets view (simplified)
 export interface BetViewAllDTO {
   id: number;
+  fixtureId?: number;
   marketType: string;
   selection: string;
   stake: number;
   status: string;
+  createdDate?: string; // ISO date string for grouping accumulator bets
 }
 
 // Paged response wrapper

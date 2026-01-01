@@ -217,33 +217,43 @@ export default function BetDetailsScreen() {
 
       try {
         setLoading(true);
-        // Try to get from mock API first
-        // Handle both "bet-1" format and numeric "1" format
-        const betIdToSearch = id.startsWith('bet-') ? id : `bet-${id}`;
-        const mockBet = await getBetById(betIdToSearch);
+        // Try to get from API
+        const betResponse = await getBetById(id);
         
-        if (mockBet) {
-          // Transform mock bet to BetSlip format
+        if (betResponse && betResponse.legs && betResponse.legs.length > 0) {
+          // Transform API response to BetSlip format
+          // For accumulator bets, we need to fetch fixture data for each leg
+          // For now, use the first leg's fixtureId to get match info
+          const firstLeg = betResponse.legs[0];
+          
+          // TODO: Fetch fixture data for each leg to display match info
+          // For now, use a simplified structure
           const transformedBet = {
-            id: mockBet.id,
-            matchId: String(mockBet.fixtureId),
-            homeTeam: mockBet.homeTeam,
-            awayTeam: mockBet.awayTeam,
-            homeTeamLogo: mockBet.homeTeamLogo,
-            awayTeamLogo: mockBet.awayTeamLogo,
-            homeScore: mockBet.homeScore,
-            awayScore: mockBet.awayScore,
-            matchTime: mockBet.matchTime,
-            matchDate: mockBet.matchDate,
-            wagerAmount: mockBet.wagerAmount,
-            status: mockBet.status,
-            legs: mockBet.legs.map((leg: any) => ({
+            id: betResponse.id,
+            matchId: String(firstLeg.fixtureId),
+            homeTeam: 'Team A', // TODO: Fetch from fixture
+            awayTeam: 'Team B', // TODO: Fetch from fixture
+            homeTeamLogo: '', // TODO: Fetch from fixture
+            awayTeamLogo: '', // TODO: Fetch from fixture
+            homeScore: undefined,
+            awayScore: undefined,
+            matchTime: 'TBD',
+            matchDate: new Date().toISOString(),
+            wagerAmount: betResponse.stake,
+            status: betResponse.status === 'PENDING' ? 'Pending' : 
+                    betResponse.status === 'WON' ? 'Won' : 
+                    betResponse.status === 'LOST' ? 'Lost' : 'Pending',
+            legs: betResponse.legs.map((leg: any) => ({
               id: leg.id,
               selectionName: formatSelectionName(leg.marketType, leg.selection),
               marketName: getMarketDisplayName(leg.marketType),
-              odds: leg.odds,
-              status: leg.status,
+              odds: leg.odd || 1.0,
+              status: leg.status === 'PENDING' ? 'Pending' : 
+                      leg.status === 'WON' ? 'Won' : 
+                      leg.status === 'LOST' ? 'Lost' : 'Pending',
             })),
+            totalOdds: betResponse.totalOdds,
+            potentialWinnings: betResponse.potentialWinnings,
           };
           setBetSlip(transformedBet);
         } else {
@@ -264,15 +274,22 @@ export default function BetDetailsScreen() {
     fetchBet();
   }, [id]);
 
-  // Calculate total odds
+  // Calculate total odds (use from bet response if available, otherwise calculate)
   const totalOdds = useMemo(() => {
-    if (!betSlip || betSlip.legs.length === 0) return 0;
+    if (!betSlip) return 0;
+    // Use totalOdds from response if available
+    if ((betSlip as any).totalOdds) return (betSlip as any).totalOdds;
+    // Otherwise calculate from legs
+    if (betSlip.legs.length === 0) return 0;
     return betSlip.legs.reduce((acc, leg) => acc * leg.odds, 1);
   }, [betSlip]);
 
-  // Calculate potential winnings
+  // Calculate potential winnings (use from bet response if available, otherwise calculate)
   const potentialWinnings = useMemo(() => {
     if (!betSlip) return 0;
+    // Use potentialWinnings from response if available
+    if ((betSlip as any).potentialWinnings) return (betSlip as any).potentialWinnings;
+    // Otherwise calculate
     return Math.round(betSlip.wagerAmount * totalOdds);
   }, [betSlip, totalOdds]);
 

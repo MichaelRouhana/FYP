@@ -26,7 +26,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMatchData } from '@/hooks/useMatchData';
 import { useUserBalance } from '@/hooks/useUserBalance';
-import { placeBet, createMatchWinnerBet, placeMultipleBets, getOddsForSelection, getOdds } from '@/services/betApi';
+import { placeBet, createMatchWinnerBet, getOddsForSelection, getOdds } from '@/services/betApi';
 import { MarketType, BetRequestDTO } from '@/types/bet';
 import { getFixtureInjuries, getBetTypes, getOddsForFixture } from '@/services/matchApi';
 import { FootballApiInjury } from '@/types/fixture';
@@ -1022,12 +1022,15 @@ export default function MatchDetailsScreen() {
                 return;
               }
               
+              // Create accumulator bet with single leg (for details tab)
               const betRequest: BetRequestDTO = {
-                fixtureId: Number(id),
-                marketType: MarketType.MATCH_WINNER,
-                selection: selectionUpper,
                 stake: stakeNum,
-                odd: selectedOdd,
+                legs: [{
+                  fixtureId: Number(id),
+                  marketType: MarketType.MATCH_WINNER,
+                  selection: selectionUpper,
+                  odd: selectedOdd,
+                }],
               };
               
               console.log('[Details Tab] Placing bet with request:', JSON.stringify(betRequest, null, 2));
@@ -1285,10 +1288,22 @@ export default function MatchDetailsScreen() {
         return;
       }
 
-      // Convert picks to legs format
-      const legs: Array<{ marketType: MarketType; selection: string }> = selectedPicks.map((pick) => {
-        // Map marketKey to MarketType
-        let marketType: MarketType;
+      // Check balance - accumulator bet uses single stake amount
+      if (balance < stakeNum) {
+        Alert.alert('Insufficient Balance', `You need ${stakeNum} PTS but only have ${balance} PTS.`);
+        return;
+      }
+
+      // Calculate total odds locally (multiply all leg odds)
+      const totalOdds = selectedPicks.reduce((acc, pick) => {
+        const oddValue = pick.odds ? parseFloat(pick.odds.toString()) : 1.0;
+        return acc * (isNaN(oddValue) || oddValue <= 0 ? 1.0 : oddValue);
+      }, 1);
+
+      // Create legs array from selected picks
+      const legs = selectedPicks.map((pick) => {
+        // Map market key to MarketType
+        let marketType = MarketType.MATCH_WINNER;
         switch (pick.marketKey) {
           case 'match_winner':
             marketType = MarketType.MATCH_WINNER;
@@ -1334,95 +1349,36 @@ export default function MatchDetailsScreen() {
           }
         }
 
-        return { marketType, selection };
+        // Ensure odd is always a valid number (default to 1.0 if missing)
+        const oddValue = pick.odds ? parseFloat(pick.odds.toString()) : 1.0;
+        if (isNaN(oddValue) || oddValue <= 0) {
+          console.warn(`[Predictions Tab] Invalid odd for pick ${pick.marketKey}: ${pick.odds}, using default 1.0`);
+        }
+        
+        return {
+          fixtureId: matchData.fixture.id,
+          marketType,
+          selection,
+          odd: isNaN(oddValue) || oddValue <= 0 ? 1.0 : oddValue,
+        };
       });
 
-      // Check balance - each bet will use the full stake amount
-      const totalStakeNeeded = stakeNum * selectedPicks.length;
-      if (balance < totalStakeNeeded) {
-        Alert.alert('Insufficient Balance', `You need ${totalStakeNeeded} PTS but only have ${balance} PTS.`);
-        return;
-      }
+      // Create accumulator bet request (single ticket with all legs)
+      const betRequest: BetRequestDTO = {
+        stake: stakeNum,
+        legs,
+      };
 
-      // Create individual BetRequestDTO for each pick
-      const betRequests: BetRequestDTO[] = selectedPicks.map((pick) => {
-          // Map market key to MarketType
-          let marketType = MarketType.MATCH_WINNER;
-          switch (pick.marketKey) {
-            case 'match_winner':
-              marketType = MarketType.MATCH_WINNER;
-              break;
-            case 'double_chance':
-              marketType = MarketType.DOUBLE_CHANCE;
-              break;
-            case 'goals_ou':
-              marketType = MarketType.GOALS_OVER_UNDER;
-              break;
-            case 'btts':
-              marketType = MarketType.BOTH_TEAMS_TO_SCORE;
-              break;
-            case 'handicap_result':
-              marketType = MarketType.MATCH_WINNER; // Handicap uses match winner type
-              break;
-            case 'team_score_first':
-              marketType = MarketType.FIRST_TEAM_TO_SCORE;
-              break;
-            case 'team_score_last':
-              marketType = MarketType.FIRST_TEAM_TO_SCORE; // Use same type for last team
-              break;
-            case 'goals_both_halves':
-              marketType = MarketType.BOTH_TEAMS_TO_SCORE; // Approximate mapping
-              break;
-            case 'team_total_home':
-            case 'team_total_away':
-              marketType = MarketType.GOALS_OVER_UNDER;
-              break;
-            default:
-              marketType = MarketType.MATCH_WINNER;
-          }
+      console.log('[Predictions Tab] Prepared accumulator bet request:', JSON.stringify(betRequest, null, 2));
+      console.log('[Predictions Tab] Total odds (calculated locally):', totalOdds.toFixed(2));
+      console.log('[Predictions Tab] Potential winnings:', Math.round(stakeNum * totalOdds));
 
-          // Format selection string
-          let selection = pick.selection;
-          if (pick.line !== undefined) {
-            // For O/U markets, format as "Over 2.5" or "Under 2.5"
-            if (pick.marketKey === 'goals_ou' || pick.marketKey.startsWith('team_total_')) {
-              selection = `${pick.selection} ${pick.line}`;
-            } else if (pick.marketKey === 'handicap_result') {
-              // For handicap, include line in selection
-              selection = `${pick.selection} ${pick.line}`;
-            }
-          }
-
-          // Ensure odd is always a valid number (default to 1.0 if missing)
-          const oddValue = pick.odds ? parseFloat(pick.odds.toString()) : 1.0;
-          if (isNaN(oddValue) || oddValue <= 0) {
-            console.warn(`[Predictions Tab] Invalid odd for pick ${pick.marketKey}: ${pick.odds}, using default 1.0`);
-          }
-          
-          return {
-            fixtureId: matchData.fixture.id,
-            marketType,
-            selection,
-            stake: stakeNum,
-            odd: isNaN(oddValue) || oddValue <= 0 ? 1.0 : oddValue,
-          };
-        });
-
-        console.log('[Predictions Tab] Prepared bet requests:', JSON.stringify(betRequests, null, 2));
-
-        // Store values for success message before resetting
-        const numBets = betRequests.length;
-        const totalOdds = selectedPicks.reduce((acc, pick) => {
-          return acc * (pick.odds || 1);
-        }, 1);
-        const potentialWinnings = Math.round(stakeNum * totalOdds);
-
-        // Submit all bets sequentially
-        setSubmitting(true);
-        console.log('[Predictions Tab] Submitting bets...');
-        try {
-          const betResponses = await placeMultipleBets(betRequests);
-          console.log('[Predictions Tab] ✅ Bets placed successfully:', JSON.stringify(betResponses, null, 2));
+      // Submit single accumulator bet
+      setSubmitting(true);
+      console.log('[Predictions Tab] Submitting accumulator bet...');
+      try {
+        const betResponse = await placeBet(betRequest);
+        console.log('[Predictions Tab] ✅ Accumulator bet placed successfully:', JSON.stringify(betResponse, null, 2));
 
           // Reset form immediately so user can place another bet
           setSelectedPicks([]);
@@ -1433,13 +1389,13 @@ export default function MatchDetailsScreen() {
           await refetchBalance();
 
           // Show success message
+          const potentialWinnings = betResponse.potentialWinnings || Math.round(stakeNum * totalOdds);
           Alert.alert(
-            'Bets Placed Successfully!',
-            `Your ${numBets} bet${numBets > 1 ? 's have' : ' has'} been placed.\n\n` +
-            `Stake per bet: ${stakeNum} PTS\n` +
-            `Total stake: ${totalStakeNeeded} PTS\n` +
-            (totalOdds > 1 ? `Combined Odds: x${totalOdds.toFixed(2)}\n` : '') +
-            (potentialWinnings > totalStakeNeeded ? `Potential Winnings: ${potentialWinnings} PTS\n\n` : '') +
+            'Accumulator Bet Placed Successfully!',
+            `Your accumulator bet with ${legs.length} leg${legs.length > 1 ? 's' : ''} has been placed.\n\n` +
+            `Stake: ${stakeNum} PTS\n` +
+            `Total Odds: x${(betResponse.totalOdds || totalOdds).toFixed(2)}\n` +
+            `Potential Winnings: ${potentialWinnings} PTS\n\n` +
             `You can place another bet on this match.`,
             [{ text: 'OK' }]
           );
