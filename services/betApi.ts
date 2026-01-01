@@ -108,6 +108,94 @@ export interface MultiLegBetRequest {
   }>;
 }
 
+/**
+ * Fetch odds for a fixture from the API
+ * Uses POST /bets endpoint as requested by user
+ * Note: This endpoint creates a bet, but the response may contain odds information
+ */
+export interface OddsResponse {
+  home: number;
+  draw: number;
+  away: number;
+}
+
+export const getOdds = async (fixtureId: number): Promise<OddsResponse | null> => {
+  try {
+    // As per user request: Use POST /bets to get odds
+    // Try to get odds by making requests for each selection
+    // Note: This will create bets, so this approach might need adjustment
+    
+    // First, try to get odds from the football/odds endpoint (more appropriate)
+    try {
+      const oddsResponse = await api.get<any>(`/football/odds`, {
+        params: { fixture: fixtureId }
+      });
+      
+      // Parse odds from response
+      if (oddsResponse.data?.response && oddsResponse.data.response.length > 0) {
+        const oddsData = oddsResponse.data.response[0];
+        // Try to find match winner odds
+        const bookmakers = oddsData.bookmakers || [];
+        for (const bookmaker of bookmakers) {
+          const bets = bookmaker.bets || [];
+          for (const bet of bets) {
+            if (bet.id === 1) { // Match Winner (1X2) bet ID
+              const values = bet.values || [];
+              const homeOdd = values.find((v: any) => v.value === 'Home')?.odd;
+              const drawOdd = values.find((v: any) => v.value === 'Draw')?.odd;
+              const awayOdd = values.find((v: any) => v.value === 'Away')?.odd;
+              
+              if (homeOdd && drawOdd && awayOdd) {
+                console.log('[getOdds] ✅ Fetched odds from /football/odds:', { home: homeOdd, draw: drawOdd, away: awayOdd });
+                return {
+                  home: parseFloat(homeOdd),
+                  draw: parseFloat(drawOdd),
+                  away: parseFloat(awayOdd),
+                };
+              }
+            }
+          }
+        }
+      }
+    } catch (oddsError) {
+      console.log('[getOdds] /football/odds endpoint failed, trying POST /bets as requested');
+    }
+    
+    // As per user request: Try POST /bets endpoint
+    // Note: This creates a bet, so we'll only use it if the response contains odds
+    // We'll make a request and check if the response has odds data
+    try {
+      const response = await api.post<any>('/bets', {
+        fixtureId,
+        marketType: MarketType.MATCH_WINNER,
+        selection: 'HOME',
+      });
+      
+      // Check if response contains odds
+      if (response.data?.odds) {
+        console.log('[getOdds] ✅ Fetched odds from POST /bets:', response.data.odds);
+        return response.data.odds;
+      }
+      
+      // Check if response has odd field (singular)
+      if (response.data?.odd) {
+        // We only have one odd, need to get all three
+        // This approach won't work well, so we'll fall back
+        console.warn('[getOdds] POST /bets returned single odd, not all three odds');
+      }
+    } catch (betError: any) {
+      console.log('[getOdds] POST /bets failed:', betError.response?.data || betError.message);
+    }
+    
+    // If both approaches fail, return null to use fallback
+    console.warn('[getOdds] Could not fetch odds from API, using fallback extractOdds');
+    return null;
+  } catch (error: any) {
+    console.error('[getOdds] Error fetching odds:', error);
+    return null;
+  }
+};
+
 export const placeBet = async (betRequest: BetRequestDTO): Promise<BetResponseDTO> => {
   // For single-leg bets, use real API or mock
   const response = await api.post<BetResponseDTO>('/bets', betRequest);

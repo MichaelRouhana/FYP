@@ -182,3 +182,35 @@ export const getLastMatchForTeam = async (teamId: number) => {
   return response.data?.response?.[0] || null;
 };
 
+/**
+ * Get bet types (to resolve bet IDs by name)
+ * GET /football/odds/bets?search=<query>
+ */
+export const getBetTypes = async (search?: string) => {
+  console.log('[matchApi] Fetching bet types, search:', search);
+  const params: any = {};
+  if (search) {
+    params.search = search;
+  }
+  const response = await api.get<FootballApiResponse<any>>(
+    '/football/odds/bets',
+    { params }
+  );
+  console.log('[matchApi] Bet types response:', response.data?.response?.length || 0, 'items');
+  return response.data?.response || [];
+};
+
+/**
+ * Get odds for a fixture
+ * GET /football/odds?fixture=<FIXTURE_ID>
+ */
+export const getOddsForFixture = async (fixtureId: string | number) => {
+  console.log('[matchApi] Fetching odds for fixture:', fixtureId);
+  const response = await api.get<FootballApiResponse<any>>(
+    '/football/odds',
+    { params: { fixture: fixtureId } }
+  );
+  console.log('[matchApi] Odds response:', response.data?.response?.length || 0, 'items');
+  return response.data?.response || [];
+};
+
