@@ -24,18 +24,22 @@ export const useUserBalance = (): UseUserBalanceReturn => {
       setLoading(true);
       setError(null);
       
-      // Check if mock balance is set
-      let mockBalance = getMockUserBalance();
+      // Always fetch from API to get real-time balance
+      const session = await getUserSession();
+      const realBalance = session.points || 0;
       
-      if (mockBalance === null) {
-        // Initialize from API on first load
-        const session = await getUserSession();
-        mockBalance = session.points || 0;
-        // Set mock balance for future use
-        setMockUserBalance(mockBalance);
-        setUserSession(session);
-      } else {
-        // Use mock balance
+      // Update mock balance to match real balance
+      setMockUserBalance(realBalance);
+      setUserSession(session);
+      
+      console.log('[useUserBalance] ✅ Balance fetched from API:', realBalance);
+    } catch (err: any) {
+      console.error('[useUserBalance] ❌ Error fetching user balance:', err);
+      
+      // Fallback to mock balance if API fails
+      const mockBalance = getMockUserBalance();
+      if (mockBalance !== null) {
+        console.log('[useUserBalance] ⚠️ Using cached mock balance:', mockBalance);
         setUserSession({
           points: mockBalance,
           email: '',
@@ -43,10 +47,9 @@ export const useUserBalance = (): UseUserBalanceReturn => {
           pfp: '',
           roles: [],
         });
+      } else {
+        setError(err.response?.data?.message || err.message || 'Failed to fetch user balance');
       }
-    } catch (err: any) {
-      console.error('Error fetching user balance:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to fetch user balance');
     } finally {
       setLoading(false);
     }

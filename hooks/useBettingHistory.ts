@@ -85,27 +85,45 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
       // Also try to fetch real bets (if API is available)
       let realUiBets: UIBet[] = [];
       try {
-        const betsResponse = await getAllBets();
+        console.log('[useBettingHistory] Fetching bets from API...');
+        // Fetch with larger page size and sort by newest first
+        const betsResponse = await getAllBets(0, 50);
         const bets = betsResponse.content;
+        console.log(`[useBettingHistory] ✅ Fetched ${bets.length} bets from API`);
+        console.log(`[useBettingHistory] 📋 Bet IDs fetched: [${bets.map(b => b.id).join(', ')}]`);
 
         // Fetch all public fixtures to map bet data
+        console.log('[useBettingHistory] Fetching public fixtures for mapping...');
         const fixturesResponse = await api.get<FixtureViewDTO[]>('/fixtures/public');
         const fixtures = fixturesResponse.data;
+        console.log(`[useBettingHistory] ✅ Fetched ${fixtures.length} public fixtures`);
 
         // Create a map for quick fixture lookup
         const fixtureMap = new Map<number, FixtureViewDTO>();
         fixtures.forEach((fixture) => fixtureMap.set(fixture.id, fixture));
 
         // Transform real bets to UI format
+        let mappedCount = 0;
+        let missingFixtureCount = 0;
+        let missingFixtureIdCount = 0;
+        
         realUiBets = bets
           .map((bet: BetViewAllDTO) => {
-            const fixtureId = (bet as any).fixtureId; 
+            const fixtureId = bet.fixtureId; 
+            if (!fixtureId) {
+              missingFixtureIdCount++;
+              console.warn(`[useBettingHistory] ⚠️ Bet ${bet.id} missing fixtureId`);
+              return null;
+            }
             const fixture = fixtureMap.get(fixtureId);
 
             if (!fixture) {
+              missingFixtureCount++;
+              console.warn(`[useBettingHistory] ⚠️ Fixture ${fixtureId} not found in public fixtures for bet ${bet.id} (stake: ${bet.stake}, selection: ${bet.selection})`);
               return null;
             }
 
+            mappedCount++;
             const matchDate = new Date(fixture.rawJson.fixture.date);
             
             return {
@@ -129,9 +147,13 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
             };
           })
           .filter((bet): bet is UIBet => bet !== null);
-      } catch (apiError) {
-        // If API fails, just use mock bets - don't log every time
-        // console.log('[useBettingHistory] Using mock bets only');
+        
+        console.log(`[useBettingHistory] 📊 Mapping summary: ${mappedCount} mapped, ${missingFixtureCount} missing fixtures, ${missingFixtureIdCount} missing fixtureId`);
+        
+        console.log(`[useBettingHistory] ✅ Successfully mapped ${realUiBets.length} real bets to UI format`);
+      } catch (apiError: any) {
+        console.error('[useBettingHistory] ❌ Error fetching real bets:', apiError);
+        console.error('[useBettingHistory] Error details:', apiError.response?.data || apiError.message);
       }
 
       // Combine mock and real bets, removing duplicates by ID
@@ -139,6 +161,8 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
       const uniqueBets = allUiBets.filter((bet, index, self) => 
         index === self.findIndex((b) => b.id === bet.id)
       );
+
+      console.log(`[useBettingHistory] 📦 Combined bets: ${mockUiBets.length} mock + ${realUiBets.length} real = ${allUiBets.length} total, ${uniqueBets.length} unique`);
 
       // Group bets by date
       const groupByDate = (bets: UIBet[]): BidsByDate[] => {
@@ -172,6 +196,9 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
       const resultBids = groupByDate(
         uniqueBets.filter((bet) => bet.status === 'won' || bet.status === 'lost')
       );
+      
+      console.log(`[useBettingHistory] 📅 Grouped bets: ${allBids.length} date groups (all), ${pendingBids.length} date groups (pending), ${resultBids.length} date groups (results)`);
+      console.log(`[useBettingHistory] 📊 Total bets by status: ${uniqueBets.filter(b => b.status === 'pending').length} pending, ${uniqueBets.filter(b => b.status === 'won' || b.status === 'lost').length} results`);
 
       setAllBidsByDate(allBids);
       setPendingBidsByDate(pendingBids);

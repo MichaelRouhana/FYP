@@ -196,10 +196,39 @@ export const getOdds = async (fixtureId: number): Promise<OddsResponse | null> =
   }
 };
 
+/**
+ * Place a single bet (real API)
+ */
 export const placeBet = async (betRequest: BetRequestDTO): Promise<BetResponseDTO> => {
-  // For single-leg bets, use real API or mock
-  const response = await api.post<BetResponseDTO>('/bets', betRequest);
-  return response.data;
+  console.log('[betApi] Placing bet with request:', JSON.stringify(betRequest, null, 2));
+  try {
+    const response = await api.post<BetResponseDTO>('/bets', betRequest);
+    console.log('[betApi] Bet placed successfully:', JSON.stringify(response.data, null, 2));
+    return response.data;
+  } catch (error: any) {
+    console.error('[betApi] Error placing bet:', error);
+    console.error('[betApi] Error response:', error.response?.data);
+    console.error('[betApi] Error status:', error.response?.status);
+    console.error('[betApi] Error config:', error.config);
+    throw error;
+  }
+};
+
+/**
+ * Place multiple bets sequentially
+ * Used when user selects multiple predictions (e.g., Match Winner + Over 2.5 Goals)
+ * Note: Sent sequentially to avoid balance race conditions
+ */
+export const placeMultipleBets = async (
+  requests: BetRequestDTO[]
+): Promise<BetResponseDTO[]> => {
+  // Send bets sequentially to avoid balance race conditions
+  const results: BetResponseDTO[] = [];
+  for (const req of requests) {
+    const result = await placeBet(req);
+    results.push(result);
+  }
+  return results;
 };
 
 /**
@@ -290,82 +319,70 @@ export const getMockUserBalance = (): number | null => {
 };
 
 /**
- * Get all bets (mock version)
+ * Get all bets (real API)
+ * Sorts by ID descending (newest first) to ensure latest bets appear first
  */
 export const getAllBets = async (
   page: number = 0,
   size: number = 20
 ): Promise<PagedResponse<BetViewAllDTO>> => {
-  // Convert mock bets to BetViewAllDTO format
-  const allBets: BetViewAllDTO[] = MOCK_BETS.map((bet) => {
-    // Calculate total odds
-    const totalOdds = bet.legs.reduce((acc, leg) => acc * leg.odds, 1);
-    
-    // Determine status based on legs
-    let status = 'PENDING';
-    if (bet.legs.some((leg) => leg.status === 'Lost')) {
-      status = 'LOST';
-    } else if (bet.legs.every((leg) => leg.status === 'Won')) {
-      status = 'WON';
-    }
-
-    return {
-      id: parseInt(bet.id.replace('bet-', '')) || 0,
-      marketType: bet.legs.length > 1 ? 'MULTI_LEG' : bet.legs[0]?.marketType || MarketType.MATCH_WINNER,
-      selection: bet.legs.map((leg) => `${leg.selection} (${leg.odds.toFixed(2)})`).join(' + '),
-      stake: bet.wagerAmount,
-      status: status,
-    };
+  const response = await api.get<PagedResponse<BetViewAllDTO>>('/bets', {
+    params: {
+      page,
+      size,
+      sort: 'id,desc', // Sort by ID descending (newest first)
+    },
   });
-
-  // Sort by creation date (newest first)
-  allBets.sort((a, b) => {
-    const betA = MOCK_BETS.find((bet) => String(bet.id).includes(String(a.id)));
-    const betB = MOCK_BETS.find((bet) => String(bet.id).includes(String(b.id)));
-    if (!betA || !betB) return 0;
-    return new Date(betB.createdAt).getTime() - new Date(betA.createdAt).getTime();
-  });
-
-  // Pagination
-  const start = page * size;
-  const end = start + size;
-  const paginatedBets = allBets.slice(start, end);
-
-  return {
-    content: paginatedBets,
-    totalElements: allBets.length,
-    totalPages: Math.ceil(allBets.length / size),
-    size,
-    number: page,
-    first: page === 0,
-    last: end >= allBets.length,
-    empty: paginatedBets.length === 0,
-  };
+  return response.data;
 };
 
 /**
- * Get bet by ID (mock version)
- * Handles both "bet-1" format and numeric "1" format
+ * Get bet by ID (real API)
+ * Note: Backend endpoint is commented out, but we'll use the pattern
+ * If the endpoint is not available, we'll check mock bets as fallback
  */
-export const getBetById = async (id: string): Promise<MockBetSlip | null> => {
-  // Try exact match first
-  let bet = MOCK_BETS.find((b) => b.id === id);
-  
-  // If not found, try numeric match (e.g., "1" matches "bet-1")
-  if (!bet && !id.startsWith('bet-')) {
-    bet = MOCK_BETS.find((b) => {
-      const numericId = b.id.replace('bet-', '');
-      return numericId === id || String(b.id) === String(id);
-    });
+export const getBetById = async (id: string | number): Promise<BetResponseDTO | null> => {
+  try {
+    // Try real API first
+    const response = await api.get<BetResponseDTO>(`/bets/${id}`);
+    return response.data;
+  } catch (error: any) {
+    // If API endpoint is not available, fall back to mock bets
+    console.warn('[getBetById] API endpoint not available, checking mock bets');
+    
+    // Try exact match first
+    let bet = MOCK_BETS.find((b) => b.id === String(id));
+    
+    // If not found, try numeric match (e.g., "1" matches "bet-1")
+    if (!bet && !String(id).startsWith('bet-')) {
+      bet = MOCK_BETS.find((b) => {
+        const numericId = b.id.replace('bet-', '');
+        return numericId === String(id) || String(b.id) === String(id);
+      });
+    }
+    
+    // Also try reverse (if id is "bet-1", try to find by numeric "1")
+    if (!bet && String(id).startsWith('bet-')) {
+      const numericId = String(id).replace('bet-', '');
+      bet = MOCK_BETS.find((b) => b.id.replace('bet-', '') === numericId);
+    }
+    
+    // Convert mock bet to BetResponseDTO format if found
+    if (bet) {
+      // Return a simplified BetResponseDTO from mock data
+      return {
+        id: parseInt(bet.id.replace('bet-', '')) || 0,
+        fixtureId: bet.fixtureId,
+        marketType: bet.legs[0]?.marketType || MarketType.MATCH_WINNER,
+        selection: bet.legs[0]?.selection || '',
+        stake: bet.wagerAmount,
+        status: bet.status === 'Pending' ? 'PENDING' : bet.status === 'Won' ? 'WON' : 'LOST',
+        // Add other required fields if needed
+      } as BetResponseDTO;
+    }
+    
+    return null;
   }
-  
-  // Also try reverse (if id is "bet-1", try to find by numeric "1")
-  if (!bet && id.startsWith('bet-')) {
-    const numericId = id.replace('bet-', '');
-    bet = MOCK_BETS.find((b) => b.id.replace('bet-', '') === numericId);
-  }
-  
-  return bet || null;
 };
 
 /**

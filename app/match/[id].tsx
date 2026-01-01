@@ -26,8 +26,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMatchData } from '@/hooks/useMatchData';
 import { useUserBalance } from '@/hooks/useUserBalance';
-import { placeBet, createMatchWinnerBet, placeMultiLegBet, MultiLegBetRequest, getOddsForSelection, getOdds } from '@/services/betApi';
-import { MarketType } from '@/types/bet';
+import { placeBet, createMatchWinnerBet, placeMultipleBets, getOddsForSelection, getOdds } from '@/services/betApi';
+import { MarketType, BetRequestDTO } from '@/types/bet';
 import { getFixtureInjuries, getBetTypes, getOddsForFixture } from '@/services/matchApi';
 import { FootballApiInjury } from '@/types/fixture';
 import {
@@ -972,9 +972,12 @@ export default function MatchDetailsScreen() {
               return;
             }
 
-            const stakeNum = parseFloat(stake);
-            if (isNaN(stakeNum) || stakeNum <= 0) {
-              Alert.alert('Error', 'Please enter a valid stake amount');
+            // Parse and validate stake
+            const stakeTrimmed = stake.trim();
+            const stakeNum = parseFloat(stakeTrimmed);
+            
+            if (!stakeTrimmed || isNaN(stakeNum) || stakeNum <= 0) {
+              Alert.alert('Error', 'Please enter a valid stake amount greater than 0');
               return;
             }
 
@@ -985,30 +988,80 @@ export default function MatchDetailsScreen() {
 
             try {
               setSubmitting(true);
-              const betRequest = createMatchWinnerBet(
-                Number(id),
-                betSelection.toUpperCase() as 'HOME' | 'DRAW' | 'AWAY'
-              );
               
-              await placeBet(betRequest);
+              // Validate match and odds exist
+              if (!match) {
+                setSubmitting(false);
+                Alert.alert('Error', 'Match data not loaded. Please wait and try again.');
+                return;
+              }
               
-              Alert.alert(
-                'Success',
-                `Bet placed successfully!\nSelection: ${betSelection.toUpperCase()}\nStake: ${stake} pts\nPotential Return: ${potentialWinnings} pts`,
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => {
-                      setBetSelection(null);
-                      setStake('');
-                      refetchBalance();
-                    },
-                  },
-                ]
-              );
+              if (!match.odds || !match.odds.home || !match.odds.draw || !match.odds.away) {
+                setSubmitting(false);
+                Alert.alert('Error', 'Odds not available for this match. Please try again later.');
+                return;
+              }
+              
+              // Store selection for success message before resetting
+              const selectionUpper = betSelection.toUpperCase();
+              
+              // Get the odds for the selected option
+              let selectedOdd: number;
+              if (betSelection === 'home') {
+                selectedOdd = match.odds.home;
+              } else if (betSelection === 'draw') {
+                selectedOdd = match.odds.draw;
+              } else {
+                selectedOdd = match.odds.away;
+              }
+              
+              // Validate odd is a valid number
+              if (!selectedOdd || isNaN(selectedOdd) || selectedOdd <= 0) {
+                setSubmitting(false);
+                Alert.alert('Error', 'Invalid odds. Please refresh the page and try again.');
+                return;
+              }
+              
+              const betRequest: BetRequestDTO = {
+                fixtureId: Number(id),
+                marketType: MarketType.MATCH_WINNER,
+                selection: selectionUpper,
+                stake: stakeNum,
+                odd: selectedOdd,
+              };
+              
+              console.log('[Details Tab] Placing bet with request:', JSON.stringify(betRequest, null, 2));
+              console.log('[Details Tab] Match odds:', match.odds);
+              console.log('[Details Tab] Selected odd:', selectedOdd);
+              
+              try {
+                const betResponse = await placeBet(betRequest);
+                console.log('[Details Tab] Bet placed successfully:', JSON.stringify(betResponse, null, 2));
+                
+                // Reset form immediately so user can place another bet
+                setBetSelection(null);
+                setStake('');
+                
+                // Wait a moment for backend transaction to commit, then refresh balance
+                await new Promise(resolve => setTimeout(resolve, 500));
+                await refetchBalance();
+                
+                Alert.alert(
+                  'Success',
+                  `Bet placed successfully!\nSelection: ${selectionUpper}\nStake: ${stakeNum} pts\nPotential Return: ${potentialWinnings} pts\n\nYou can place another bet on this match.`,
+                  [{ text: 'OK' }]
+                );
+              } catch (apiError: any) {
+                console.error('[Details Tab] API Error:', apiError);
+                console.error('[Details Tab] Error Response:', apiError.response?.data);
+                console.error('[Details Tab] Error Status:', apiError.response?.status);
+                console.error('[Details Tab] Error Config:', apiError.config);
+                throw apiError; // Re-throw to be caught by outer catch
+              }
             } catch (error: any) {
+              console.error('[Details Tab] Error placing bet:', error);
               const message = error.response?.data?.message || error.message || 'Failed to place bet. Please try again.';
-              Alert.alert('Error', message);
+              Alert.alert('Error', `Failed to place bet:\n${message}\n\nPlease check the console for more details.`);
             } finally {
               setSubmitting(false);
             }
@@ -1284,66 +1337,122 @@ export default function MatchDetailsScreen() {
         return { marketType, selection };
       });
 
-      try {
-        // Prepare match info
-        const matchDate = new Date(matchData.fixture.date);
-        const matchTime = matchDate.toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
+      // Check balance - each bet will use the full stake amount
+      const totalStakeNeeded = stakeNum * selectedPicks.length;
+      if (balance < totalStakeNeeded) {
+        Alert.alert('Insufficient Balance', `You need ${totalStakeNeeded} PTS but only have ${balance} PTS.`);
+        return;
+      }
+
+      // Create individual BetRequestDTO for each pick
+      const betRequests: BetRequestDTO[] = selectedPicks.map((pick) => {
+          // Map market key to MarketType
+          let marketType = MarketType.MATCH_WINNER;
+          switch (pick.marketKey) {
+            case 'match_winner':
+              marketType = MarketType.MATCH_WINNER;
+              break;
+            case 'double_chance':
+              marketType = MarketType.DOUBLE_CHANCE;
+              break;
+            case 'goals_ou':
+              marketType = MarketType.GOALS_OVER_UNDER;
+              break;
+            case 'btts':
+              marketType = MarketType.BOTH_TEAMS_TO_SCORE;
+              break;
+            case 'handicap_result':
+              marketType = MarketType.MATCH_WINNER; // Handicap uses match winner type
+              break;
+            case 'team_score_first':
+              marketType = MarketType.FIRST_TEAM_TO_SCORE;
+              break;
+            case 'team_score_last':
+              marketType = MarketType.FIRST_TEAM_TO_SCORE; // Use same type for last team
+              break;
+            case 'goals_both_halves':
+              marketType = MarketType.BOTH_TEAMS_TO_SCORE; // Approximate mapping
+              break;
+            case 'team_total_home':
+            case 'team_total_away':
+              marketType = MarketType.GOALS_OVER_UNDER;
+              break;
+            default:
+              marketType = MarketType.MATCH_WINNER;
+          }
+
+          // Format selection string
+          let selection = pick.selection;
+          if (pick.line !== undefined) {
+            // For O/U markets, format as "Over 2.5" or "Under 2.5"
+            if (pick.marketKey === 'goals_ou' || pick.marketKey.startsWith('team_total_')) {
+              selection = `${pick.selection} ${pick.line}`;
+            } else if (pick.marketKey === 'handicap_result') {
+              // For handicap, include line in selection
+              selection = `${pick.selection} ${pick.line}`;
+            }
+          }
+
+          // Ensure odd is always a valid number (default to 1.0 if missing)
+          const oddValue = pick.odds ? parseFloat(pick.odds.toString()) : 1.0;
+          if (isNaN(oddValue) || oddValue <= 0) {
+            console.warn(`[Predictions Tab] Invalid odd for pick ${pick.marketKey}: ${pick.odds}, using default 1.0`);
+          }
+          
+          return {
+            fixtureId: matchData.fixture.id,
+            marketType,
+            selection,
+            stake: stakeNum,
+            odd: isNaN(oddValue) || oddValue <= 0 ? 1.0 : oddValue,
+          };
         });
-        const matchDateStr = matchDate.toISOString();
 
-        // Create multi-leg bet request
-        const betRequest: MultiLegBetRequest = {
-          fixtureId: matchData.fixture.id,
-          homeTeam: matchData.teams.home.name,
-          awayTeam: matchData.teams.away.name,
-          homeTeamLogo: matchData.teams.home.logo,
-          awayTeamLogo: matchData.teams.away.logo,
-          matchTime,
-          matchDate: matchDateStr,
-          wagerAmount: stakeNum,
-          legs,
-        };
+        console.log('[Predictions Tab] Prepared bet requests:', JSON.stringify(betRequests, null, 2));
 
-        // Check balance
-        if (balance < stakeNum) {
-          Alert.alert('Insufficient Balance', `You need ${stakeNum} PTS but only have ${balance} PTS.`);
-          return;
-        }
-
-        // Submit bet (pass current balance for deduction)
-        const betSlip = await placeMultiLegBet(betRequest, balance);
-
-        // Refresh balance
-        await refetchBalance();
-
-        // Calculate total odds and potential winnings
-        const totalOdds = betSlip.legs.reduce((acc, leg) => acc * leg.odds, 1);
+        // Store values for success message before resetting
+        const numBets = betRequests.length;
+        const totalOdds = selectedPicks.reduce((acc, pick) => {
+          return acc * (pick.odds || 1);
+        }, 1);
         const potentialWinnings = Math.round(stakeNum * totalOdds);
 
-        // Show success message
-        Alert.alert(
-          'Bet Placed Successfully!',
-          `Your ${legs.length}-leg bet has been placed.\n\n` +
-          `Stake: ${stakeNum} PTS\n` +
-          `Total Odds: x${totalOdds.toFixed(2)}\n` +
-          `Potential Winnings: ${potentialWinnings} PTS`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Reset form
-                setSelectedPicks([]);
-                setStake('');
-              },
-            },
-          ]
-        );
-      } catch (error: any) {
-        console.error('Error placing bet:', error);
-        Alert.alert('Error', error.message || 'Failed to place bet. Please try again.');
-      }
+        // Submit all bets sequentially
+        setSubmitting(true);
+        console.log('[Predictions Tab] Submitting bets...');
+        try {
+          const betResponses = await placeMultipleBets(betRequests);
+          console.log('[Predictions Tab] ✅ Bets placed successfully:', JSON.stringify(betResponses, null, 2));
+
+          // Reset form immediately so user can place another bet
+          setSelectedPicks([]);
+          setStake('');
+
+          // Wait a moment for backend transaction to commit, then refresh balance
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await refetchBalance();
+
+          // Show success message
+          Alert.alert(
+            'Bets Placed Successfully!',
+            `Your ${numBets} bet${numBets > 1 ? 's have' : ' has'} been placed.\n\n` +
+            `Stake per bet: ${stakeNum} PTS\n` +
+            `Total stake: ${totalStakeNeeded} PTS\n` +
+            (totalOdds > 1 ? `Combined Odds: x${totalOdds.toFixed(2)}\n` : '') +
+            (potentialWinnings > totalStakeNeeded ? `Potential Winnings: ${potentialWinnings} PTS\n\n` : '') +
+            `You can place another bet on this match.`,
+            [{ text: 'OK' }]
+          );
+        } catch (error: any) {
+          console.error('[Predictions Tab] ❌ Error placing bets:', error);
+          console.error('[Predictions Tab] Error response:', error.response?.data);
+          console.error('[Predictions Tab] Error status:', error.response?.status);
+          console.error('[Predictions Tab] Error config:', error.config);
+          const message = error.response?.data?.message || error.message || 'Failed to place bets. Please try again.';
+          Alert.alert('Error', `Failed to place bets:\n${message}\n\nPlease check the console for more details.`);
+        } finally {
+          setSubmitting(false);
+        }
     };
 
     if (oddsLoading) {

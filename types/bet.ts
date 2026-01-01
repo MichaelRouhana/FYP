@@ -21,6 +21,8 @@ export interface BetRequestDTO {
   fixtureId: number;
   marketType: MarketType;
   selection: string; // e.g., "HOME", "DRAW", "AWAY" for MATCH_WINNER
+  stake: number; // Amount to bet
+  odd?: number; // Odds for this selection (optional, but recommended)
 }
 
 // Response DTO for bet creation
