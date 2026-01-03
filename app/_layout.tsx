@@ -1,3 +1,4 @@
+import 'text-encoding'; // <--- ADD THIS AT THE VERY TOP
 import {
   Inter_400Regular,
   Inter_500Medium,

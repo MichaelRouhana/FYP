@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   FlatList,
   Image,
@@ -14,23 +15,50 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { jwtDecode } from 'jwt-decode';
+import * as SecureStore from 'expo-secure-store';
 
 import { useTheme } from '@/context/ThemeContext';
-import { CURRENT_USER, useChatMessages, useCommunityDetails } from '@/hooks/useChat';
+import { useChatMessages, useCommunityDetails } from '@/hooks/useChat';
 import { MatchBidData, Message } from '@/types/chat';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.65, 240);
 
+interface JwtPayload {
+  sub?: string; // username/email
+  username?: string;
+  email?: string;
+}
+
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
   const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
-  const { messages, sendMessage } = useChatMessages(id);
+  const { messages, sendMessage, loading, error, connected } = useChatMessages(id);
   const { community } = useCommunityDetails(id);
   const [inputText, setInputText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
+
+  // Get current user's username from JWT token
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      try {
+        const token = await SecureStore.getItemAsync('jwt_token');
+        if (token) {
+          const decoded = jwtDecode<JwtPayload>(token);
+          // Try different possible fields in JWT payload
+          const username = decoded.sub || decoded.username || decoded.email || null;
+          setCurrentUsername(username);
+        }
+      } catch (err) {
+        console.error('Error decoding JWT token:', err);
+      }
+    };
+    getCurrentUser();
+  }, []);
 
   const handleSend = useCallback(() => {
     const text = inputText.trim();
@@ -70,8 +98,11 @@ export default function ChatScreen() {
     });
   };
 
+  // Check if message is from current user by comparing username
   const isCurrentUser = (message: Message) => {
-    return message.user.id === CURRENT_USER.id;
+    if (!currentUsername) return false;
+    // Compare by username since backend sends senderUsername in DTO
+    return message.user.name === currentUsername || message.user.name.toLowerCase() === currentUsername.toLowerCase();
   };
 
   const renderMatchBidCard = (data: MatchBidData) => (
@@ -252,6 +283,34 @@ export default function ChatScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Loading Indicator */}
+          {loading && messages.length === 0 && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+                Loading messages...
+              </Text>
+            </View>
+          )}
+
+          {/* Connection Error */}
+          {error && !loading && (
+            <View style={styles.errorContainer}>
+              <Text style={[styles.errorText, { color: theme.colors.error || '#ef4444' }]}>
+                {error}
+              </Text>
+            </View>
+          )}
+
+          {/* Connection Status Indicator */}
+          {!connected && !loading && !error && (
+            <View style={styles.connectionStatus}>
+              <Text style={[styles.connectionText, { color: theme.colors.textMuted }]}>
+                Connecting...
+              </Text>
+            </View>
+          )}
+
           {/* Messages List */}
           <FlatList
             ref={flatListRef}
@@ -263,6 +322,15 @@ export default function ChatScreen() {
             keyboardShouldPersistTaps="handled"
             onContentSizeChange={() =>
               flatListRef.current?.scrollToEnd({ animated: false })
+            }
+            ListEmptyComponent={
+              !loading && !error ? (
+                <View style={styles.emptyContainer}>
+                  <Text style={[styles.emptyText, { color: theme.colors.textMuted }]}>
+                    No messages yet. Start the conversation!
+                  </Text>
+                </View>
+              ) : null
             }
           />
 
@@ -650,5 +718,42 @@ const styles = StyleSheet.create({
   },
   cameraButton: {
     padding: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+  },
+  errorContainer: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
+  },
+  connectionStatus: {
+    padding: 8,
+    alignItems: 'center',
+  },
+  connectionText: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+  },
+  emptyContainer: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
   },
 });

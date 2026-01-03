@@ -1,9 +1,11 @@
 // hooks/useChat.ts
-// Mock data hook for Community & Chat features
-// Structured for future backend integration
+// Real-time messaging hook using WebSocket (STOMP)
 
-import { useState, useCallback, useMemo } from 'react';
-import { Community, Message, User, CommunityInfo, Moderator, Member, LeaderboardEntry } from '@/types/chat';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { Client } from '@stomp/stompjs';
+import * as SecureStore from 'expo-secure-store';
+import api from '@/services/api';
+import { Community, Message, User, CommunityInfo, Moderator, Member, LeaderboardEntry, MessageType, CommunityMessage, CommunityMessageDTO } from '@/types/chat';
 
 // Current user (mock)
 export const CURRENT_USER: User = {
@@ -186,48 +188,223 @@ export function useCommunities() {
 }
 
 /**
- * Hook to fetch messages for a specific community
+ * Hook to fetch messages for a specific community with real-time WebSocket support
  */
 export function useChatMessages(communityId: string) {
-  const [messages, setMessages] = useState<Message[]>(() => {
-    if (communityId === 'psg-community') {
-      return MOCK_PSG_MESSAGES;
-    }
-    const community = MOCK_COMMUNITIES.find((c) => c.id === communityId);
-    return generateGenericMessages(community?.name ?? 'Community');
-  });
-  const [loading] = useState(false);
-  const [error] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [connected, setConnected] = useState(false);
+  const clientRef = useRef<Client | null>(null);
+  const subscriptionRef = useRef<any>(null);
 
-  const sendMessage = useCallback((text: string, replyTo?: Message) => {
-    const newMessage: Message = {
-      _id: `msg-${Date.now()}`,
-      text,
-      createdAt: new Date(),
-      user: CURRENT_USER,
-      messageType: 'text',
-      replyTo: replyTo
-        ? {
-            id: replyTo._id,
-            originalText: replyTo.text,
-            senderName: replyTo.user.name,
-          }
-        : undefined,
+  // WebSocket configuration
+  const IP_ADDRESS = '192.168.10.249'; // Same as API config
+  const PORT = '8080';
+  const WS_URL = `ws://${IP_ADDRESS}:${PORT}/ws`;
+
+  // Fetch message history from REST API
+  const fetchMessageHistory = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Try to fetch message history - adjust endpoint if needed
+      try {
+        const response = await api.get<CommunityMessage[]>(`/communities/${communityId}/messages`);
+        if (response.data && Array.isArray(response.data)) {
+          // Map backend CommunityMessage entities to frontend Message format
+          const historyMessages: Message[] = response.data.map((msg: CommunityMessage, index: number) => ({
+            _id: msg.id?.toString() || `hist-${index}`,
+            text: msg.content || '',
+            createdAt: msg.sentAt ? new Date(msg.sentAt) : new Date(),
+            user: {
+              id: msg.senderId?.toString() || 'unknown',
+              name: msg.senderUsername || 'Unknown User',
+              avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.senderUsername || 'User')}&background=3b82f6&color=fff`,
+            },
+            messageType: 'text' as MessageType,
+          }));
+          setMessages(historyMessages);
+        }
+      } catch (apiError: any) {
+        // If endpoint doesn't exist, start with empty array
+        console.log('Message history endpoint not available, starting fresh');
+        setMessages([]);
+      }
+    } catch (err: any) {
+      console.error('Error fetching message history:', err);
+      setError(err.message || 'Failed to fetch message history');
+    } finally {
+      setLoading(false);
+    }
+  }, [communityId]);
+
+  // Initialize WebSocket connection
+  useEffect(() => {
+    let isMounted = true;
+
+    const connectWebSocket = async () => {
+      try {
+        // Get JWT token from secure storage
+        const token = await SecureStore.getItemAsync('jwt_token');
+        if (!token) {
+          console.error('No JWT token found for WebSocket connection');
+          setError('Authentication required');
+          return;
+        }
+
+        // Create STOMP client
+        const client = new Client({
+          brokerURL: WS_URL,
+          connectHeaders: {
+            Authorization: `Bearer ${token}`,
+          },
+          reconnectDelay: 5000,
+          heartbeatIncoming: 4000,
+          heartbeatOutgoing: 4000,
+          onConnect: () => {
+            if (!isMounted) return;
+            console.log('WebSocket connected');
+            setConnected(true);
+            setError(null);
+
+            // Subscribe to community topic
+            const subscription = client.subscribe(
+              `/topic/community/${communityId}`,
+              (message) => {
+                try {
+                  const data: CommunityMessageDTO = JSON.parse(message.body);
+                  console.log('Received message:', data);
+
+                  // Map backend CommunityMessageDTO to frontend Message format
+                  const newMessage: Message = {
+                    _id: `msg-${Date.now()}-${Math.random()}`,
+                    text: data.content || '',
+                    createdAt: new Date(),
+                    user: {
+                      id: 'current', // Backend doesn't send sender ID in DTO
+                      name: data.senderUsername || 'Unknown User',
+                      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.senderUsername || 'User')}&background=3b82f6&color=fff`,
+                    },
+                    messageType: 'text' as MessageType,
+                  };
+
+                  setMessages((prev) => [...prev, newMessage]);
+                } catch (err) {
+                  console.error('Error parsing WebSocket message:', err);
+                }
+              }
+            );
+
+            subscriptionRef.current = subscription;
+          },
+          onStompError: (frame) => {
+            if (!isMounted) return;
+            console.error('STOMP error:', frame);
+            setError(frame.headers['message'] || 'WebSocket connection error');
+            setConnected(false);
+          },
+          onWebSocketError: (event) => {
+            if (!isMounted) return;
+            console.error('WebSocket error:', event);
+            setError('WebSocket connection failed');
+            setConnected(false);
+          },
+          onDisconnect: () => {
+            if (!isMounted) return;
+            console.log('WebSocket disconnected');
+            setConnected(false);
+          },
+        });
+
+        clientRef.current = client;
+        client.activate();
+      } catch (err: any) {
+        console.error('Error setting up WebSocket:', err);
+        setError(err.message || 'Failed to connect to WebSocket');
+        setConnected(false);
+      }
     };
-    setMessages((prev) => [...prev, newMessage]);
-    return newMessage;
-  }, []);
+
+    // Fetch history first, then connect WebSocket
+    fetchMessageHistory().then(() => {
+      connectWebSocket();
+    });
+
+    // Cleanup on unmount
+    return () => {
+      isMounted = false;
+      if (subscriptionRef.current) {
+        subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
+      }
+      if (clientRef.current) {
+        clientRef.current.deactivate();
+        clientRef.current = null;
+      }
+    };
+  }, [communityId, WS_URL, fetchMessageHistory]);
+
+  const sendMessage = useCallback(async (text: string, replyTo?: Message) => {
+    if (!clientRef.current || !connected) {
+      console.error('WebSocket not connected');
+      setError('Not connected to chat server');
+      return;
+    }
+
+    try {
+      // Get current user ID from token (you may need to decode JWT or get from storage)
+      const token = await SecureStore.getItemAsync('jwt_token');
+      // For now, we'll let the backend extract user from token
+      // The payload structure matches CommunityMessageDTO
+      // Note: senderUsername is set by backend from authenticated user, we only send content
+      const payload: Pick<CommunityMessageDTO, 'content'> = {
+        content: text,
+      };
+
+      // Send message via WebSocket
+      clientRef.current.publish({
+        destination: `/app/community/${communityId}/send`,
+        body: JSON.stringify(payload),
+      });
+
+      // Optimistically add message to UI (will be confirmed when received via subscription)
+      const optimisticMessage: Message = {
+        _id: `msg-${Date.now()}-optimistic`,
+        text,
+        createdAt: new Date(),
+        user: CURRENT_USER,
+        messageType: 'text',
+        replyTo: replyTo
+          ? {
+              id: replyTo._id,
+              originalText: replyTo.text,
+              senderName: replyTo.user.name,
+            }
+          : undefined,
+      };
+      setMessages((prev) => [...prev, optimisticMessage]);
+    } catch (err: any) {
+      console.error('Error sending message:', err);
+      setError(err.message || 'Failed to send message');
+    }
+  }, [communityId, connected]);
 
   const shareMatch = useCallback((matchData: Message['customData']) => {
+    // For match sharing, we can send as a text message with JSON data
+    // or create a custom message type if backend supports it
+    const matchText = `Shared match: ${matchData?.homeTeam} vs ${matchData?.awayTeam}`;
     const newMessage: Message = {
       _id: `msg-${Date.now()}`,
-      text: '',
+      text: matchText,
       createdAt: new Date(),
       user: CURRENT_USER,
       messageType: 'match_bid',
       customData: matchData,
     };
     setMessages((prev) => [...prev, newMessage]);
+    
+    // Optionally send via WebSocket if backend supports custom message types
+    // For now, just add to local state
     return newMessage;
   }, []);
 
@@ -235,6 +412,7 @@ export function useChatMessages(communityId: string) {
     messages,
     loading,
     error,
+    connected,
     sendMessage,
     shareMatch,
   };

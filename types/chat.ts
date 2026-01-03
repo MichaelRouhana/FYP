@@ -1,12 +1,34 @@
 // types/chat.ts
 // Data architecture for Community & Chat features
-// Structured for future backend integration
+// Matches backend Java models: CommunityMessage.java and CommunityMessageDTO.java
 
 export type MessageType =
   | 'text'
   | 'image'
   | 'system'
   | 'match_bid';
+
+/**
+ * Backend DTO structure (sent over WebSocket)
+ * Matches: CommunityMessageDTO.java
+ */
+export interface CommunityMessageDTO {
+  content: string;
+  senderUsername: string;
+}
+
+/**
+ * Backend Entity structure (returned by REST API for message history)
+ * Matches: CommunityMessage.java
+ */
+export interface CommunityMessage {
+  id: number; // Long in Java -> number in TypeScript
+  content: string;
+  sentAt: string; // LocalDateTime in Java -> ISO date string in JSON
+  senderId?: number; // If sender is serialized as ID only
+  senderUsername?: string; // If sender is serialized with username
+  communityId?: number; // If community is serialized as ID only
+}
 
 export interface User {
   id: string;
@@ -28,11 +50,16 @@ export interface MatchBidData {
   awayLogo: string;     // URL
 }
 
+/**
+ * Frontend UI Message format (used by chat components)
+ * This is a transformed version of CommunityMessage/CommunityMessageDTO
+ * for easier UI rendering
+ */
 export interface Message {
-  _id: string;
-  text: string;
-  createdAt: Date | number;
-  user: User;
+  _id: string; // Frontend-generated or mapped from backend id
+  text: string; // Mapped from content
+  createdAt: Date | number; // Mapped from sentAt
+  user: User; // Mapped from senderUsername/senderId
   messageType: MessageType;
   /**
    * Snapshot of the parent message (for UI performance)
