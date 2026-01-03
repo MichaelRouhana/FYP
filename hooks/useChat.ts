@@ -199,9 +199,10 @@ export function useChatMessages(communityId: string) {
   const subscriptionRef = useRef<any>(null);
 
   // WebSocket configuration
+  // Note: Backend has context-path=/api/v1, so WebSocket is at /api/v1/ws
   const IP_ADDRESS = '192.168.10.249'; // Same as API config
   const PORT = '8080';
-  const WS_URL = `ws://${IP_ADDRESS}:${PORT}/ws`;
+  const WS_URL = `ws://${IP_ADDRESS}:${PORT}/api/v1/ws`;
 
   // Fetch message history from REST API
   const fetchMessageHistory = useCallback(async () => {
@@ -252,7 +253,19 @@ export function useChatMessages(communityId: string) {
           return;
         }
 
+        // Verify token is valid by testing with a REST API call
+        try {
+          const testResponse = await api.get('/users/session');
+          console.log('✅ Token is valid, user:', testResponse.data?.username || testResponse.data?.email);
+        } catch (tokenError: any) {
+          console.error('❌ Token validation failed:', tokenError.response?.status, tokenError.response?.data);
+          setError('Invalid or expired token. Please log in again.');
+          return;
+        }
+
         // Create STOMP client
+        // Note: @stomp/stompjs automatically uses native WebSocket in React Native
+        console.log('🔧 Creating STOMP client with token:', token ? 'Token present' : 'No token');
         const client = new Client({
           brokerURL: WS_URL,
           connectHeaders: {
@@ -261,9 +274,41 @@ export function useChatMessages(communityId: string) {
           reconnectDelay: 5000,
           heartbeatIncoming: 4000,
           heartbeatOutgoing: 4000,
+          debug: (str) => {
+            // Log STOMP debug messages for troubleshooting
+            console.log('🔍 STOMP:', str);
+          },
+          // Force use of native WebSocket (not SockJS)
+          webSocketFactory: () => {
+            console.log('Creating WebSocket connection to:', WS_URL);
+            const ws = new WebSocket(WS_URL);
+            
+            // Add event listeners for debugging
+            ws.addEventListener('open', () => {
+              console.log('✅ WebSocket opened successfully');
+            });
+            
+            ws.addEventListener('error', (error) => {
+              console.error('❌ WebSocket error event:', error);
+            });
+            
+            ws.addEventListener('close', (event) => {
+              console.log('🔌 WebSocket closed:', {
+                code: event.code,
+                reason: event.reason,
+                wasClean: event.wasClean
+              });
+            });
+            
+            return ws;
+          },
           onConnect: () => {
             if (!isMounted) return;
-            console.log('WebSocket connected');
+            console.log('✅ STOMP connected successfully');
+            console.log('Client state:', {
+              connected: client.connected,
+              active: client.active
+            });
             setConnected(true);
             setError(null);
 
@@ -273,7 +318,7 @@ export function useChatMessages(communityId: string) {
               (message) => {
                 try {
                   const data: CommunityMessageDTO = JSON.parse(message.body);
-                  console.log('Received message:', data);
+                  console.log('📨 Received message:', data);
 
                   // Map backend CommunityMessageDTO to frontend Message format
                   const newMessage: Message = {
@@ -296,17 +341,28 @@ export function useChatMessages(communityId: string) {
             );
 
             subscriptionRef.current = subscription;
+            console.log('✅ Subscribed to topic:', `/topic/community/${communityId}`);
           },
           onStompError: (frame) => {
             if (!isMounted) return;
-            console.error('STOMP error:', frame);
-            setError(frame.headers['message'] || 'WebSocket connection error');
+            console.error('❌ STOMP error:', {
+              command: frame.command,
+              headers: frame.headers,
+              body: frame.body,
+              message: frame.headers['message'] || frame.body || 'STOMP connection failed'
+            });
+            const errorMsg = frame.headers['message'] || frame.body || 'STOMP connection failed. Check authentication.';
+            setError(errorMsg);
             setConnected(false);
           },
           onWebSocketError: (event) => {
             if (!isMounted) return;
             console.error('WebSocket error:', event);
-            setError('WebSocket connection failed');
+            // Extract more details from the error if available
+            const errorMessage = event instanceof Error 
+              ? event.message 
+              : 'WebSocket connection failed. Please check your network connection and ensure the backend is running.';
+            setError(errorMessage);
             setConnected(false);
           },
           onDisconnect: () => {
@@ -317,7 +373,18 @@ export function useChatMessages(communityId: string) {
         });
 
         clientRef.current = client;
+        console.log('🚀 Activating STOMP client...');
         client.activate();
+        
+        // Log connection state after a short delay to see if it connects
+        setTimeout(() => {
+          if (clientRef.current) {
+            console.log('📊 Connection state after 2s:', {
+              connected: clientRef.current.connected,
+              active: clientRef.current.active
+            });
+          }
+        }, 2000);
       } catch (err: any) {
         console.error('Error setting up WebSocket:', err);
         setError(err.message || 'Failed to connect to WebSocket');
@@ -345,9 +412,31 @@ export function useChatMessages(communityId: string) {
   }, [communityId, WS_URL, fetchMessageHistory]);
 
   const sendMessage = useCallback(async (text: string, replyTo?: Message) => {
-    if (!clientRef.current || !connected) {
-      console.error('WebSocket not connected');
-      setError('Not connected to chat server');
+    // Check if client exists and is actually connected
+    if (!clientRef.current) {
+      console.error('❌ WebSocket client not initialized');
+      setError('WebSocket client not initialized. Please wait for connection.');
+      return;
+    }
+
+    // Check STOMP connection state (more reliable than our state)
+    const isStompConnected = clientRef.current.connected;
+    const isClientActive = clientRef.current.active;
+    
+    console.log('🔍 Send message check:', {
+      isStompConnected,
+      isClientActive,
+      localConnectedState: connected,
+      hasClient: !!clientRef.current
+    });
+
+    if (!isStompConnected) {
+      console.error('❌ STOMP not connected. State:', {
+        connected: isStompConnected,
+        active: isClientActive,
+        localState: connected
+      });
+      setError('Not connected to chat server. Please wait for connection to establish. The STOMP handshake may have failed - check authentication.');
       return;
     }
 
@@ -360,6 +449,8 @@ export function useChatMessages(communityId: string) {
       const payload: Pick<CommunityMessageDTO, 'content'> = {
         content: text,
       };
+
+      console.log('Sending message to:', `/app/community/${communityId}/send`, payload);
 
       // Send message via WebSocket
       clientRef.current.publish({
