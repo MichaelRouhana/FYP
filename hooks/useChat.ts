@@ -199,10 +199,11 @@ export function useChatMessages(communityId: string) {
   const subscriptionRef = useRef<any>(null);
 
   // WebSocket configuration
-  // Note: Backend has context-path=/api/v1, so WebSocket is at /api/v1/ws
+  // Note: WebSocket endpoints are registered at root level, NOT under context-path
+  // Even though REST API uses /api/v1, WebSocket is at /ws (root level)
   const IP_ADDRESS = '192.168.10.249'; // Same as API config
   const PORT = '8080';
-  const WS_URL = `ws://${IP_ADDRESS}:${PORT}/api/v1/ws`;
+  const WS_URL = `ws://${IP_ADDRESS}:${PORT}/ws`;
 
   // Fetch message history from REST API
   const fetchMessageHistory = useCallback(async () => {
@@ -269,7 +270,7 @@ export function useChatMessages(communityId: string) {
         const client = new Client({
           brokerURL: WS_URL,
           connectHeaders: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${token}`, // Ensure space exists after "Bearer"
           },
           reconnectDelay: 5000,
           heartbeatIncoming: 4000,
