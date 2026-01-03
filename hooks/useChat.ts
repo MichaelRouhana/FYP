@@ -165,19 +165,84 @@ const generateGenericMessages = (communityName: string): Message[] => [
 ];
 
 /**
- * Hook to fetch communities list
+ * Backend Community Response DTO
+ */
+interface CommunityResponseDTO {
+  id: number;
+  logo: string;
+  name: string;
+  location: string;
+  about: string;
+  rules: string[];
+  userIds: number[];
+}
+
+/**
+ * Paged Response wrapper
+ */
+interface PagedResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+}
+
+/**
+ * Hook to fetch communities list from backend
  */
 export function useCommunities() {
-  const [communities] = useState<Community[]>(MOCK_COMMUNITIES);
-  const [loading] = useState(false);
-  const [error] = useState<string | null>(null);
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch communities from backend
+  useEffect(() => {
+    const fetchCommunities = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch communities with pagination (get first 100)
+        const response = await api.get<PagedResponse<CommunityResponseDTO>>(
+          '/communities?page=0&size=100'
+        );
+        
+        // Map backend DTOs to frontend Community format
+        const mappedCommunities: Community[] = response.data.content.map((dto) => ({
+          id: dto.id.toString(),
+          name: dto.name || 'Unnamed Community',
+          lastMessage: 'No messages yet', // Default, can be updated if we fetch last message
+          lastMessageTime: '', // Will be empty until we have messages
+          logo: dto.logo || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(dto.name || 'Community') + '&background=3b82f6&color=fff',
+          unreadCount: 0, // Can be calculated if we track unread messages
+          memberCount: dto.userIds?.length 
+            ? dto.userIds.length === 1 
+              ? '1 member' 
+              : `${dto.userIds.length.toLocaleString()} members`
+            : '0 members',
+        }));
+        
+        setCommunities(mappedCommunities);
+      } catch (err: any) {
+        console.error('Error fetching communities:', err);
+        setError(err.response?.data?.message || err.message || 'Failed to fetch communities');
+        // Fallback to empty array on error
+        setCommunities([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCommunities();
+  }, []);
 
   const searchCommunities = useCallback((query: string) => {
-    if (!query.trim()) return MOCK_COMMUNITIES;
-    return MOCK_COMMUNITIES.filter((c) =>
+    if (!query.trim()) return communities;
+    return communities.filter((c) =>
       c.name.toLowerCase().includes(query.toLowerCase())
     );
-  }, []);
+  }, [communities]);
 
   return {
     communities,
@@ -549,14 +614,56 @@ export function useChatMessages(communityId: string) {
 }
 
 /**
- * Hook to get community details by ID
+ * Hook to get community details by ID from backend
  */
 export function useCommunityDetails(communityId: string) {
-  const community = MOCK_COMMUNITIES.find((c) => c.id === communityId);
+  const [community, setCommunity] = useState<Community | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCommunity = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const response = await api.get<CommunityResponseDTO>(`/communities/${communityId}`);
+        const dto = response.data;
+        
+        // Map backend DTO to frontend Community format
+        const mappedCommunity: Community = {
+          id: dto.id.toString(),
+          name: dto.name || 'Unnamed Community',
+          lastMessage: 'No messages yet',
+          lastMessageTime: '',
+          logo: dto.logo || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(dto.name || 'Community') + '&background=3b82f6&color=fff',
+          unreadCount: 0,
+          memberCount: dto.userIds?.length 
+            ? dto.userIds.length === 1 
+              ? '1 member' 
+              : `${dto.userIds.length.toLocaleString()} members`
+            : '0 members',
+        };
+        
+        setCommunity(mappedCommunity);
+      } catch (err: any) {
+        console.error('Error fetching community:', err);
+        setError(err.response?.data?.message || err.message || 'Community not found');
+        setCommunity(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (communityId) {
+      fetchCommunity();
+    }
+  }, [communityId]);
+
   return {
-    community: community ?? null,
-    loading: false,
-    error: community ? null : 'Community not found',
+    community,
+    loading,
+    error,
   };
 }
 
@@ -661,35 +768,84 @@ const COMMUNITY_INFO_MAP: Record<string, CommunityInfo> = {
 };
 
 /**
- * Hook to get full community info for the info screen
+ * Hook to get full community info for the info screen from backend
  */
 export function useCommunityInfo(communityId: string) {
-  const communityInfo = useMemo(() => {
-    const info = COMMUNITY_INFO_MAP[communityId];
-    if (info) return info;
-    
-    // Fallback for communities not in the map
-    const community = MOCK_COMMUNITIES.find((c) => c.id === communityId);
-    if (!community) return null;
-    
-    return {
-      id: community.id,
-      name: community.name,
-      logo: community.logo,
-      description: `Welcome to ${community.name}! Join fans from around the world.`,
-      location: 'Worldwide',
-      memberCount: community.memberCount ?? '1M members',
-      moderators: MOCK_MODERATORS,
-      rules: MOCK_RULES,
-      members: MOCK_MEMBERS,
-      leaderboard: MOCK_LEADERBOARD,
-    } as CommunityInfo;
+  const [communityInfo, setCommunityInfo] = useState<CommunityInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCommunityInfo = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch community details
+        const [communityResponse, leaderboardResponse, membersResponse] = await Promise.allSettled([
+          api.get<CommunityResponseDTO>(`/communities/${communityId}`),
+          api.get(`/communities/${communityId}/leaderboard`).catch(() => null),
+          api.get(`/communities/${communityId}/members`).catch(() => null),
+        ]);
+        
+        if (communityResponse.status === 'rejected') {
+          throw new Error('Failed to fetch community');
+        }
+        
+        const dto = communityResponse.value.data;
+        
+        // Map backend data to frontend CommunityInfo format
+        const info: CommunityInfo = {
+          id: dto.id.toString(),
+          name: dto.name || 'Unnamed Community',
+          logo: dto.logo || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(dto.name || 'Community') + '&background=3b82f6&color=fff',
+          description: dto.about || `Welcome to ${dto.name}! Join fans from around the world.`,
+          location: dto.location || 'Worldwide',
+          memberCount: dto.userIds?.length 
+            ? dto.userIds.length === 1 
+              ? '1 member' 
+              : `${dto.userIds.length.toLocaleString()} members`
+            : '0 members',
+          moderators: MOCK_MODERATORS, // TODO: Fetch from backend if available
+          rules: dto.rules || [],
+          members: membersResponse.status === 'fulfilled' && membersResponse.value?.data 
+            ? membersResponse.value.data.map((m: any, idx: number) => ({
+                id: m.id?.toString() || `member-${idx}`,
+                name: m.username || m.name || 'Unknown',
+                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(m.username || m.name || 'User')}&background=3b82f6&color=fff`,
+                points: m.points || 0,
+              }))
+            : MOCK_MEMBERS,
+          leaderboard: leaderboardResponse.status === 'fulfilled' && leaderboardResponse.value?.data
+            ? leaderboardResponse.value.data.map((entry: any, idx: number) => ({
+                id: entry.id?.toString() || `leaderboard-${idx}`,
+                rank: idx + 1,
+                name: entry.username || entry.name || 'Unknown',
+                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(entry.username || entry.name || 'User')}&background=22c55e&color=fff`,
+                points: entry.points || 0,
+              }))
+            : MOCK_LEADERBOARD,
+        };
+        
+        setCommunityInfo(info);
+      } catch (err: any) {
+        console.error('Error fetching community info:', err);
+        setError(err.response?.data?.message || err.message || 'Community not found');
+        setCommunityInfo(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (communityId) {
+      fetchCommunityInfo();
+    }
   }, [communityId]);
 
   return {
     communityInfo,
-    loading: false,
-    error: communityInfo ? null : 'Community not found',
+    loading,
+    error,
   };
 }
 
