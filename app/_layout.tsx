@@ -1,4 +1,13 @@
-import 'text-encoding'; // <--- ADD THIS AT THE VERY TOP
+import * as encoding from 'text-encoding';
+
+// Polyfill TextEncoder/TextDecoder for STOMP to work in React Native
+if (typeof global.TextEncoder === 'undefined') {
+  (global as any).TextEncoder = encoding.TextEncoder;
+}
+if (typeof global.TextDecoder === 'undefined') {
+  (global as any).TextDecoder = encoding.TextDecoder;
+}
+
 import {
   Inter_400Regular,
   Inter_500Medium,
