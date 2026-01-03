@@ -330,6 +330,14 @@ export function useChatMessages(communityId: string) {
           return;
         }
 
+        // Verify TextEncoder/TextDecoder are available before creating STOMP client
+        if (typeof global.TextEncoder === 'undefined' || typeof global.TextDecoder === 'undefined') {
+          console.error('❌ TextEncoder/TextDecoder not available! STOMP will fail.');
+          setError('TextEncoder/TextDecoder polyfills not loaded. Please restart the app.');
+          return;
+        }
+        console.log('✅ TextEncoder/TextDecoder verified before STOMP client creation');
+
         // Create STOMP client
         // Note: @stomp/stompjs automatically uses native WebSocket in React Native
         console.log('🔧 Creating STOMP client with token:', token ? 'Token present' : 'No token');

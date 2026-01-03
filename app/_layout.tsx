@@ -1,11 +1,28 @@
+// POLYFILLS FOR STOMP CLIENT (MUST BE AT THE VERY TOP)
 import * as encoding from 'text-encoding';
 
 // Polyfill TextEncoder/TextDecoder for STOMP to work in React Native
 if (typeof global.TextEncoder === 'undefined') {
   (global as any).TextEncoder = encoding.TextEncoder;
+  console.log('✅ TextEncoder polyfill applied');
+} else {
+  console.log('✅ TextEncoder already available');
 }
+
 if (typeof global.TextDecoder === 'undefined') {
   (global as any).TextDecoder = encoding.TextDecoder;
+  console.log('✅ TextDecoder polyfill applied');
+} else {
+  console.log('✅ TextDecoder already available');
+}
+
+// Test that TextEncoder actually works
+try {
+  const testEncoder = new (global as any).TextEncoder();
+  const testBytes = testEncoder.encode('test');
+  console.log('✅ TextEncoder test passed, encoded length:', testBytes.length);
+} catch (e) {
+  console.error('❌ TextEncoder test failed:', e);
 }
 
 import {
