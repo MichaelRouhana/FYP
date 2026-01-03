@@ -197,10 +197,11 @@ export function useChatMessages(communityId: string) {
   const [connected, setConnected] = useState(false);
   const clientRef = useRef<Client | null>(null);
   const subscriptionRef = useRef<any>(null);
+  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // WebSocket configuration
-  // Note: WebSocket endpoints are registered at root level, NOT under context-path
-  // Even though REST API uses /api/v1, WebSocket is at /ws (root level)
+  // Note: WebSocket endpoints are NOT affected by servlet context-path
+  // They are registered at root level, so use /ws (not /api/v1/ws)
   const IP_ADDRESS = '192.168.10.249'; // Same as API config
   const PORT = '8080';
   const WS_URL = `ws://${IP_ADDRESS}:${PORT}/ws`;
@@ -343,18 +344,33 @@ export function useChatMessages(communityId: string) {
 
             subscriptionRef.current = subscription;
             console.log('✅ Subscribed to topic:', `/topic/community/${communityId}`);
+            
+            // Clear any connection timeout
+            if (connectionTimeoutRef.current) {
+              clearTimeout(connectionTimeoutRef.current);
+              connectionTimeoutRef.current = null;
+            }
           },
           onStompError: (frame) => {
             if (!isMounted) return;
-            console.error('❌ STOMP error:', {
+            console.error('❌ STOMP error frame received:', {
               command: frame.command,
-              headers: frame.headers,
+              headers: JSON.stringify(frame.headers),
               body: frame.body,
               message: frame.headers['message'] || frame.body || 'STOMP connection failed'
             });
             const errorMsg = frame.headers['message'] || frame.body || 'STOMP connection failed. Check authentication.';
             setError(errorMsg);
             setConnected(false);
+          },
+          onDisconnect: () => {
+            if (!isMounted) return;
+            console.log('🔌 STOMP disconnected');
+            setConnected(false);
+            if (connectionTimeoutRef.current) {
+              clearTimeout(connectionTimeoutRef.current);
+              connectionTimeoutRef.current = null;
+            }
           },
           onWebSocketError: (event) => {
             if (!isMounted) return;
@@ -365,11 +381,10 @@ export function useChatMessages(communityId: string) {
               : 'WebSocket connection failed. Please check your network connection and ensure the backend is running.';
             setError(errorMessage);
             setConnected(false);
-          },
-          onDisconnect: () => {
-            if (!isMounted) return;
-            console.log('WebSocket disconnected');
-            setConnected(false);
+            if (connectionTimeoutRef.current) {
+              clearTimeout(connectionTimeoutRef.current);
+              connectionTimeoutRef.current = null;
+            }
           },
         });
 
@@ -378,14 +393,33 @@ export function useChatMessages(communityId: string) {
         client.activate();
         
         // Log connection state after a short delay to see if it connects
+        // Check connection state after a delay
         setTimeout(() => {
           if (clientRef.current) {
+            const isConnected = clientRef.current.connected;
+            const isActive = clientRef.current.active;
             console.log('📊 Connection state after 2s:', {
-              connected: clientRef.current.connected,
-              active: clientRef.current.active
+              connected: isConnected,
+              active: isActive
             });
+            
+            if (!isConnected && isActive) {
+              console.warn('⚠️ WebSocket is active but STOMP is not connected. Check backend logs for authentication errors.');
+              setError('STOMP handshake incomplete. Check backend authentication.');
+            }
           }
         }, 2000);
+        
+        // Add a timeout to detect if CONNECT frame isn't being responded to
+        connectionTimeoutRef.current = setTimeout(() => {
+          if (clientRef.current && !clientRef.current.connected) {
+            console.error('⏱️ Connection timeout: STOMP handshake did not complete within 10 seconds');
+            setError('WebSocket connection timeout. The backend may not be responding to the CONNECT frame. Check backend logs for authentication errors.');
+            if (clientRef.current) {
+              clientRef.current.deactivate();
+            }
+          }
+        }, 10000);
       } catch (err: any) {
         console.error('Error setting up WebSocket:', err);
         setError(err.message || 'Failed to connect to WebSocket');
@@ -401,6 +435,10 @@ export function useChatMessages(communityId: string) {
     // Cleanup on unmount
     return () => {
       isMounted = false;
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+        connectionTimeoutRef.current = null;
+      }
       if (subscriptionRef.current) {
         subscriptionRef.current.unsubscribe();
         subscriptionRef.current = null;
