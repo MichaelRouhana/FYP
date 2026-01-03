@@ -200,11 +200,11 @@ export function useChatMessages(communityId: string) {
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // WebSocket configuration
-  // Note: WebSocket endpoints are NOT affected by servlet context-path
-  // They are registered at root level, so use /ws (not /api/v1/ws)
+  // Note: With servlet context-path=/api/v1, WebSocket endpoints ARE affected
+  // The endpoint registered at /ws becomes /api/v1/ws
   const IP_ADDRESS = '192.168.10.249'; // Same as API config
   const PORT = '8080';
-  const WS_URL = `ws://${IP_ADDRESS}:${PORT}/ws`;
+  const WS_URL = `ws://${IP_ADDRESS}:${PORT}/api/v1/ws`;
 
   // Fetch message history from REST API
   const fetchMessageHistory = useCallback(async () => {
