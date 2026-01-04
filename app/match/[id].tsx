@@ -1042,8 +1042,8 @@ export default function MatchDetailsScreen() {
                 console.log('[Details Tab] Bet placed successfully:', JSON.stringify(betResponse, null, 2));
                 
                 // Reset form immediately so user can place another bet
-                setBetSelection(null);
-                setStake('');
+                      setBetSelection(null);
+                      setStake('');
                 
                 // Wait a moment for backend transaction to commit, then refresh balance
                 await new Promise(resolve => setTimeout(resolve, 500));
@@ -1412,7 +1412,7 @@ export default function MatchDetailsScreen() {
     };
 
     if (oddsLoading) {
-      return (
+    return (
         <View style={[styles.predictionsContainer, { justifyContent: 'center', alignItems: 'center', paddingVertical: 48 }]}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={[styles.loadingText, { color: theme.colors.textSecondary, marginTop: 16 }]}>
@@ -1430,24 +1430,24 @@ export default function MatchDetailsScreen() {
       >
         {/* Match Result (1X2) */}
         {oddsMarkets.match_winner && (
-          <View style={styles.predictionSection}>
+        <View style={styles.predictionSection}>
             <Text style={[styles.predictionTitle, styles.predictionTitleFirst, { color: theme.colors.text }]}>
               MATCH RESULT (1X2)
-            </Text>
-            <View style={styles.predictionOptions}>
+          </Text>
+          <View style={styles.predictionOptions}>
               {oddsMarkets.match_winner.selections.map((sel) => {
                 const displayValue = sel.value === 'Home' ? (matchData?.teams?.home?.name || 'HOME') : 
                                    sel.value === 'Draw' ? 'DRAW' : 
                                    (matchData?.teams?.away?.name || 'AWAY');
                 const isSelected = isPickSelected('match_winner', sel.value);
                 return (
-                  <TouchableOpacity
+            <TouchableOpacity
                     key={sel.value}
-                    style={[
-                      styles.predictionButton,
-                      { backgroundColor: theme.colors.cardBackground },
+              style={[
+                styles.predictionButton,
+                { backgroundColor: theme.colors.cardBackground },
                       isSelected && styles.predictionButtonSelected,
-                    ]}
+              ]}
                     onPress={() => {
                       if (isSelected) {
                         removePick('match_winner');
@@ -1455,20 +1455,20 @@ export default function MatchDetailsScreen() {
                         updatePick('match_winner', sel.value, undefined, sel.odd);
                       }
                     }}
-                  >
-                    <Text
-                      style={[
-                        styles.predictionButtonText,
-                        { color: theme.colors.text },
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
                         isSelected && styles.predictionButtonTextSelected,
-                      ]}
-                    >
+                ]}
+              >
                       {displayValue}
                     </Text>
                     <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
                       {sel.odd.toFixed(2)}x
-                    </Text>
-                  </TouchableOpacity>
+              </Text>
+            </TouchableOpacity>
                 );
               })}
             </View>
@@ -1486,13 +1486,13 @@ export default function MatchDetailsScreen() {
                 const displayValue = sel.value === '1X' ? 'X1' : sel.value === '12' ? '12' : 'X2';
                 const isSelected = isPickSelected('double_chance', sel.value);
                 return (
-                  <TouchableOpacity
+            <TouchableOpacity
                     key={sel.value}
-                    style={[
-                      styles.predictionButton,
-                      { backgroundColor: theme.colors.cardBackground },
+              style={[
+                styles.predictionButton,
+                { backgroundColor: theme.colors.cardBackground },
                       isSelected && styles.predictionButtonSelected,
-                    ]}
+              ]}
                     onPress={() => {
                       if (isSelected) {
                         removePick('double_chance');
@@ -1500,22 +1500,22 @@ export default function MatchDetailsScreen() {
                         updatePick('double_chance', sel.value, undefined, sel.odd);
                       }
                     }}
-                  >
-                    <Text
-                      style={[
-                        styles.predictionButtonText,
-                        { color: theme.colors.text },
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
                         isSelected && styles.predictionButtonTextSelected,
-                      ]}
+                ]}
                       numberOfLines={2}
                       ellipsizeMode="tail"
-                    >
+              >
                       {displayValue}
                     </Text>
                     <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
                       {sel.odd.toFixed(2)}x
-                    </Text>
-                  </TouchableOpacity>
+              </Text>
+            </TouchableOpacity>
                 );
               })}
             </View>
@@ -1540,13 +1540,13 @@ export default function MatchDetailsScreen() {
                   {row.selections.map((sel) => {
                     const isSelected = isPickSelected('goals_ou', sel.value, row.line);
                     return (
-                      <TouchableOpacity
+            <TouchableOpacity
                         key={sel.value}
-                        style={[
+              style={[
                           styles.oddsTableCell,
-                          { backgroundColor: theme.colors.cardBackground },
+                { backgroundColor: theme.colors.cardBackground },
                           isSelected && styles.oddsTableCellSelected,
-                        ]}
+              ]}
                         onPress={() => {
                           if (isSelected) {
                             removePick('goals_ou', row.line);
@@ -1554,47 +1554,47 @@ export default function MatchDetailsScreen() {
                             updatePick('goals_ou', sel.value, row.line, sel.odd);
                           }
                         }}
-                      >
-                        <Text
-                          style={[
+            >
+              <Text
+                style={[
                             styles.oddsTableCellText,
-                            { color: theme.colors.text },
+                  { color: theme.colors.text },
                             isSelected && styles.oddsTableCellTextSelected,
-                          ]}
-                        >
+                ]}
+              >
                           {sel.value}
                         </Text>
                         <Text style={[styles.oddsTableCellOdds, { color: theme.colors.textSecondary }]}>
                           {sel.odd.toFixed(2)}
-                        </Text>
-                      </TouchableOpacity>
+              </Text>
+            </TouchableOpacity>
                     );
                   })}
-                </View>
+          </View>
               ))}
-            </View>
+        </View>
           </View>
         )}
 
         {/* Both Teams To Score */}
         {oddsMarkets.btts && (
-          <View style={styles.predictionSection}>
-            <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
-              BOTH TEAMS TO SCORE
-            </Text>
-            <View style={styles.predictionOptions}>
+        <View style={styles.predictionSection}>
+          <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
+            BOTH TEAMS TO SCORE
+          </Text>
+          <View style={styles.predictionOptions}>
               {oddsMarkets.btts.selections.map((sel) => {
                 const displayValue = sel.value.toUpperCase();
                 const isSelected = isPickSelected('btts', sel.value);
                 return (
-                  <TouchableOpacity
+            <TouchableOpacity
                     key={sel.value}
-                    style={[
-                      styles.predictionButton,
-                      styles.predictionButtonWide,
-                      { backgroundColor: theme.colors.cardBackground },
+              style={[
+                styles.predictionButton,
+                styles.predictionButtonWide,
+                { backgroundColor: theme.colors.cardBackground },
                       isSelected && styles.predictionButtonSelected,
-                    ]}
+              ]}
                     onPress={() => {
                       if (isSelected) {
                         removePick('btts');
@@ -1602,22 +1602,22 @@ export default function MatchDetailsScreen() {
                         updatePick('btts', sel.value, undefined, sel.odd);
                       }
                     }}
-                  >
-                    <Text
-                      style={[
-                        styles.predictionButtonText,
-                        { color: theme.colors.text },
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
                         isSelected && styles.predictionButtonTextSelected,
-                      ]}
+                ]}
                       numberOfLines={2}
                       ellipsizeMode="tail"
-                    >
+              >
                       {displayValue}
                     </Text>
                     <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
                       {sel.odd.toFixed(2)}x
-                    </Text>
-                  </TouchableOpacity>
+              </Text>
+            </TouchableOpacity>
                 );
               })}
             </View>
@@ -1645,13 +1645,13 @@ export default function MatchDetailsScreen() {
                     if (!sel) return <View key={outcome} style={styles.oddsTableEmptyCell} />;
                     const isSelected = isPickSelected('handicap_result', sel.value, row.line);
                     return (
-                      <TouchableOpacity
+            <TouchableOpacity
                         key={outcome}
-                        style={[
+              style={[
                           styles.oddsTableCell,
-                          { backgroundColor: theme.colors.cardBackground },
+                { backgroundColor: theme.colors.cardBackground },
                           isSelected && styles.oddsTableCellSelected,
-                        ]}
+              ]}
                         onPress={() => {
                           if (isSelected) {
                             removePick('handicap_result', row.line);
@@ -1659,47 +1659,47 @@ export default function MatchDetailsScreen() {
                             updatePick('handicap_result', sel.value, row.line, sel.odd);
                           }
                         }}
-                      >
-                        <Text
-                          style={[
+            >
+              <Text
+                style={[
                             styles.oddsTableCellText,
-                            { color: theme.colors.text },
+                  { color: theme.colors.text },
                             isSelected && styles.oddsTableCellTextSelected,
-                          ]}
-                        >
+                ]}
+              >
                           {sel.value}
                         </Text>
                         <Text style={[styles.oddsTableCellOdds, { color: theme.colors.textSecondary }]}>
                           {sel.odd.toFixed(2)}
-                        </Text>
-                      </TouchableOpacity>
+              </Text>
+            </TouchableOpacity>
                     );
                   })}
-                </View>
+          </View>
               ))}
-            </View>
+        </View>
           </View>
         )}
 
         {/* First Team To Score */}
         {oddsMarkets.team_score_first && (
-          <View style={styles.predictionSection}>
-            <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
-              FIRST TEAM TO SCORE
-            </Text>
-            <View style={styles.predictionOptions}>
+        <View style={styles.predictionSection}>
+          <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
+            FIRST TEAM TO SCORE
+          </Text>
+          <View style={styles.predictionOptions}>
               {oddsMarkets.team_score_first.selections.map((sel) => {
                 const displayValue = sel.value === 'Home' ? 'HOME' : sel.value === 'Away' ? 'AWAY' : 'NO GOAL';
                 const isSelected = isPickSelected('team_score_first', sel.value);
                 return (
-                  <TouchableOpacity
+            <TouchableOpacity
                     key={sel.value}
-                    style={[
-                      styles.predictionButton,
-                      styles.predictionButtonWide,
-                      { backgroundColor: theme.colors.cardBackground },
+              style={[
+                styles.predictionButton,
+                styles.predictionButtonWide,
+                { backgroundColor: theme.colors.cardBackground },
                       isSelected && styles.predictionButtonSelected,
-                    ]}
+              ]}
                     onPress={() => {
                       if (isSelected) {
                         removePick('team_score_first');
@@ -1707,22 +1707,22 @@ export default function MatchDetailsScreen() {
                         updatePick('team_score_first', sel.value, undefined, sel.odd);
                       }
                     }}
-                  >
-                    <Text
-                      style={[
-                        styles.predictionButtonText,
-                        { color: theme.colors.text },
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
                         isSelected && styles.predictionButtonTextSelected,
-                      ]}
+                ]}
                       numberOfLines={2}
                       ellipsizeMode="tail"
-                    >
+              >
                       {displayValue}
                     </Text>
                     <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
                       {sel.odd.toFixed(2)}x
-                    </Text>
-                  </TouchableOpacity>
+              </Text>
+            </TouchableOpacity>
                 );
               })}
             </View>
@@ -1740,14 +1740,14 @@ export default function MatchDetailsScreen() {
                 const displayValue = sel.value === 'Home' ? 'HOME' : sel.value === 'Away' ? 'AWAY' : 'NO GOAL';
                 const isSelected = isPickSelected('team_score_last', sel.value);
                 return (
-                  <TouchableOpacity
+            <TouchableOpacity
                     key={sel.value}
-                    style={[
-                      styles.predictionButton,
-                      styles.predictionButtonWide,
-                      { backgroundColor: theme.colors.cardBackground },
+              style={[
+                styles.predictionButton,
+                styles.predictionButtonWide,
+                { backgroundColor: theme.colors.cardBackground },
                       isSelected && styles.predictionButtonSelected,
-                    ]}
+              ]}
                     onPress={() => {
                       if (isSelected) {
                         removePick('team_score_last');
@@ -1755,49 +1755,49 @@ export default function MatchDetailsScreen() {
                         updatePick('team_score_last', sel.value, undefined, sel.odd);
                       }
                     }}
-                  >
-                    <Text
-                      style={[
-                        styles.predictionButtonText,
-                        { color: theme.colors.text },
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
                         isSelected && styles.predictionButtonTextSelected,
-                      ]}
+                ]}
                       numberOfLines={2}
                       ellipsizeMode="tail"
-                    >
+              >
                       {displayValue}
                     </Text>
                     <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
                       {sel.odd.toFixed(2)}x
-                    </Text>
-                  </TouchableOpacity>
+              </Text>
+            </TouchableOpacity>
                 );
               })}
-            </View>
           </View>
+        </View>
         )}
 
         {/* Goals in Both Halves - Estimated */}
         {oddsMarkets.goals_both_halves && (
-          <View style={styles.predictionSection}>
+        <View style={styles.predictionSection}>
             <View style={styles.predictionTitleRow}>
-              <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
+          <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
                 GOALS IN BOTH HALVES
-              </Text>
+          </Text>
               <Text style={[styles.estimatedTag, { color: theme.colors.textSecondary }]}>Estimated</Text>
             </View>
-            <View style={styles.predictionOptions}>
+          <View style={styles.predictionOptions}>
               {oddsMarkets.goals_both_halves.selections.map((sel) => {
                 const isSelected = isPickSelected('goals_both_halves', sel.value);
                 return (
-                  <TouchableOpacity
+            <TouchableOpacity
                     key={sel.value}
-                    style={[
-                      styles.predictionButton,
+              style={[
+                styles.predictionButton,
                       styles.predictionButtonWide,
-                      { backgroundColor: theme.colors.cardBackground },
+                { backgroundColor: theme.colors.cardBackground },
                       isSelected && styles.predictionButtonSelected,
-                    ]}
+              ]}
                     onPress={() => {
                       if (isSelected) {
                         removePick('goals_both_halves');
@@ -1805,20 +1805,20 @@ export default function MatchDetailsScreen() {
                         updatePick('goals_both_halves', sel.value, undefined, sel.odd);
                       }
                     }}
-                  >
-                    <Text
-                      style={[
-                        styles.predictionButtonText,
-                        { color: theme.colors.text },
+            >
+              <Text
+                style={[
+                  styles.predictionButtonText,
+                  { color: theme.colors.text },
                         isSelected && styles.predictionButtonTextSelected,
-                      ]}
-                    >
+                ]}
+              >
                       {sel.value}
                     </Text>
                     <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
                       {sel.odd.toFixed(2)}x
-                    </Text>
-                  </TouchableOpacity>
+              </Text>
+            </TouchableOpacity>
                 );
               })}
             </View>
@@ -1843,13 +1843,13 @@ export default function MatchDetailsScreen() {
                   {row.selections.map((sel) => {
                     const isSelected = isPickSelected('team_total_home', sel.value, row.line);
                     return (
-                      <TouchableOpacity
+            <TouchableOpacity
                         key={sel.value}
-                        style={[
+              style={[
                           styles.oddsTableCell,
-                          { backgroundColor: theme.colors.cardBackground },
+                { backgroundColor: theme.colors.cardBackground },
                           isSelected && styles.oddsTableCellSelected,
-                        ]}
+              ]}
                         onPress={() => {
                           if (isSelected) {
                             removePick('team_total_home', row.line);
@@ -1857,20 +1857,20 @@ export default function MatchDetailsScreen() {
                             updatePick('team_total_home', sel.value, row.line, sel.odd);
                           }
                         }}
-                      >
-                        <Text
-                          style={[
+            >
+              <Text
+                style={[
                             styles.oddsTableCellText,
-                            { color: theme.colors.text },
+                  { color: theme.colors.text },
                             isSelected && styles.oddsTableCellTextSelected,
-                          ]}
-                        >
+                ]}
+              >
                           {sel.value}
                         </Text>
                         <Text style={[styles.oddsTableCellOdds, { color: theme.colors.textSecondary }]}>
                           {sel.odd.toFixed(2)}
-                        </Text>
-                      </TouchableOpacity>
+              </Text>
+            </TouchableOpacity>
                     );
                   })}
                 </View>
@@ -1897,13 +1897,13 @@ export default function MatchDetailsScreen() {
                   {row.selections.map((sel) => {
                     const isSelected = isPickSelected('team_total_away', sel.value, row.line);
                     return (
-                      <TouchableOpacity
+            <TouchableOpacity
                         key={sel.value}
-                        style={[
+              style={[
                           styles.oddsTableCell,
-                          { backgroundColor: theme.colors.cardBackground },
+                { backgroundColor: theme.colors.cardBackground },
                           isSelected && styles.oddsTableCellSelected,
-                        ]}
+              ]}
                         onPress={() => {
                           if (isSelected) {
                             removePick('team_total_away', row.line);
@@ -1911,25 +1911,25 @@ export default function MatchDetailsScreen() {
                             updatePick('team_total_away', sel.value, row.line, sel.odd);
                           }
                         }}
-                      >
-                        <Text
-                          style={[
+            >
+              <Text
+                style={[
                             styles.oddsTableCellText,
-                            { color: theme.colors.text },
+                  { color: theme.colors.text },
                             isSelected && styles.oddsTableCellTextSelected,
-                          ]}
-                        >
+                ]}
+              >
                           {sel.value}
                         </Text>
                         <Text style={[styles.oddsTableCellOdds, { color: theme.colors.textSecondary }]}>
                           {sel.odd.toFixed(2)}
-                        </Text>
-                      </TouchableOpacity>
+              </Text>
+            </TouchableOpacity>
                     );
                   })}
-                </View>
+          </View>
               ))}
-            </View>
+        </View>
           </View>
         )}
 
@@ -1937,33 +1937,33 @@ export default function MatchDetailsScreen() {
         <View style={styles.predictionSection}>
           <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
             STAKE
-          </Text>
-          <TextInput
-            style={[
+              </Text>
+              <TextInput
+                style={[
               styles.stakeInput,
-              {
-                backgroundColor: theme.colors.cardBackground,
-                color: theme.colors.text,
-                borderColor: theme.colors.border,
-              },
-            ]}
+                  {
+                    backgroundColor: theme.colors.cardBackground,
+                    color: theme.colors.text,
+                    borderColor: theme.colors.border,
+                  },
+                ]}
             placeholder="Enter stake amount"
-            placeholderTextColor={theme.colors.textSecondary}
+                placeholderTextColor={theme.colors.textSecondary}
             value={stake}
-            onChangeText={(text) => {
+                onChangeText={(text) => {
               // Only allow numbers and decimal point
               const num = text.replace(/[^0-9.]/g, '');
               // Prevent multiple decimal points
               const parts = num.split('.');
               if (parts.length > 2) return;
               setStake(num);
-            }}
+                }}
             keyboardType="decimal-pad"
-          />
+              />
           {stake && !isNaN(parseFloat(stake)) && (
             <Text style={[styles.stakeHint, { color: theme.colors.textSecondary }]}>
               Available Balance: {balance} PTS
-            </Text>
+              </Text>
           )}
         </View>
 
@@ -1977,7 +1977,7 @@ export default function MatchDetailsScreen() {
           {submitting ? (
             <ActivityIndicator color="#ffffff" />
           ) : (
-            <Text style={styles.submitPredictionsButtonText}>SUBMIT PREDICTIONS</Text>
+          <Text style={styles.submitPredictionsButtonText}>SUBMIT PREDICTIONS</Text>
           )}
         </TouchableOpacity>
       </ScrollView>

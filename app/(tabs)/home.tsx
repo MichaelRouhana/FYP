@@ -235,10 +235,10 @@ export default function HomeScreen() {
     return d > today && d.getDate() !== today.getDate();
   };
 
-  // Helper to check if a match date matches the selected date
+    // Helper to check if a match date matches the selected date
   // FIX: Use local date parts to avoid timezone issues
   const isSameDay = useCallback((matchDateStr: string, targetDate: Date): boolean => {
-    const matchDate = new Date(matchDateStr);
+      const matchDate = new Date(matchDateStr);
     // Normalize both dates to local midnight for accurate comparison
     const matchLocal = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate());
     const targetLocal = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
@@ -380,7 +380,7 @@ export default function HomeScreen() {
             'Finished Matches Debug',
             `Total FT matches found: ${allMatchesWithFT.length}\nMatches with date match: ${finishedMatchesInfo.length}\n\nSelected date: ${selectedDateOption?.fullDate}\n\nDetails:\n${dateMatchInfo}`,
             [{ text: 'OK', onPress: () => setDebugAlertShown(true) }]
-          );
+      );
         } else {
           const totalMatches = leagues.reduce((sum, league) => sum + league.matches.length, 0);
           Alert.alert(
@@ -561,7 +561,7 @@ export default function HomeScreen() {
             </View>
           ) : (
             <View style={{ alignItems: 'center' }}>
-              <Text style={[styles.matchTime, { color: theme.colors.textSecondary }]}>{match.time}</Text>
+            <Text style={[styles.matchTime, { color: theme.colors.textSecondary }]}>{match.time}</Text>
               {match.statusShort === 'PST' && (
                 <Text style={{ color: '#ef4444', fontSize: 10, marginTop: 2 }}>Postponed</Text>
               )}
@@ -726,7 +726,7 @@ export default function HomeScreen() {
         const showFilterTabs = !isPast && !isFuture; // Only show filter tabs for today
         
         return (
-          <View style={[styles.filterContainer, { backgroundColor: theme.colors.background }]}>
+      <View style={[styles.filterContainer, { backgroundColor: theme.colors.background }]}>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -760,74 +760,74 @@ export default function HomeScreen() {
               {/* Filter Tabs - Only show for today */}
               {showFilterTabs && (
                 <>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterTab, 
-                      { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
-                      selectedFilter === 'all' && { backgroundColor: theme.colors.primary }
-                    ]}
-                    onPress={() => setSelectedFilter('all')}
-                  >
-                    <Text style={[
-                      styles.filterText, 
-                      { color: theme.colors.text },
-                      selectedFilter === 'all' && { color: theme.colors.primaryText }
-                    ]}>
-                      ALL
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterTab, 
-                      { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
-                      selectedFilter === 'live' && { backgroundColor: theme.colors.primary }
-                    ]}
-                    onPress={() => setSelectedFilter('live')}
-                  >
-                    <Text style={[
-                      styles.filterText, 
-                      { color: theme.colors.text },
-                      selectedFilter === 'live' && { color: theme.colors.primaryText }
-                    ]}>
-                      LIVE
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterTab, 
-                      { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
-                      selectedFilter === 'upcoming' && { backgroundColor: theme.colors.primary }
-                    ]}
-                    onPress={() => setSelectedFilter('upcoming')}
-                  >
-                    <Text style={[
-                      styles.filterText, 
-                      { color: theme.colors.text },
-                      selectedFilter === 'upcoming' && { color: theme.colors.primaryText }
-                    ]}>
-                      UPCOMING
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.filterTab, 
-                      { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
-                      selectedFilter === 'finished' && { backgroundColor: theme.colors.primary }
-                    ]}
-                    onPress={() => setSelectedFilter('finished')}
-                  >
-                    <Text style={[
-                      styles.filterText, 
-                      { color: theme.colors.text },
-                      selectedFilter === 'finished' && { color: theme.colors.primaryText }
-                    ]}>
-                      FINISHED
-                    </Text>
-                  </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterTab, 
+            { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+            selectedFilter === 'all' && { backgroundColor: theme.colors.primary }
+          ]}
+          onPress={() => setSelectedFilter('all')}
+        >
+          <Text style={[
+            styles.filterText, 
+            { color: theme.colors.text },
+            selectedFilter === 'all' && { color: theme.colors.primaryText }
+          ]}>
+            ALL
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterTab, 
+            { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+            selectedFilter === 'live' && { backgroundColor: theme.colors.primary }
+          ]}
+          onPress={() => setSelectedFilter('live')}
+        >
+          <Text style={[
+            styles.filterText, 
+            { color: theme.colors.text },
+            selectedFilter === 'live' && { color: theme.colors.primaryText }
+          ]}>
+            LIVE
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterTab, 
+            { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+            selectedFilter === 'upcoming' && { backgroundColor: theme.colors.primary }
+          ]}
+          onPress={() => setSelectedFilter('upcoming')}
+        >
+          <Text style={[
+            styles.filterText, 
+            { color: theme.colors.text },
+            selectedFilter === 'upcoming' && { color: theme.colors.primaryText }
+          ]}>
+            UPCOMING
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterTab, 
+            { backgroundColor: theme.colors.filterInactive, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border },
+            selectedFilter === 'finished' && { backgroundColor: theme.colors.primary }
+          ]}
+          onPress={() => setSelectedFilter('finished')}
+        >
+          <Text style={[
+            styles.filterText, 
+            { color: theme.colors.text },
+            selectedFilter === 'finished' && { color: theme.colors.primaryText }
+          ]}>
+            FINISHED
+          </Text>
+        </TouchableOpacity>
                 </>
               )}
             </ScrollView>
-          </View>
+      </View>
         );
       })()}
 
