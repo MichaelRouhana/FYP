@@ -1,25 +1,6 @@
 // POLYFILLS FOR STOMP CLIENT (MUST BE AT THE VERY TOP)
-import * as encoding from 'text-encoding';
-
-// Manually assign to global scope so StompJS can find it
-const globalAny = global as any;
-if (!globalAny.TextEncoder) {
-  globalAny.TextEncoder = encoding.TextEncoder;
-  console.log('✅ TextEncoder polyfill applied to global scope');
-}
-if (!globalAny.TextDecoder) {
-  globalAny.TextDecoder = encoding.TextDecoder;
-  console.log('✅ TextDecoder polyfill applied to global scope');
-}
-
-// Test that TextEncoder actually works
-try {
-  const testEncoder = new globalAny.TextEncoder();
-  const testBytes = testEncoder.encode('test');
-  console.log('✅ TextEncoder test passed, encoded length:', testBytes.length);
-} catch (e) {
-  console.error('❌ TextEncoder test failed:', e);
-}
+// Import the polyfill globally - this is critical for @stomp/stompjs to work in React Native
+import 'text-encoding-polyfill';
 
 import {
   Inter_400Regular,

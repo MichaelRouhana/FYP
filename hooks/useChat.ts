@@ -346,6 +346,9 @@ export function useChatMessages(communityId: string) {
           connectHeaders: {
             Authorization: `Bearer ${token}`, // Ensure space exists after "Bearer"
           },
+          // React Native WebSocket compatibility options
+          forceBinaryWSFrames: true,
+          appendMissingNULLonIncoming: true,
           reconnectDelay: 5000,
           heartbeatIncoming: 4000,
           heartbeatOutgoing: 4000,
@@ -396,7 +399,7 @@ export function useChatMessages(communityId: string) {
                   console.log('📨 Received message:', data);
 
                   // Map backend CommunityMessageDTO to frontend Message format
-                  const newMessage: Message = {
+    const newMessage: Message = {
                     _id: `msg-${Date.now()}-${Math.random()}`,
                     text: data.content || '',
                     createdAt: new Date(),
@@ -573,18 +576,18 @@ export function useChatMessages(communityId: string) {
       // Optimistically add message to UI (will be confirmed when received via subscription)
       const optimisticMessage: Message = {
         _id: `msg-${Date.now()}-optimistic`,
-        text,
-        createdAt: new Date(),
-        user: CURRENT_USER,
-        messageType: 'text',
-        replyTo: replyTo
-          ? {
-              id: replyTo._id,
-              originalText: replyTo.text,
-              senderName: replyTo.user.name,
-            }
-          : undefined,
-      };
+      text,
+      createdAt: new Date(),
+      user: CURRENT_USER,
+      messageType: 'text',
+      replyTo: replyTo
+        ? {
+            id: replyTo._id,
+            originalText: replyTo.text,
+            senderName: replyTo.user.name,
+          }
+        : undefined,
+    };
       setMessages((prev) => [...prev, optimisticMessage]);
     } catch (err: any) {
       console.error('Error sending message:', err);
