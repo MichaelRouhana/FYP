@@ -280,7 +280,7 @@ export function useChatMessages(communityId: string) {
         const response = await api.get<CommunityMessage[]>(`/communities/${communityId}/messages`);
         if (response.data && Array.isArray(response.data)) {
           // Map backend CommunityMessage entities to frontend Message format
-          const historyMessages: Message[] = response.data.map((msg: CommunityMessage, index: number) => ({
+          const historyMessages: Message[] = response.data.map((msg: any, index: number) => ({
             _id: msg.id?.toString() || `hist-${index}`,
             text: msg.content || '',
             createdAt: msg.sentAt ? new Date(msg.sentAt) : new Date(),
@@ -289,6 +289,7 @@ export function useChatMessages(communityId: string) {
               name: msg.senderUsername || 'Unknown User',
               avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.senderUsername || 'User')}&background=3b82f6&color=fff`,
             },
+            senderEmail: msg.senderEmail, // Include email for identity verification
             messageType: 'text' as MessageType,
           }));
           setMessages(historyMessages);
@@ -409,6 +410,7 @@ export function useChatMessages(communityId: string) {
                       name: data.senderUsername || 'Unknown User',
                       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.senderUsername || 'User')}&background=3b82f6&color=fff`,
                     },
+                    senderEmail: data.senderEmail, // Include email for identity verification
                     messageType: 'text' as MessageType,
                   };
 

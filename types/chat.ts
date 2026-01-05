@@ -16,6 +16,7 @@ export interface CommunityMessageDTO {
   id?: number; // Message ID (for REST API and WebSocket responses)
   content: string;
   senderUsername: string;
+  senderEmail?: string; // Email for identity verification
   sentAt?: string; // ISO date string
   senderId?: number; // Sender user ID
 }
@@ -63,6 +64,7 @@ export interface Message {
   text: string; // Mapped from content
   createdAt: Date | number; // Mapped from sentAt
   user: User; // Mapped from senderUsername/senderId
+  senderEmail?: string; // Email for identity verification
   messageType: MessageType;
   /**
    * Snapshot of the parent message (for UI performance)

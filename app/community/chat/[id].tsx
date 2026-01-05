@@ -39,19 +39,20 @@ export default function ChatScreen() {
   const { community } = useCommunityDetails(id);
   const [inputText, setInputText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [currentUsername, setCurrentUsername] = useState<string | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
-  // Get current user's username from JWT token
+  // Get current user's email from JWT token for identity verification
   useEffect(() => {
     const getCurrentUser = async () => {
       try {
         const token = await SecureStore.getItemAsync('jwt_token');
         if (token) {
           const decoded = jwtDecode<JwtPayload>(token);
-          // Try different possible fields in JWT payload
-          const username = decoded.sub || decoded.username || decoded.email || null;
-          setCurrentUsername(username);
+          // Extract email from JWT payload (sub field typically contains email)
+          const email = decoded.email || decoded.sub || null;
+          setCurrentUserEmail(email);
+          console.log('✅ Current user email from JWT:', email);
         }
       } catch (err) {
         console.error('Error decoding JWT token:', err);
@@ -98,11 +99,11 @@ export default function ChatScreen() {
     });
   };
 
-  // Check if message is from current user by comparing username
+  // Check if message is from current user by comparing email
   const isCurrentUser = (message: Message) => {
-    if (!currentUsername) return false;
-    // Compare by username since backend sends senderUsername in DTO
-    return message.user.name === currentUsername || message.user.name.toLowerCase() === currentUsername.toLowerCase();
+    if (!currentUserEmail || !message.senderEmail) return false;
+    // Compare by email for robust identity verification
+    return message.senderEmail.toLowerCase() === currentUserEmail.toLowerCase();
   };
 
   const renderMatchBidCard = (data: MatchBidData) => (
@@ -220,38 +221,28 @@ export default function ChatScreen() {
             </View>
           )}
 
-          {/* Message Bubble with Tail */}
-          <View style={[styles.bubbleContainer, isMe && styles.bubbleContainerMe]}>
-            {/* Tail/pointer for other messages (on left, pointing left) */}
-            {!isMe && (
-              <View style={[styles.bubbleTailLeft, { 
-                borderRightColor: isDark ? '#1f2937' : '#FFFFFF'
-              }]} />
-            )}
-            
-            <View
-              style={[
-                styles.messageBubble,
-                isMe 
-                  ? [styles.bubbleMe, { backgroundColor: isDark ? '#22c55e' : '#10b981' }]
-                  : [styles.bubbleOther, { backgroundColor: isDark ? '#1f2937' : '#FFFFFF' }],
-              ]}
-            >
-              <Text style={[styles.messageText, { 
-                color: isMe 
-                  ? '#fff' 
-                  : (isDark ? '#e5e7eb' : '#18223A')
-              }]}>
-                {item.text}
-              </Text>
-            </View>
-            
-            {/* Tail/pointer for own messages (on right, pointing right) */}
-            {isMe && (
-              <View style={[styles.bubbleTailRight, { 
-                borderLeftColor: isDark ? '#22c55e' : '#10b981'
-              }]} />
-            )}
+          {/* Message Bubble with Tail (using border radius) */}
+          <View
+            style={[
+              styles.messageBubble,
+              isMe 
+                ? [styles.bubbleMe, { 
+                    backgroundColor: isDark ? '#0a7ea4' : '#0a7ea4',
+                    borderBottomRightRadius: 0, // Sharp tail pointing right
+                  }]
+                : [styles.bubbleOther, { 
+                    backgroundColor: isDark ? '#1f2937' : '#FFFFFF',
+                    borderBottomLeftRadius: 0, // Sharp tail pointing left
+                  }],
+            ]}
+          >
+            <Text style={[styles.messageText, { 
+              color: isMe 
+                ? '#fff' 
+                : (isDark ? '#e5e7eb' : '#18223A')
+            }]}>
+              {item.text}
+            </Text>
           </View>
 
           {/* Time */}
@@ -531,52 +522,19 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontFamily: 'Inter_400Regular',
   },
-  bubbleContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  bubbleContainerMe: {
-    justifyContent: 'flex-end',
-  },
   messageBubble: {
     borderRadius: 18,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    maxWidth: '100%',
+    maxWidth: '75%',
   },
   bubbleMe: {
-    backgroundColor: '#22c55e',
-    borderBottomRightRadius: 4,
+    backgroundColor: '#0a7ea4', // Dark blue for own messages
+    // borderBottomRightRadius: 0 is set inline for sharp tail
   },
   bubbleOther: {
-    backgroundColor: '#1f2937',
-    borderBottomLeftRadius: 4,
-  },
-  // Tail/pointer for own messages (pointing right, attached to bottom-right)
-  bubbleTailRight: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 6,
-    borderTopColor: 'transparent',
-    borderBottomWidth: 6,
-    borderBottomColor: 'transparent',
-    borderLeftWidth: 8,
-    alignSelf: 'flex-end',
-    marginLeft: -1,
-    marginBottom: 6,
-  },
-  // Tail/pointer for other messages (pointing left, attached to bottom-left)
-  bubbleTailLeft: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 6,
-    borderTopColor: 'transparent',
-    borderBottomWidth: 6,
-    borderBottomColor: 'transparent',
-    borderRightWidth: 8,
-    alignSelf: 'flex-start',
-    marginRight: -1,
-    marginBottom: 6,
+    backgroundColor: '#1f2937', // Gray/neutral for others' messages
+    // borderBottomLeftRadius: 0 is set inline for sharp tail
   },
   messageText: {
     fontSize: 15,
