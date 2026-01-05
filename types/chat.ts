@@ -9,12 +9,15 @@ export type MessageType =
   | 'match_bid';
 
 /**
- * Backend DTO structure (sent over WebSocket)
+ * Backend DTO structure (sent over WebSocket and REST API)
  * Matches: CommunityMessageDTO.java
  */
 export interface CommunityMessageDTO {
+  id?: number; // Message ID (for REST API and WebSocket responses)
   content: string;
   senderUsername: string;
+  sentAt?: string; // ISO date string
+  senderId?: number; // Sender user ID
 }
 
 /**

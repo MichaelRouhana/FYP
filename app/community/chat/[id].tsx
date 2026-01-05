@@ -201,8 +201,8 @@ export default function ChatScreen() {
           </View>
         )}
 
-        <View style={styles.messageContent}>
-          {/* Username for others */}
+        <View style={[styles.messageContent, isMe && styles.messageContentMe]}>
+          {/* Username for others only - never show for own messages */}
           {!isMe && (
             <Text style={[styles.senderName, { color: theme.colors.textSecondary }]}>{item.user.name}</Text>
           )}
@@ -220,22 +220,38 @@ export default function ChatScreen() {
             </View>
           )}
 
-          {/* Message Bubble */}
-          <View
-            style={[
-              styles.messageBubble,
-              isMe 
-                ? [styles.bubbleMe, { backgroundColor: isDark ? '#1e3a5f' : '#18223A' }]
-                : [styles.bubbleOther, { backgroundColor: isDark ? '#1f2937' : '#FFFFFF' }],
-            ]}
-          >
-            <Text style={[styles.messageText, { 
-              color: isMe 
-                ? '#fff' 
-                : (isDark ? '#e5e7eb' : '#18223A')
-            }]}>
-              {item.text}
-            </Text>
+          {/* Message Bubble with Tail */}
+          <View style={[styles.bubbleContainer, isMe && styles.bubbleContainerMe]}>
+            {/* Tail/pointer for other messages (on left, pointing left) */}
+            {!isMe && (
+              <View style={[styles.bubbleTailLeft, { 
+                borderRightColor: isDark ? '#1f2937' : '#FFFFFF'
+              }]} />
+            )}
+            
+            <View
+              style={[
+                styles.messageBubble,
+                isMe 
+                  ? [styles.bubbleMe, { backgroundColor: isDark ? '#22c55e' : '#10b981' }]
+                  : [styles.bubbleOther, { backgroundColor: isDark ? '#1f2937' : '#FFFFFF' }],
+              ]}
+            >
+              <Text style={[styles.messageText, { 
+                color: isMe 
+                  ? '#fff' 
+                  : (isDark ? '#e5e7eb' : '#18223A')
+              }]}>
+                {item.text}
+              </Text>
+            </View>
+            
+            {/* Tail/pointer for own messages (on right, pointing right) */}
+            {isMe && (
+              <View style={[styles.bubbleTailRight, { 
+                borderLeftColor: isDark ? '#22c55e' : '#10b981'
+              }]} />
+            )}
           </View>
 
           {/* Time */}
@@ -482,6 +498,9 @@ const styles = StyleSheet.create({
   messageContent: {
     maxWidth: '75%',
   },
+  messageContentMe: {
+    alignItems: 'flex-end',
+  },
   senderName: {
     fontSize: 13,
     color: '#9ca3af',
@@ -512,18 +531,52 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontFamily: 'Inter_400Regular',
   },
+  bubbleContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+  },
+  bubbleContainerMe: {
+    justifyContent: 'flex-end',
+  },
   messageBubble: {
-    borderRadius: 16,
+    borderRadius: 18,
     paddingVertical: 10,
     paddingHorizontal: 14,
+    maxWidth: '100%',
   },
   bubbleMe: {
-    backgroundColor: '#1e3a5f',
+    backgroundColor: '#22c55e',
     borderBottomRightRadius: 4,
   },
   bubbleOther: {
     backgroundColor: '#1f2937',
     borderBottomLeftRadius: 4,
+  },
+  // Tail/pointer for own messages (pointing right, attached to bottom-right)
+  bubbleTailRight: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 6,
+    borderTopColor: 'transparent',
+    borderBottomWidth: 6,
+    borderBottomColor: 'transparent',
+    borderLeftWidth: 8,
+    alignSelf: 'flex-end',
+    marginLeft: -1,
+    marginBottom: 6,
+  },
+  // Tail/pointer for other messages (pointing left, attached to bottom-left)
+  bubbleTailLeft: {
+    width: 0,
+    height: 0,
+    borderTopWidth: 6,
+    borderTopColor: 'transparent',
+    borderBottomWidth: 6,
+    borderBottomColor: 'transparent',
+    borderRightWidth: 8,
+    alignSelf: 'flex-start',
+    marginRight: -1,
+    marginBottom: 6,
   },
   messageText: {
     fontSize: 15,

@@ -399,19 +399,28 @@ export function useChatMessages(communityId: string) {
                   console.log('📨 Received message:', data);
 
                   // Map backend CommunityMessageDTO to frontend Message format
-    const newMessage: Message = {
-                    _id: `msg-${Date.now()}-${Math.random()}`,
+                  // Use message ID to prevent duplicates
+                  const newMessage: Message = {
+                    _id: data.id ? `msg-${data.id}` : `msg-${Date.now()}-${Math.random()}`,
                     text: data.content || '',
-                    createdAt: new Date(),
+                    createdAt: data.sentAt ? new Date(data.sentAt) : new Date(),
                     user: {
-                      id: 'current', // Backend doesn't send sender ID in DTO
+                      id: data.senderId ? data.senderId.toString() : 'unknown',
                       name: data.senderUsername || 'Unknown User',
                       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.senderUsername || 'User')}&background=3b82f6&color=fff`,
                     },
                     messageType: 'text' as MessageType,
                   };
 
-                  setMessages((prev) => [...prev, newMessage]);
+                  // Prevent duplicate messages by checking if message with same ID already exists
+                  setMessages((prev) => {
+                    const exists = prev.some(msg => msg._id === newMessage._id);
+                    if (exists) {
+                      console.log('⚠️ Duplicate message detected, skipping:', newMessage._id);
+                      return prev;
+                    }
+                    return [...prev, newMessage];
+                  });
                 } catch (err) {
                   console.error('Error parsing WebSocket message:', err);
                 }
@@ -568,27 +577,12 @@ export function useChatMessages(communityId: string) {
       console.log('Sending message to:', `/app/community/${communityId}/send`, payload);
 
       // Send message via WebSocket
+      // The message will appear when the backend broadcasts it back via WebSocket
+      // No optimistic update needed - wait for server echo (takes milliseconds)
       clientRef.current.publish({
         destination: `/app/community/${communityId}/send`,
         body: JSON.stringify(payload),
       });
-
-      // Optimistically add message to UI (will be confirmed when received via subscription)
-      const optimisticMessage: Message = {
-        _id: `msg-${Date.now()}-optimistic`,
-      text,
-      createdAt: new Date(),
-      user: CURRENT_USER,
-      messageType: 'text',
-      replyTo: replyTo
-        ? {
-            id: replyTo._id,
-            originalText: replyTo.text,
-            senderName: replyTo.user.name,
-          }
-        : undefined,
-    };
-      setMessages((prev) => [...prev, optimisticMessage]);
     } catch (err: any) {
       console.error('Error sending message:', err);
       setError(err.message || 'Failed to send message');
