@@ -232,7 +232,7 @@ export default function ChatScreen() {
             <Text style={[styles.messageText, { 
               color: isMe 
                 ? '#fff' 
-                : (isDark ? '#e5e7eb' : '#18223A')
+                : '#000000' // Black text for other users' messages (white background)
             }]}>
               {item.text}
             </Text>

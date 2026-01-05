@@ -203,13 +203,14 @@ export function useCommunities() {
         setLoading(true);
         setError(null);
         
-        // Fetch communities with pagination (get first 100)
-        const response = await api.get<PagedResponse<CommunityResponseDTO>>(
-          '/communities?page=0&size=100'
+        // Fetch only communities the user has joined
+        const response = await api.get<CommunityResponseDTO[]>(
+          '/communities/my'
         );
         
         // Map backend DTOs to frontend Community format
-        const mappedCommunities: Community[] = response.data.content.map((dto) => ({
+        // Note: /my endpoint returns List<CommunityResponseDTO>, not PagedResponse
+        const mappedCommunities: Community[] = (Array.isArray(response.data) ? response.data : response.data.content || []).map((dto) => ({
           id: dto.id.toString(),
           name: dto.name || 'Unnamed Community',
           lastMessage: 'No messages yet', // Default, can be updated if we fetch last message
