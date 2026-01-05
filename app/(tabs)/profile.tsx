@@ -11,13 +11,14 @@ import {
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ActivityIndicator } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useProfile } from '@/hooks/useProfile';
 import { FavoriteTeam, UserCommunity } from '@/types/profile';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, favoriteTeams, communities, predictions } = useProfile();
+  const { user, favoriteTeams, communities, predictions, loading, error } = useProfile();
   const { theme, isDark, toggleTheme } = useTheme();
 
   const handleAddTeam = () => {
@@ -85,6 +86,17 @@ export default function ProfileScreen() {
         <Text style={[styles.headerTitle, { color: theme.colors.text }]}>PROFILE</Text>
       </View>
 
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </View>
+      ) : error ? (
+        <View style={styles.errorContainer}>
+          <Text style={[styles.errorText, { color: theme.colors.error || '#ef4444' }]}>
+            {error}
+          </Text>
+        </View>
+      ) : (
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -95,27 +107,31 @@ export default function ProfileScreen() {
           {/* Avatar */}
           <View style={[styles.avatarContainer, { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.border }]}>
             <Image
-              source={{ uri: user.avatar }}
+              source={{ uri: user.avatar || user.pfp || '' }}
               style={styles.avatar}
               defaultSource={require('@/assets/images/icon.png')}
             />
           </View>
 
           {/* Name */}
-          <Text style={[styles.userName, { color: theme.colors.text }]}>{user.name}</Text>
+          <Text style={[styles.userName, { color: theme.colors.text }]}>{user.name || user.username || 'User'}</Text>
 
           {/* Username, Points, Location */}
           <View style={styles.userMeta}>
-            <Text style={[styles.username, { color: theme.colors.textSecondary }]}>{user.username}</Text>
+            <Text style={[styles.username, { color: theme.colors.textSecondary }]}>{user.username || ''}</Text>
             <Text style={[styles.userPoints, { color: theme.colors.hot }]}>{user.points.toLocaleString()} points</Text>
-            <View style={styles.locationContainer}>
-              <Ionicons name="location" size={14} color={theme.colors.primary} />
-              <Text style={[styles.locationText, { color: theme.colors.primary }]}>{user.location}</Text>
-            </View>
+            {user.location && (
+              <View style={styles.locationContainer}>
+                <Ionicons name="location" size={14} color={theme.colors.primary} />
+                <Text style={[styles.locationText, { color: theme.colors.primary }]}>{user.location}</Text>
+              </View>
+            )}
           </View>
 
           {/* Bio */}
-          <Text style={[styles.bio, { color: theme.colors.text }]}>{user.bio}</Text>
+          {user.bio && (
+            <Text style={[styles.bio, { color: theme.colors.text }]}>{user.bio}</Text>
+          )}
         </View>
 
         {/* Favorite Teams */}
@@ -214,6 +230,7 @@ export default function ProfileScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -461,5 +478,21 @@ const styles = StyleSheet.create({
   settingsValueText: {
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
   },
 });

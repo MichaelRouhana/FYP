@@ -1,17 +1,23 @@
 // types/profile.ts
 // Data architecture for Profile features
-// Structured for future backend integration
+// Matches backend UserViewDTO structure
 
 export interface UserProfile {
-  id: string;
-  name: string;
+  id?: string; // Optional, may not be in DTO
+  name?: string; // Optional, derived from username
   username: string;
-  avatar: string;
-  points: number;
-  location: string;
-  bio: string;
+  avatar?: string; // Mapped from pfp
+  pfp?: string; // Direct from backend
+  points: number; // Mapped from totalPoints
+  totalPoints?: number; // Direct from backend
+  location?: string; // Optional, not in backend DTO
+  bio?: string; // Optional, not in backend DTO
   email: string;
-  joinedAt?: Date;
+  joinedAt?: Date; // Optional, not in backend DTO
+  // Betting statistics from backend
+  totalBets?: number;
+  totalWins?: number;
+  winRate?: number; // Percentage (0-100)
 }
 
 export interface FavoriteTeam {
@@ -30,9 +36,9 @@ export interface UserCommunity {
 }
 
 export interface PredictionStats {
-  total: number;
-  correct: number;
-  incorrect: number;
+  total: number; // Mapped from totalBets
+  correct: number; // Mapped from totalWins
+  incorrect: number; // Calculated as total - correct
 }
 
 export interface ProfileData {
