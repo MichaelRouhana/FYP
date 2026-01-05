@@ -72,11 +72,15 @@ export default function Register() {
 
       // API Call - Send country name if selected
       const selectedCountryObj = countries.find((c) => c.code === country);
+      const countryName = selectedCountryObj ? selectedCountryObj.name : null;
+      console.log('🌍 Signup - Selected country code:', country);
+      console.log('🌍 Signup - Selected country name:', countryName);
+      
       await api.post('/users/signup', {
         username: username,
         email: email,
         password: password, // Matches SignUpRequestDTO.java
-        country: selectedCountryObj ? selectedCountryObj.name : null, // Send country name if selected (optional)
+        country: countryName, // Send country name if selected (optional)
       });
 
       Alert.alert(

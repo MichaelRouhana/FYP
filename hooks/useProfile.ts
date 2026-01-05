@@ -31,6 +31,9 @@ export function useProfile() {
       const response = await api.get('/users/profile');
       const profileData = response.data;
 
+      console.log('🌍 Profile API Response:', JSON.stringify(profileData, null, 2));
+      console.log('🌍 Country from API:', profileData.country);
+
       // Map backend UserViewDTO to frontend UserProfile
       const mappedUser: UserProfile = {
         username: profileData.username || '',
@@ -48,6 +51,8 @@ export function useProfile() {
         country: profileData.country,
         location: profileData.country, // Map country to location for display
       };
+
+      console.log('🌍 Mapped user country:', mappedUser.country);
 
       setUser(mappedUser);
 
