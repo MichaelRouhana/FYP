@@ -1,25 +1,38 @@
 import { Feather, Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Image,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
+  TextInput,
+  Alert,
+  ActionSheetIOS,
+  Platform,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ImagePicker from 'expo-image-picker';
+import * as SecureStore from 'expo-secure-store';
 
 import { ActivityIndicator } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useProfile } from '@/hooks/useProfile';
 import { FavoriteTeam, UserCommunity } from '@/types/profile';
+import api from '@/services/api';
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, favoriteTeams, communities, predictions, loading, error } = useProfile();
+  const { user, favoriteTeams, communities, predictions, loading, error, fetchProfile } = useProfile();
   const { theme, isDark, toggleTheme } = useTheme();
+  const [isEditingAbout, setIsEditingAbout] = useState(false);
+  const [aboutText, setAboutText] = useState(user.about || '');
+
+  React.useEffect(() => {
+    setAboutText(user.about || '');
+  }, [user.about]);
 
   const handleAddTeam = () => {
     router.push('/community/qr/browse');
@@ -38,7 +51,137 @@ export default function ProfileScreen() {
   };
 
   const handlePasswordPress = () => {
-    // Non-functional for now
+    router.push('/settings/change-password');
+  };
+
+  const handleEditAbout = () => {
+    setIsEditingAbout(true);
+  };
+
+  const handleSaveAbout = async () => {
+    try {
+      await api.patch('/users/profile', { about: aboutText });
+      setIsEditingAbout(false);
+      fetchProfile(); // Refresh profile data
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to update about section');
+    }
+  };
+
+  const handleCancelEditAbout = () => {
+    setAboutText(user.about || '');
+    setIsEditingAbout(false);
+  };
+
+  const handleAvatarPress = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Take Photo', 'Choose from Library'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            pickImage('camera');
+          } else if (buttonIndex === 2) {
+            pickImage('library');
+          }
+        }
+      );
+    } else {
+      Alert.alert(
+        'Select Photo',
+        'Choose an option',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Take Photo', onPress: () => pickImage('camera') },
+          { text: 'Choose from Library', onPress: () => pickImage('library') },
+        ]
+      );
+    }
+  };
+
+  const pickImage = async (source: 'camera' | 'library') => {
+    try {
+      let result;
+      if (source === 'camera') {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Camera permission is required');
+          return;
+        }
+        result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Photo library permission is required');
+          return;
+        }
+        result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+      }
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadAvatar(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.error('Error picking image:', err);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const uploadAvatar = async (imageUri: string) => {
+    try {
+      const formData = new FormData();
+      const filename = imageUri.split('/').pop() || 'avatar.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+      formData.append('file', {
+        uri: imageUri,
+        name: filename,
+        type,
+      } as any);
+
+      await api.post('/users/avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      // Optimistic update - refresh profile
+      fetchProfile();
+    } catch (err: any) {
+      console.error('Error uploading avatar:', err);
+      Alert.alert('Error', err.response?.data?.message || 'Failed to upload avatar');
+    }
+  };
+
+  const handleLogout = async () => {
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: async () => {
+            await SecureStore.deleteItemAsync('jwt_token');
+            router.replace('/auth/login');
+          },
+        },
+      ]
+    );
   };
 
   const renderTeamChip = (team: FavoriteTeam) => (
@@ -104,14 +247,19 @@ export default function ProfileScreen() {
       >
         {/* User Info Section */}
         <View style={styles.userSection}>
-          {/* Avatar */}
-          <View style={[styles.avatarContainer, { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.border }]}>
-            <Image
-              source={{ uri: user.avatar || user.pfp || '' }}
-              style={styles.avatar}
-              defaultSource={require('@/assets/images/icon.png')}
-            />
-          </View>
+          {/* Avatar with Edit Icon */}
+          <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.8}>
+            <View style={[styles.avatarContainer, { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.border }]}>
+              <Image
+                source={{ uri: user.avatar || user.pfp || '' }}
+                style={styles.avatar}
+                defaultSource={require('@/assets/images/icon.png')}
+              />
+              <View style={[styles.editAvatarIcon, { backgroundColor: theme.colors.primary }]}>
+                <Ionicons name="pencil" size={14} color="#fff" />
+              </View>
+            </View>
+          </TouchableOpacity>
 
           {/* Name */}
           <Text style={[styles.userName, { color: theme.colors.text }]}>{user.name || user.username || 'User'}</Text>
@@ -120,17 +268,59 @@ export default function ProfileScreen() {
           <View style={styles.userMeta}>
             <Text style={[styles.username, { color: theme.colors.textSecondary }]}>{user.username || ''}</Text>
             <Text style={[styles.userPoints, { color: theme.colors.hot }]}>{user.points.toLocaleString()} points</Text>
-            {user.location && (
+            {user.country && (
               <View style={styles.locationContainer}>
-                <Ionicons name="location" size={14} color={theme.colors.primary} />
-                <Text style={[styles.locationText, { color: theme.colors.primary }]}>{user.location}</Text>
+                <Ionicons name="location-sharp" size={14} color={theme.colors.primary} />
+                <Text style={[styles.locationText, { color: theme.colors.primary }]}>{user.country}</Text>
               </View>
             )}
           </View>
+        </View>
 
-          {/* Bio */}
-          {user.bio && (
-            <Text style={[styles.bio, { color: theme.colors.text }]}>{user.bio}</Text>
+        {/* About Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>ABOUT</Text>
+            {!isEditingAbout && (
+              <TouchableOpacity onPress={handleEditAbout} style={styles.editButton}>
+                <Ionicons name="pencil" size={16} color={theme.colors.primary} />
+              </TouchableOpacity>
+            )}
+          </View>
+          {isEditingAbout ? (
+            <View>
+              <TextInput
+                style={[styles.aboutInput, { 
+                  color: theme.colors.text, 
+                  backgroundColor: theme.colors.cardBackground,
+                  borderColor: theme.colors.border 
+                }]}
+                value={aboutText}
+                onChangeText={setAboutText}
+                multiline
+                numberOfLines={4}
+                placeholder="Tell us about yourself..."
+                placeholderTextColor={theme.colors.textMuted}
+              />
+              <View style={styles.editActions}>
+                <TouchableOpacity 
+                  style={[styles.cancelButton, { borderColor: theme.colors.border }]}
+                  onPress={handleCancelEditAbout}
+                >
+                  <Text style={[styles.cancelButtonText, { color: theme.colors.textSecondary }]}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.saveButton, { backgroundColor: theme.colors.primary }]}
+                  onPress={handleSaveAbout}
+                >
+                  <Text style={[styles.saveButtonText, { color: '#fff' }]}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            <Text style={[styles.aboutText, { color: theme.colors.text }]}>
+              {user.about || user.bio || 'No about section yet. Tap the edit icon to add one.'}
+            </Text>
           )}
         </View>
 
@@ -226,7 +416,23 @@ export default function ProfileScreen() {
             <Text style={[styles.settingsLabel, { color: theme.colors.textSecondary }]}>Password</Text>
             <Ionicons name="chevron-forward" size={20} color={theme.colors.iconMuted} />
           </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.settingsRow, { borderBottomColor: theme.colors.separator }]}>
+            <Text style={[styles.settingsLabel, { color: theme.colors.textSecondary }]}>Language</Text>
+            <View style={styles.settingsValue}>
+              <Text style={[styles.settingsValueText, { color: theme.colors.text }]}>English</Text>
+              <Ionicons name="chevron-forward" size={20} color={theme.colors.iconMuted} />
+            </View>
+          </TouchableOpacity>
         </View>
+
+        {/* Logout Button */}
+        <TouchableOpacity 
+          style={[styles.logoutButton, { backgroundColor: isDark ? '#7f1d1d' : '#fee2e2' }]}
+          onPress={handleLogout}
+        >
+          <Text style={[styles.logoutButtonText, { color: '#dc2626' }]}>LOG OUT</Text>
+        </TouchableOpacity>
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -494,5 +700,78 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Inter_400Regular',
     textAlign: 'center',
+  },
+  editAvatarIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  editButton: {
+    padding: 4,
+  },
+  aboutInput: {
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    fontSize: 15,
+    fontFamily: 'Inter_400Regular',
+    marginBottom: 12,
+  },
+  aboutText: {
+    fontSize: 15,
+    fontFamily: 'Inter_400Regular',
+    lineHeight: 24,
+  },
+  editActions: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'flex-end',
+  },
+  cancelButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  saveButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  saveButtonText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_600SemiBold',
+    color: '#fff',
+  },
+  logoutButton: {
+    marginTop: 24,
+    marginBottom: 40,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  logoutButtonText: {
+    fontSize: 16,
+    fontFamily: 'Montserrat_700Bold',
+    letterSpacing: 0.5,
   },
 });

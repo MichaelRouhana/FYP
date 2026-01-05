@@ -10,8 +10,10 @@ export interface UserProfile {
   pfp?: string; // Direct from backend
   points: number; // Mapped from totalPoints
   totalPoints?: number; // Direct from backend
-  location?: string; // Optional, not in backend DTO
-  bio?: string; // Optional, not in backend DTO
+  location?: string; // Optional, mapped from country
+  country?: string; // Direct from backend
+  bio?: string; // Optional, mapped from about
+  about?: string; // Direct from backend
   email: string;
   joinedAt?: Date; // Optional, not in backend DTO
   // Betting statistics from backend

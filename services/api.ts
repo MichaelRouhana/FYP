@@ -20,7 +20,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000, // Fail if request takes longer than 10 seconds
+  timeout: 30000, // Fail if request takes longer than 10 seconds
 });
 
 // ----------------------------------------------------------------------

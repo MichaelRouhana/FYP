@@ -43,6 +43,10 @@ export function useProfile() {
         totalBets: profileData.totalBets,
         totalWins: profileData.totalWins,
         winRate: profileData.winRate,
+        about: profileData.about,
+        bio: profileData.about, // Map about to bio for backward compatibility
+        country: profileData.country,
+        location: profileData.country, // Map country to location for display
       };
 
       setUser(mappedUser);
@@ -100,6 +104,7 @@ export function useProfile() {
     predictions,
     loading,
     error,
+    fetchProfile, // Expose fetchProfile for manual refresh
   };
 }
 
