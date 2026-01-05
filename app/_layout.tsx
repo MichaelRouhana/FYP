@@ -128,6 +128,7 @@ function RootLayoutNav() {
           <Stack.Screen name="admin/points" options={{ title: 'Points & Rewards' }} />
           <Stack.Screen name="admin/analytics" options={{ title: 'Analytics' }} />
           <Stack.Screen name="settings/language" options={{ title: 'Language' }} />
+          <Stack.Screen name="settings/change-password" options={{ headerShown: false }} />
         </Stack>
       </ThemeProvider>
     </PaperProvider>

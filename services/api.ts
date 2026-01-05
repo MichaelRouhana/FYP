@@ -20,7 +20,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000, // Fail if request takes longer than 10 seconds
+  timeout: 60000, // Fail if request takes longer than 10 seconds
 });
 
 // ----------------------------------------------------------------------
@@ -34,6 +34,11 @@ api.interceptors.request.use(
       const token = await SecureStore.getItemAsync('jwt_token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+      }
+      
+      // For FormData uploads, don't set Content-Type - let the browser/axios set it with boundary
+      if (config.data instanceof FormData) {
+        delete config.headers['Content-Type'];
       }
     } catch (error) {
       console.error('Error fetching token for API request:', error);

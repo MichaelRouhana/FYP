@@ -70,13 +70,13 @@ export default function Register() {
     try {
       console.log("Sending Register Request:", { username, email, password }); // Debug Log
 
-      // API Call
+      // API Call - Send country name if selected
+      const selectedCountryObj = countries.find((c) => c.code === country);
       await api.post('/users/signup', {
         username: username,
         email: email,
         password: password, // Matches SignUpRequestDTO.java
-        // Note: The DTO doesn't strictly require country, but we send it if you add it later
-        // country: country || 'Lebanon', 
+        country: selectedCountryObj ? selectedCountryObj.name : null, // Send country name if selected (optional)
       });
 
       Alert.alert(

@@ -29,10 +29,14 @@ export default function ProfileScreen() {
   const { theme, isDark, toggleTheme } = useTheme();
   const [isEditingAbout, setIsEditingAbout] = useState(false);
   const [aboutText, setAboutText] = useState(user.about || '');
+  const [localAvatarUri, setLocalAvatarUri] = useState<string | null>(null);
 
   React.useEffect(() => {
     setAboutText(user.about || '');
   }, [user.about]);
+
+  // Use local avatar URI if available, otherwise use user's avatar
+  const displayAvatar = localAvatarUri || user.avatar || user.pfp || '';
 
   const handleAddTeam = () => {
     router.push('/community/qr/browse');
@@ -110,8 +114,9 @@ export default function ProfileScreen() {
           Alert.alert('Permission Denied', 'Camera permission is required');
           return;
         }
+        // Use MediaTypeOptions (works even if deprecated) or omit mediaTypes (defaults to images)
         result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          ...(ImagePicker.MediaTypeOptions && { mediaTypes: ImagePicker.MediaTypeOptions.Images }),
           allowsEditing: true,
           aspect: [1, 1],
           quality: 0.8,
@@ -122,8 +127,9 @@ export default function ProfileScreen() {
           Alert.alert('Permission Denied', 'Photo library permission is required');
           return;
         }
+        // Use MediaTypeOptions (works even if deprecated) or omit mediaTypes (defaults to images)
         result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          ...(ImagePicker.MediaTypeOptions && { mediaTypes: ImagePicker.MediaTypeOptions.Images }),
           allowsEditing: true,
           aspect: [1, 1],
           quality: 0.8,
@@ -141,28 +147,50 @@ export default function ProfileScreen() {
 
   const uploadAvatar = async (imageUri: string) => {
     try {
+      console.log('📸 Starting avatar upload, imageUri:', imageUri);
+      
+      // Update UI immediately with the selected image (optimistic update)
+      setLocalAvatarUri(imageUri);
+      
       const formData = new FormData();
       const filename = imageUri.split('/').pop() || 'avatar.jpg';
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : 'image/jpeg';
 
+      // For React Native FormData, use the correct format
+      // Android needs the full URI, iOS needs file:// removed
+      const uri = Platform.OS === 'android' ? imageUri : imageUri.replace('file://', '');
+      
       formData.append('file', {
-        uri: imageUri,
+        uri: uri,
         name: filename,
-        type,
+        type: type,
       } as any);
 
-      await api.post('/users/avatar', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      console.log('📤 Uploading avatar to /users/avatar', { filename, type, uri: uri.substring(0, 50) + '...' });
 
-      // Optimistic update - refresh profile
-      fetchProfile();
+      const response = await api.post('/users/avatar', formData);
+
+      console.log('✅ Avatar upload successful:', response.data);
+
+      // Clear local avatar URI and refresh profile to get updated data from backend
+      setLocalAvatarUri(null);
+      await fetchProfile();
+      
+      Alert.alert('Success', 'Profile picture updated successfully');
     } catch (err: any) {
-      console.error('Error uploading avatar:', err);
-      Alert.alert('Error', err.response?.data?.message || 'Failed to upload avatar');
+      console.error('❌ Error uploading avatar:', err);
+      console.error('❌ Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+      });
+      
+      // Revert to previous avatar on error
+      setLocalAvatarUri(null);
+      await fetchProfile();
+      
+      Alert.alert('Error', err.response?.data?.message || err.message || 'Failed to upload avatar');
     }
   };
 
@@ -249,14 +277,16 @@ export default function ProfileScreen() {
         <View style={styles.userSection}>
           {/* Avatar with Edit Icon */}
           <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.8}>
-            <View style={[styles.avatarContainer, { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.border }]}>
-              <Image
-                source={{ uri: user.avatar || user.pfp || '' }}
-                style={styles.avatar}
-                defaultSource={require('@/assets/images/icon.png')}
-              />
-              <View style={[styles.editAvatarIcon, { backgroundColor: theme.colors.primary }]}>
-                <Ionicons name="pencil" size={14} color="#fff" />
+            <View style={styles.avatarWrapper}>
+              <View style={[styles.avatarContainer, { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.border }]}>
+                <Image
+                  source={{ uri: displayAvatar }}
+                  style={styles.avatar}
+                  defaultSource={require('@/assets/images/icon.png')}
+                />
+              </View>
+              <View style={styles.editAvatarIcon}>
+                <Ionicons name="pencil" size={14} color="#000" />
               </View>
             </View>
           </TouchableOpacity>
@@ -467,6 +497,12 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 16,
   },
+  avatarWrapper: {
+    position: 'relative',
+    width: 90,
+    height: 90,
+    marginBottom: 16,
+  },
   avatarContainer: {
     width: 90,
     height: 90,
@@ -474,7 +510,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    marginBottom: 16,
   },
   avatar: {
     width: 90,
@@ -703,15 +738,22 @@ const styles = StyleSheet.create({
   },
   editAvatarIcon: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
+    bottom: -2,
+    right: -2,
     width: 28,
     height: 28,
     borderRadius: 14,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: '#E5E7EB',
+    zIndex: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   sectionHeader: {
     flexDirection: 'row',
