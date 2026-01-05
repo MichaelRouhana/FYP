@@ -39,20 +39,21 @@ export default function ChatScreen() {
   const { community } = useCommunityDetails(id);
   const [inputText, setInputText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+  const [user, setUser] = useState<{ email?: string; name?: string } | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
-  // Get current user's email from JWT token for identity verification
+  // Get current user's email and name from JWT token for identity verification
   useEffect(() => {
     const getCurrentUser = async () => {
       try {
         const token = await SecureStore.getItemAsync('jwt_token');
         if (token) {
           const decoded = jwtDecode<JwtPayload>(token);
-          // Extract email from JWT payload (sub field typically contains email)
+          // Extract email and username from JWT payload
           const email = decoded.email || decoded.sub || null;
-          setCurrentUserEmail(email);
-          console.log('✅ Current user email from JWT:', email);
+          const name = decoded.username || null;
+          setUser({ email, name });
+          console.log('✅ Current user from JWT - email:', email, 'name:', name);
         }
       } catch (err) {
         console.error('Error decoding JWT token:', err);
@@ -99,11 +100,11 @@ export default function ChatScreen() {
     });
   };
 
-  // Check if message is from current user by comparing email
+  // Check if message is from current user by comparing email or username
   const isCurrentUser = (message: Message) => {
-    if (!currentUserEmail || !message.senderEmail) return false;
-    // Compare by email for robust identity verification
-    return message.senderEmail.toLowerCase() === currentUserEmail.toLowerCase();
+    if (!user) return false;
+    // Use email comparison (primary) with fallback to username comparison
+    return message.senderEmail === user?.email || message.user.name === user?.name;
   };
 
   const renderMatchBidCard = (data: MatchBidData) => (
@@ -225,15 +226,7 @@ export default function ChatScreen() {
           <View
             style={[
               styles.messageBubble,
-              isMe 
-                ? [styles.bubbleMe, { 
-                    backgroundColor: isDark ? '#0a7ea4' : '#0a7ea4',
-                    borderBottomRightRadius: 0, // Sharp tail pointing right
-                  }]
-                : [styles.bubbleOther, { 
-                    backgroundColor: isDark ? '#1f2937' : '#FFFFFF',
-                    borderBottomLeftRadius: 0, // Sharp tail pointing left
-                  }],
+              isMe ? styles.bubbleMe : styles.bubbleOther,
             ]}
           >
             <Text style={[styles.messageText, { 
@@ -529,12 +522,22 @@ const styles = StyleSheet.create({
     maxWidth: '75%',
   },
   bubbleMe: {
-    backgroundColor: '#0a7ea4', // Dark blue for own messages
-    // borderBottomRightRadius: 0 is set inline for sharp tail
+    backgroundColor: '#0a7ea4', // Blue for me
+    alignSelf: 'flex-end',
+    marginLeft: 50,
+    borderBottomRightRadius: 0, // Sharp corner bottom-right (tail pointing right)
+    borderBottomLeftRadius: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   bubbleOther: {
-    backgroundColor: '#1f2937', // Gray/neutral for others' messages
-    // borderBottomLeftRadius: 0 is set inline for sharp tail
+    backgroundColor: '#f0f0f0', // Gray for others
+    alignSelf: 'flex-start',
+    marginRight: 50,
+    borderBottomLeftRadius: 0, // Sharp corner bottom-left (tail pointing left)
+    borderBottomRightRadius: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   messageText: {
     fontSize: 15,
