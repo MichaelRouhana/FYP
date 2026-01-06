@@ -76,12 +76,16 @@ export default function Register() {
       console.log('🌍 Signup - Selected country code:', country);
       console.log('🌍 Signup - Selected country name:', countryName);
       
-      await api.post('/users/signup', {
+      const signupPayload = {
         username: username,
         email: email,
         password: password, // Matches SignUpRequestDTO.java
         country: countryName, // Send country name if selected (optional)
-      });
+      };
+      
+      console.log('📤 Signup - Sending payload:', JSON.stringify({ ...signupPayload, password: '***' }));
+      
+      await api.post('/users/signup', signupPayload);
 
       Alert.alert(
         "Success", 

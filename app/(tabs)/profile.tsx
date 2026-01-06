@@ -15,7 +15,7 @@ import {
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import * as SecureStore from 'expo-secure-store';
+import { removeItem } from '@/utils/storage';
 
 import { ActivityIndicator } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
@@ -204,7 +204,7 @@ export default function ProfileScreen() {
           text: 'Log Out',
           style: 'destructive',
           onPress: async () => {
-            await SecureStore.deleteItemAsync('jwt_token');
+            await removeItem('jwt_token');
             router.replace('/auth/login');
           },
         },

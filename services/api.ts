@@ -1,16 +1,20 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
+import { getItem } from '@/utils/storage';
 
 // ----------------------------------------------------------------------
 // 1. CONFIGURATION
 // ----------------------------------------------------------------------
-// We use your local IP so the Emulator/Phone can talk to your PC.
-// If you switch to Wi-Fi later, you might need to update this to 172.20.10.2
+// Use localhost for web, local IP for native devices
 const IP_ADDRESS = '192.168.10.249'; 
 const PORT = '8080';
-const BASE_URL = `http://${IP_ADDRESS}:${PORT}/api/v1`;
 
-console.log(`🔌 API Initialized connecting to: ${BASE_URL}`);
+// On web, use localhost. On native, use the local IP address
+const BASE_URL = Platform.OS === 'web' 
+  ? `http://localhost:${PORT}/api/v1`
+  : `http://${IP_ADDRESS}:${PORT}/api/v1`;
+
+console.log(`🔌 API Initialized connecting to: ${BASE_URL} (Platform: ${Platform.OS})`);
 
 // ----------------------------------------------------------------------
 // 2. AXIOS INSTANCE
@@ -31,7 +35,7 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     try {
-      const token = await SecureStore.getItemAsync('jwt_token');
+      const token = await getItem('jwt_token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }

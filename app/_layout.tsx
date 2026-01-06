@@ -20,9 +20,9 @@ import { DarkTheme as NavDarkTheme, DefaultTheme as NavDefaultTheme, ThemeProvid
 import { useFonts } from 'expo-font';
 // Added useRouter and useSegments for navigation logic
 import { Stack, useRouter, useSegments } from 'expo-router';
-import * as SecureStore from 'expo-secure-store'; // Added for Token check
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { getItem } from '@/utils/storage';
 import { MD3DarkTheme, MD3LightTheme, Provider as PaperProvider } from 'react-native-paper';
 import 'react-native-reanimated';
 
@@ -75,16 +75,28 @@ export default function RootLayout() {
   // --- Auto-Login Logic ---
   const checkAuth = async () => {
     try {
-      const token = await SecureStore.getItemAsync('jwt_token');
-      const inAuthGroup = segments[0] === 'auth';
+      const token = await getItem('jwt_token');
+      const currentSegment = segments[0];
+      const inAuthGroup = currentSegment === 'auth';
+      const inTabsGroup = currentSegment === '(tabs)';
 
-      if (token && inAuthGroup) {
-        // If user has a token but is on Login/Signup page, send them to Home
-        router.replace('/(tabs)/home');
-      } 
-      // Optional: Add logic here to force logout if token is invalid
+      if (token) {
+        // User has a token - redirect to home if on auth pages
+        if (inAuthGroup) {
+          console.log('✅ Token found, redirecting to home');
+          router.replace('/(tabs)/home');
+        }
+      } else {
+        // No token - redirect to login if trying to access protected routes
+        if (inTabsGroup || currentSegment === undefined) {
+          console.log('❌ No token found, redirecting to login');
+          router.replace('/auth/login');
+        }
+      }
     } catch (e) {
       console.log('Auth check failed:', e);
+      // On error, redirect to login for safety
+      router.replace('/auth/login');
     }
   };
 

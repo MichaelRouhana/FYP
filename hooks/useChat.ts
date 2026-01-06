@@ -3,7 +3,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { Client } from '@stomp/stompjs';
-import * as SecureStore from 'expo-secure-store';
+import { getItem } from '@/utils/storage';
 import api from '@/services/api';
 import { Community, Message, User, CommunityInfo, Moderator, Member, LeaderboardEntry, MessageType, CommunityMessage, CommunityMessageDTO } from '@/types/chat';
 
@@ -315,7 +315,7 @@ export function useChatMessages(communityId: string) {
     const connectWebSocket = async () => {
       try {
         // Get JWT token from secure storage
-        const token = await SecureStore.getItemAsync('jwt_token');
+        const token = await getItem('jwt_token');
         if (!token) {
           console.error('No JWT token found for WebSocket connection');
           setError('Authentication required');

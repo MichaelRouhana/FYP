@@ -1,7 +1,7 @@
 import api from '@/services/api'; // Import your API client
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
+import { setItem } from '@/utils/storage';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -54,9 +54,9 @@ export default function Login() {
       const token = response.data.accessToken || response.data.token;
       
       if (token) {
-        await SecureStore.setItemAsync('jwt_token', token);
+        await setItem('jwt_token', token);
         // Optional: Save user info if needed
-        // await SecureStore.setItemAsync('user_info', JSON.stringify(response.data));
+        // await setItem('user_info', JSON.stringify(response.data));
         
         router.replace('/(tabs)/home');
       } else {

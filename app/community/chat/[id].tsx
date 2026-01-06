@@ -16,7 +16,7 @@ import {
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { jwtDecode } from 'jwt-decode';
-import * as SecureStore from 'expo-secure-store';
+import { getItem } from '@/utils/storage';
 
 import { useTheme } from '@/context/ThemeContext';
 import { useChatMessages, useCommunityDetails } from '@/hooks/useChat';
@@ -46,7 +46,7 @@ export default function ChatScreen() {
   useEffect(() => {
     const getCurrentUser = async () => {
       try {
-        const token = await SecureStore.getItemAsync('jwt_token');
+        const token = await getItem('jwt_token');
         if (token) {
           const decoded = jwtDecode<JwtPayload>(token);
           // Extract email and username from JWT payload
