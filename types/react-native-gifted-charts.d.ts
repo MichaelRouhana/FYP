@@ -148,9 +148,12 @@ declare module 'react-native-gifted-charts' {
     yAxisTextStyle?: TextStyle;
     yAxisLabelWidth?: number;
     hideYAxisText?: boolean;
+    yAxisLabelTexts?: string[];
+    formatYLabel?: (value: string) => string;
     xAxisThickness?: number;
     xAxisColor?: string;
     xAxisLabelTextStyle?: TextStyle;
+    verticalLines?: boolean;
     backgroundColor?: string;
     isAnimated?: boolean;
     animationDuration?: number;

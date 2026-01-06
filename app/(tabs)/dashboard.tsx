@@ -85,6 +85,9 @@ export default function DashboardScreen() {
           data={data}
           areaChart={true}
           curved={false}
+          maxValue={maxChartValue}
+          noOfSections={4}
+          yAxisLabelTexts={['0', '1k', '2k', '3k', '4k']}
           height={180}
           width={chartWidth}
           spacing={44}
@@ -105,12 +108,6 @@ export default function DashboardScreen() {
           hideRules={false}
           showVerticalLines={true}
           verticalLinesColor="#374151"
-          maxValue={maxChartValue}
-          noOfSections={4}
-          formatYLabel={(value: string) => {
-            const num = parseInt(value);
-            return num >= 1000 ? `${(num / 1000).toFixed(0)}k` : value;
-          }}
         />
       </View>
     );
