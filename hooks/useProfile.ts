@@ -50,6 +50,7 @@ export function useProfile() {
         bio: profileData.about, // Map about to bio for backward compatibility
         country: profileData.country,
         location: profileData.country, // Map country to location for display
+        roles: profileData.roles || [], // Include roles for admin check
       };
 
       console.log('🌍 Mapped user country:', mappedUser.country);

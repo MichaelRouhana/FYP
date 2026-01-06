@@ -20,6 +20,8 @@ export interface UserProfile {
   totalBets?: number;
   totalWins?: number;
   winRate?: number; // Percentage (0-100)
+  // Roles for admin access
+  roles?: string[]; // Array of role names (e.g., ["USER", "ADMIN"])
 }
 
 export interface FavoriteTeam {

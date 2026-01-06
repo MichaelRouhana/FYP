@@ -1,8 +1,9 @@
 import { useTheme } from '@/context/ThemeContext';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { StyleSheet } from 'react-native';
+import { useProfile } from '@/hooks/useProfile';
 
 function TabBarIcon({
   name,
@@ -25,6 +26,12 @@ function TabBarIcon({
 
 export default function TabLayout() {
   const { theme } = useTheme();
+  const { user } = useProfile();
+
+  // Check if user has ADMIN or DEVELOPER role
+  const isAdmin = user?.roles?.some(
+    (role) => role.toUpperCase() === 'ADMIN' || role.toUpperCase() === 'DEVELOPER'
+  ) || false;
 
   return (
     <Tabs
@@ -83,6 +90,17 @@ export default function TabLayout() {
           ),
         }}
       />
+      {isAdmin && (
+        <Tabs.Screen
+          name="dashboard"
+          options={{
+            title: 'DashBoard',
+            tabBarIcon: ({ color, focused }) => (
+              <Ionicons name="speedometer-outline" size={24} color={color} style={{ marginBottom: -4 }} />
+            ),
+          }}
+        />
+      )}
     </Tabs>
   );
 }
