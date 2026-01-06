@@ -79,15 +79,19 @@ export default function DashboardScreen() {
     const screenWidth = Dimensions.get('window').width;
     const chartWidth = screenWidth - 80; // Account for padding
     
+    // Calculate dynamic max value from actual data
+    const maxDataValue = Math.max(...data.map(item => item.value), 1);
+    // Round up to next "nice" number with 20% padding to prevent line touching top edge
+    const chartCeiling = Math.ceil(maxDataValue + (maxDataValue * 0.2));
+    
     return (
       <View style={styles.chartWrapper}>
         <LineChart
           data={data}
           areaChart={true}
           curved={false}
-          maxValue={maxChartValue}
+          maxValue={chartCeiling}
           noOfSections={4}
-          yAxisLabelTexts={['0', '1k', '2k', '3k', '4k']}
           height={180}
           width={chartWidth}
           spacing={44}
