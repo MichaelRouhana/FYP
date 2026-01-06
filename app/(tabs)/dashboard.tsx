@@ -11,6 +11,7 @@ import {
   RefreshControl,
   StyleSheet,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart } from 'react-native-gifted-charts';
@@ -28,11 +29,16 @@ export default function DashboardScreen() {
   // Transform chart data for react-native-gifted-charts
   const transformChartData = (data: Array<{ x: string; y: number }>) => {
     if (!data || data.length === 0) {
-      // Return dummy data for smooth chart rendering
-      return Array.from({ length: 7 }, (_, i) => ({
-        value: Math.random() * 1000 + 500,
-        label: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'][i],
-      }));
+      // Return dummy data matching the reference pattern
+      return [
+        { value: 4000, label: 'MON' },
+        { value: 500, label: 'TUE' },
+        { value: 1000, label: 'WED' },
+        { value: 400, label: 'THU' },
+        { value: 2000, label: 'FRI' },
+        { value: 3000, label: 'SAT' },
+        { value: 2000, label: 'SUN' },
+      ];
     }
 
     const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
@@ -69,30 +75,46 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
-  const renderChart = (data: any[], color: string) => (
-    <View style={styles.chartWrapper}>
-      <LineChart
-        data={data}
-        width={280}
-        height={50}
-        color={color}
-        thickness={2}
-        maxValue={maxChartValue}
-        curved={true}
-        areaChart={true}
-        startFillColor={color}
-        endFillColor={color}
-        startOpacity={0.4}
-        endOpacity={0}
-        hideAxesAndRules={true}
-        hideDataPoints={true}
-        spacing={35}
-        initialSpacing={0}
-        endSpacing={0}
-        backgroundColor="transparent"
-      />
-    </View>
-  );
+  const renderChart = (data: any[], color: string) => {
+    const screenWidth = Dimensions.get('window').width;
+    const chartWidth = screenWidth - 80; // Account for padding
+    
+    return (
+      <View style={styles.chartWrapper}>
+        <LineChart
+          data={data}
+          areaChart={true}
+          curved={false}
+          height={180}
+          width={chartWidth}
+          spacing={44}
+          initialSpacing={10}
+          color={color}
+          thickness={2}
+          hideDataPoints={true}
+          startFillColor={color}
+          endFillColor="#1F2937"
+          startOpacity={0.4}
+          endOpacity={0.0}
+          yAxisColor="transparent"
+          xAxisColor="transparent"
+          yAxisTextStyle={{ color: '#9CA3AF', fontSize: 10 }}
+          xAxisLabelTextStyle={{ color: '#4B5563', fontSize: 10, marginTop: 6 }}
+          rulesType="dashed"
+          rulesColor="#374151"
+          hideRules={false}
+          showVerticalLines={true}
+          verticalLinesColor="#374151"
+          maxValue={maxChartValue}
+          noOfSections={4}
+          formatYLabel={(value: string) => {
+            const num = parseInt(value);
+            return num >= 1000 ? `${(num / 1000).toFixed(0)}k` : value;
+          }}
+        />
+      </View>
+    );
+  };
 
   if (loading && !refreshing) {
     return (
@@ -153,27 +175,22 @@ export default function DashboardScreen() {
       >
         {activeTab === 'USERS' && (
           <>
-            {/* Stats Grid - 2 Columns */}
-            <View style={styles.statsGrid}>
-              {/* Total Users Card */}
-              <View style={styles.statCard}>
-                <Text style={styles.statLabel}>Total Users</Text>
-                <Text style={styles.statValue}>{totalUsersCount.toLocaleString()}</Text>
-                {renderChart(totalUsersData, '#3b82f6')}
-              </View>
+            {/* Total Users Card - Full Width */}
+            <View style={styles.statCard}>
+              <Text style={styles.cardTitle}>TOTAL USERS</Text>
+              {renderChart(totalUsersData, '#818CF8')}
+            </View>
 
-              {/* Active Users Card */}
-              <View style={styles.statCard}>
-                <View style={styles.statCardHeader}>
-                  <Text style={styles.statLabel}>Active Users</Text>
-                  <View style={styles.percentageBadge}>
-                    <Ionicons name="ellipse" size={6} color="#22c55e" />
-                    <Text style={styles.percentageText}>{activeUsersPercentage}%</Text>
-                  </View>
+            {/* Active Users Card - Full Width */}
+            <View style={styles.statCard}>
+              <View style={styles.statCardHeader}>
+                <Text style={styles.cardTitle}>TOTAL ACTIVE USERS</Text>
+                <View style={styles.percentageBadge}>
+                  <Ionicons name="ellipse" size={6} color="#22c55e" />
+                  <Text style={styles.percentageText}>{activeUsersPercentage}%</Text>
                 </View>
-                <Text style={styles.statValue}>{totalActiveUsersCount.toLocaleString()}</Text>
-                {renderChart(activeUsersData, '#22c55e')}
               </View>
+              {renderChart(activeUsersData, '#818CF8')}
             </View>
 
             {/* Users Section */}
@@ -311,44 +328,43 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    padding: 0,
     paddingBottom: 100,
   },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 20,
-  },
   statCard: {
-    flex: 1,
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#111827',
     borderRadius: 16,
     padding: 16,
+    marginHorizontal: 16,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
   statCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 20,
   },
-  statLabel: {
-    fontSize: 12,
-    fontFamily: 'Montserrat_500Medium',
-    color: '#9ca3af',
-    marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  statValue: {
-    fontSize: 28,
+  cardTitle: {
+    color: '#F9FAFB',
+    fontSize: 14,
     fontFamily: 'Montserrat_700Bold',
-    color: '#ffffff',
-    marginBottom: 12,
+    marginBottom: 20,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   chartWrapper: {
-    height: 50,
+    marginLeft: -10,
     overflow: 'hidden',
-    marginTop: 8,
   },
   percentageBadge: {
     flexDirection: 'row',
