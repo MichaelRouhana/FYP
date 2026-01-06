@@ -233,13 +233,26 @@ export default function DashboardScreen() {
                 <Text style={styles.sectionSubtitle}>{logs.length} rows</Text>
               </View>
               {logs.length > 0 ? (
-                logs.slice(0, 8).map((log, index) => (
-                  <View key={log.id || index} style={styles.logRow}>
-                    <Text style={styles.logText}>
-                      {index + 1} {log.timestamp} {log.level} {log.message}
-                    </Text>
-                  </View>
-                ))
+                logs.slice(0, 8).map((log, index) => {
+                  // Format timestamp to HH:mm:ss.SSS format
+                  const timestamp = log.timestamp 
+                    ? new Date(log.timestamp).toLocaleTimeString('en-US', { 
+                        hour12: false, 
+                        hour: '2-digit', 
+                        minute: '2-digit', 
+                        second: '2-digit',
+                        fractionalSecondDigits: 3
+                      })
+                    : 'N/A';
+                  
+                  return (
+                    <View key={log.id || index} style={styles.logRow}>
+                      <Text style={styles.logText}>
+                        {index + 1} {timestamp} INFO {log.username} {log.action} - {log.details}
+                      </Text>
+                    </View>
+                  );
+                })
               ) : (
                 <View style={styles.logRow}>
                   <Text style={styles.logText}>No logs available</Text>

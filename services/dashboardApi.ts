@@ -17,10 +17,11 @@ export interface DashboardUser {
 }
 
 export interface DashboardLog {
-  id: string;
-  timestamp: string;
-  level: string;
-  message: string;
+  id: number;
+  action: string;
+  details: string;
+  username: string;
+  timestamp: string; // ISO string from LocalDateTime
 }
 
 export interface DashboardUsersData {
