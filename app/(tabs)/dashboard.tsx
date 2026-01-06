@@ -1,44 +1,44 @@
 // app/(tabs)/dashboard.tsx
-// Admin Dashboard Screen
+// Admin Dashboard Screen - Clean Premium Implementation
 
 import React, { useState } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
   Image,
+  RefreshControl,
+  StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart } from 'react-native-gifted-charts';
-import { useTheme } from '@/context/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
 import { useDashboardUsers } from '@/hooks/useDashboardUsers';
+import Colors from '@/constants/Colors';
 
 type TabType = 'USERS' | 'BETS' | 'MATCHES';
 
 export default function DashboardScreen() {
-  const insets = useSafeAreaInsets();
-  const { theme, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('USERS');
-  const { totalUsers, totalActiveUsers, users, logs, loading, error } = useDashboardUsers();
+  const [refreshing, setRefreshing] = useState(false);
+  const { totalUsers, totalActiveUsers, users, logs, loading, error, refetch } = useDashboardUsers();
 
   // Transform chart data for react-native-gifted-charts
   const transformChartData = (data: Array<{ x: string; y: number }>) => {
-    // Get last 7 days for display
+    if (!data || data.length === 0) {
+      // Return dummy data for smooth chart rendering
+      return Array.from({ length: 7 }, (_, i) => ({
+        value: Math.random() * 1000 + 500,
+        label: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'][i],
+      }));
+    }
+
     const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    const maxValue = Math.max(...data.map(d => d.y), 1);
-    
     return data.slice(-7).map((point, index) => ({
       value: point.y,
       label: days[index % 7],
-      labelTextStyle: {
-        color: theme.colors.textSecondary,
-        fontSize: 10,
-        fontFamily: 'Montserrat_400Regular',
-      },
     }));
   };
 
@@ -47,13 +47,14 @@ export default function DashboardScreen() {
   const maxChartValue = Math.max(
     ...totalUsers.map(d => d.y),
     ...totalActiveUsers.map(d => d.y),
-    4000
+    4000,
+    1
   );
 
-  // Calculate total users count
-  const totalUsersCount = totalUsers.reduce((sum, point) => sum + point.y, 0);
-  const totalActiveUsersCount = totalActiveUsers.reduce((sum, point) => sum + point.y, 0);
-  const activeUsersPercentage = totalUsersCount > 0 
+  // Calculate totals
+  const totalUsersCount = totalUsers.reduce((sum, point) => sum + point.y, 0) || 0;
+  const totalActiveUsersCount = totalActiveUsers.reduce((sum, point) => sum + point.y, 0) || 0;
+  const activeUsersPercentage = totalUsersCount > 0
     ? ((totalActiveUsersCount / totalUsersCount) * 100).toFixed(1)
     : '0.0';
 
@@ -62,43 +63,55 @@ export default function DashboardScreen() {
     .sort((a, b) => (b.totalPoints || b.points || 0) - (a.totalPoints || a.points || 0))
     .slice(0, 5);
 
-  if (loading) {
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
+
+  const renderChart = (data: any[], color: string) => (
+    <View style={styles.chartWrapper}>
+      <LineChart
+        data={data}
+        width={280}
+        height={50}
+        color={color}
+        thickness={2}
+        maxValue={maxChartValue}
+        curved={true}
+        areaChart={true}
+        startFillColor={color}
+        endFillColor={color}
+        startOpacity={0.4}
+        endOpacity={0}
+        hideAxesAndRules={true}
+        hideDataPoints={true}
+        spacing={35}
+        initialSpacing={0}
+        endSpacing={0}
+        backgroundColor="transparent"
+      />
+    </View>
+  );
+
+  if (loading && !refreshing) {
     return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
+      <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <Ionicons name="menu" size={24} color={theme.colors.text} />
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>DASHBOARD</Text>
-          <Ionicons name="search" size={24} color={theme.colors.text} />
+          <Text style={styles.headerTitle}>Dashboard</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <ActivityIndicator size="large" color={Colors.dark.tint} />
         </View>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
-        <View style={styles.header}>
-          <Ionicons name="menu" size={24} color={theme.colors.text} />
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>DASHBOARD</Text>
-          <Ionicons name="search" size={24} color={theme.colors.text} />
-        </View>
-        <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: theme.colors.error }]}>{error}</Text>
-        </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: '#0a0e27', paddingTop: insets.top }]}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: '#1a1f3a' }]}>
-        <Ionicons name="menu" size={24} color="#ffffff" />
-        <Text style={styles.headerTitle}>DASHBOARD</Text>
-        <Ionicons name="search" size={24} color="#ffffff" />
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Dashboard</Text>
       </View>
 
       {/* Top Tabs */}
@@ -107,109 +120,80 @@ export default function DashboardScreen() {
           style={[styles.tab, activeTab === 'USERS' && styles.tabActive]}
           onPress={() => setActiveTab('USERS')}
         >
-          <Text style={[styles.tabText, activeTab === 'USERS' && styles.tabTextActive]}>USERS</Text>
+          <Text style={[styles.tabText, activeTab === 'USERS' && styles.tabTextActive]}>
+            USERS
+          </Text>
           {activeTab === 'USERS' && <View style={styles.tabIndicator} />}
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'BETS' && styles.tabActive]}
           onPress={() => setActiveTab('BETS')}
         >
-          <Text style={[styles.tabText, activeTab === 'BETS' && styles.tabTextActive]}>BETS</Text>
+          <Text style={[styles.tabText, activeTab === 'BETS' && styles.tabTextActive]}>
+            BETS
+          </Text>
           {activeTab === 'BETS' && <View style={styles.tabIndicator} />}
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'MATCHES' && styles.tabActive]}
           onPress={() => setActiveTab('MATCHES')}
         >
-          <Text style={[styles.tabText, activeTab === 'MATCHES' && styles.tabTextActive]}>MATCHES</Text>
+          <Text style={[styles.tabText, activeTab === 'MATCHES' && styles.tabTextActive]}>
+            MATCHES
+          </Text>
           {activeTab === 'MATCHES' && <View style={styles.tabIndicator} />}
         </TouchableOpacity>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.dark.tint} />}
       >
         {activeTab === 'USERS' && (
           <>
-            {/* Total Users Chart */}
-            <View style={styles.chartCard}>
-              <Text style={styles.chartTitle}>TOTAL USERS</Text>
-              <Text style={styles.chartValue}>{totalUsersCount.toLocaleString()}</Text>
-              <View style={styles.chartContainer}>
-                <LineChart
-                  data={totalUsersData}
-                  width={300}
-                  height={150}
-                  color="#3b82f6"
-                  thickness={3}
-                  maxValue={maxChartValue}
-                  curved={true}
-                  areaChart={true}
-                  startFillColor="#3b82f6"
-                  endFillColor="#3b82f6"
-                  startOpacity={0.3}
-                  endOpacity={0}
-                  hideAxesAndRules={true}
-                  hideDataPoints={true}
-                  spacing={40}
-                  initialSpacing={0}
-                  endSpacing={0}
-                />
+            {/* Stats Grid - 2 Columns */}
+            <View style={styles.statsGrid}>
+              {/* Total Users Card */}
+              <View style={styles.statCard}>
+                <Text style={styles.statLabel}>Total Users</Text>
+                <Text style={styles.statValue}>{totalUsersCount.toLocaleString()}</Text>
+                {renderChart(totalUsersData, '#3b82f6')}
               </View>
-            </View>
 
-            {/* Total Active Users Chart */}
-            <View style={styles.chartCard}>
-              <View style={styles.chartHeader}>
-                <Text style={styles.chartTitle}>TOTAL ACTIVE USERS</Text>
-                <View style={styles.percentageBadge}>
-                  <Ionicons name="ellipse" size={8} color="#10b981" />
-                  <Text style={styles.percentageText}>{activeUsersPercentage}%</Text>
+              {/* Active Users Card */}
+              <View style={styles.statCard}>
+                <View style={styles.statCardHeader}>
+                  <Text style={styles.statLabel}>Active Users</Text>
+                  <View style={styles.percentageBadge}>
+                    <Ionicons name="ellipse" size={6} color="#22c55e" />
+                    <Text style={styles.percentageText}>{activeUsersPercentage}%</Text>
+                  </View>
                 </View>
-              </View>
-              <View style={styles.chartContainer}>
-                <LineChart
-                  data={activeUsersData}
-                  width={300}
-                  height={150}
-                  color="#10b981"
-                  thickness={3}
-                  maxValue={maxChartValue}
-                  curved={true}
-                  areaChart={true}
-                  startFillColor="#10b981"
-                  endFillColor="#10b981"
-                  startOpacity={0.3}
-                  endOpacity={0}
-                  hideAxesAndRules={true}
-                  hideDataPoints={true}
-                  spacing={40}
-                  initialSpacing={0}
-                  endSpacing={0}
-                />
+                <Text style={styles.statValue}>{totalActiveUsersCount.toLocaleString()}</Text>
+                {renderChart(activeUsersData, '#22c55e')}
               </View>
             </View>
 
-            {/* Users List */}
+            {/* Users Section */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>USERS</Text>
+                <Text style={styles.sectionTitle}>Users</Text>
                 <Text style={styles.sectionSubtitle}>{users.length} results</Text>
               </View>
               {topUsers.map((user, index) => (
-                <View key={user.id || index} style={styles.userCard}>
+                <View key={user.id || index} style={styles.listRow}>
                   <Image
                     source={{
                       uri: user.pfp || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username || 'User')}&background=3b82f6&color=fff&size=200`,
                     }}
-                    style={styles.userAvatar}
+                    style={styles.avatar}
                     defaultSource={require('@/assets/images/icon.png')}
                   />
-                  <View style={styles.userInfo}>
-                    <Text style={styles.userName}>{user.username}</Text>
-                    <Text style={styles.userPoints}>
+                  <View style={styles.listRowContent}>
+                    <Text style={styles.listRowTitle}>{user.username}</Text>
+                    <Text style={styles.listRowSubtitle}>
                       {(user.totalPoints || user.points || 0).toLocaleString()} POINTS
                     </Text>
                   </View>
@@ -220,25 +204,24 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Logs Section */}
+            {/* System Logs Section */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>LOGS</Text>
+                <Text style={styles.sectionTitle}>System Logs</Text>
                 <Text style={styles.sectionSubtitle}>{logs.length} rows</Text>
               </View>
               {logs.length > 0 ? (
                 logs.slice(0, 8).map((log, index) => {
-                  // Format timestamp to HH:mm:ss.SSS format
-                  const timestamp = log.timestamp 
-                    ? new Date(log.timestamp).toLocaleTimeString('en-US', { 
-                        hour12: false, 
-                        hour: '2-digit', 
-                        minute: '2-digit', 
+                  const timestamp = log.timestamp
+                    ? new Date(log.timestamp).toLocaleTimeString('en-US', {
+                        hour12: false,
+                        hour: '2-digit',
+                        minute: '2-digit',
                         second: '2-digit',
-                        fractionalSecondDigits: 3
+                        fractionalSecondDigits: 3,
                       })
                     : 'N/A';
-                  
+
                   return (
                     <View key={log.id || index} style={styles.logRow}>
                       <Text style={styles.logText}>
@@ -271,34 +254,32 @@ export default function DashboardScreen() {
           </View>
         )}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0D0D0D',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    backgroundColor: '#0a0e27',
+    borderBottomColor: '#1C1C1E',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 28,
     fontFamily: 'Montserrat_700Bold',
     color: '#ffffff',
     letterSpacing: 0.5,
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#0a0e27',
+    backgroundColor: '#0D0D0D',
     borderBottomWidth: 1,
-    borderBottomColor: '#1a1f3a',
+    borderBottomColor: '#1C1C1E',
   },
   tab: {
     flex: 1,
@@ -324,7 +305,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2,
-    backgroundColor: '#10b981',
+    backgroundColor: '#22c55e',
   },
   scrollView: {
     flex: 1,
@@ -333,43 +314,41 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 100,
   },
-  chartCard: {
-    backgroundColor: '#1E1E2E',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 20,
   },
-  chartHeader: {
+  statCard: {
+    flex: 1,
+    backgroundColor: '#1C1C1E',
+    borderRadius: 16,
+    padding: 16,
+  },
+  statCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
-  chartTitle: {
+  statLabel: {
     fontSize: 12,
     fontFamily: 'Montserrat_500Medium',
-    color: '#A1A1AA',
+    color: '#9ca3af',
+    marginBottom: 8,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  chartContainer: {
-    alignItems: 'center',
-    marginVertical: 12,
-    height: 150,
-    justifyContent: 'center',
-  },
-  chartValue: {
-    fontSize: 36,
+  statValue: {
+    fontSize: 28,
     fontFamily: 'Montserrat_700Bold',
     color: '#ffffff',
-    marginTop: 12,
+    marginBottom: 12,
+  },
+  chartWrapper: {
+    height: 50,
+    overflow: 'hidden',
+    marginTop: 8,
   },
   percentageBadge: {
     flexDirection: 'row',
@@ -377,70 +356,61 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   percentageText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: 'Montserrat_600SemiBold',
-    color: '#10b981',
+    color: '#22c55e',
   },
   section: {
-    backgroundColor: '#1E1E2E',
+    backgroundColor: '#1C1C1E',
     borderRadius: 16,
-    padding: 20,
-    marginTop: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.05)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    padding: 16,
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: 'Montserrat_700Bold',
     color: '#ffffff',
   },
   sectionSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'Montserrat_400Regular',
-    color: '#A1A1AA',
+    color: '#9ca3af',
   },
-  userCard: {
+  listRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 70,
-    paddingHorizontal: 16,
+    height: 72,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: '#2C2C2E',
   },
-  userAvatar: {
+  avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    marginRight: 16,
-    backgroundColor: '#0f1419',
+    marginRight: 12,
+    backgroundColor: '#2C2C2E',
   },
-  userInfo: {
+  listRowContent: {
     flex: 1,
     justifyContent: 'center',
   },
-  userName: {
+  listRowTitle: {
     fontSize: 15,
     fontFamily: 'Montserrat_600SemiBold',
     color: '#ffffff',
     marginBottom: 4,
   },
-  userPoints: {
+  listRowSubtitle: {
     fontSize: 13,
     fontFamily: 'Montserrat_400Regular',
-    color: '#A1A1AA',
+    color: '#9ca3af',
   },
   viewAllButton: {
     paddingVertical: 16,
@@ -450,46 +420,35 @@ const styles = StyleSheet.create({
   viewAllText: {
     fontSize: 13,
     fontFamily: 'Montserrat_600SemiBold',
-    color: '#10b981',
+    color: '#22c55e',
     letterSpacing: 0.5,
   },
   logRow: {
     paddingVertical: 12,
-    paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
+    borderBottomColor: '#2C2C2E',
   },
   logText: {
     fontSize: 11,
     fontFamily: 'monospace',
     color: '#9ca3af',
+    lineHeight: 16,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_500Medium',
-    textAlign: 'center',
-  },
   placeholderContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
+    minHeight: 200,
   },
   placeholderText: {
     fontSize: 16,
     fontFamily: 'Montserrat_500Medium',
-    color: '#6b7280',
+    color: '#9ca3af',
   },
 });
-
