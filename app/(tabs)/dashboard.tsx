@@ -136,31 +136,28 @@ export default function DashboardScreen() {
             {/* Total Users Chart */}
             <View style={styles.chartCard}>
               <Text style={styles.chartTitle}>TOTAL USERS</Text>
+              <Text style={styles.chartValue}>{totalUsersCount.toLocaleString()}</Text>
               <View style={styles.chartContainer}>
                 <LineChart
                   data={totalUsersData}
                   width={300}
                   height={150}
                   color="#3b82f6"
-                  thickness={2}
+                  thickness={3}
                   maxValue={maxChartValue}
-                  yAxisColor="#1a1f3a"
-                  xAxisColor="#1a1f3a"
-                  rulesColor="#1a1f3a"
-                  backgroundColor="transparent"
-                  hideYAxisText={false}
-                  yAxisTextStyle={{ color: '#6b7280', fontSize: 10 }}
-                  yAxisLabelSuffix="k"
-                  formatYLabel={(value) => {
-                    const num = parseInt(value);
-                    return num >= 1000 ? `${(num / 1000).toFixed(0)}k` : value;
-                  }}
-                  dataPointsColor="#3b82f6"
-                  dataPointsRadius={3}
+                  curved={true}
+                  areaChart={true}
+                  startFillColor="#3b82f6"
+                  endFillColor="#3b82f6"
+                  startOpacity={0.3}
+                  endOpacity={0}
+                  hideAxesAndRules={true}
+                  hideDataPoints={true}
                   spacing={40}
+                  initialSpacing={0}
+                  endSpacing={0}
                 />
               </View>
-              <Text style={styles.chartValue}>{totalUsersCount.toLocaleString()}</Text>
             </View>
 
             {/* Total Active Users Chart */}
@@ -178,22 +175,19 @@ export default function DashboardScreen() {
                   width={300}
                   height={150}
                   color="#10b981"
-                  thickness={2}
+                  thickness={3}
                   maxValue={maxChartValue}
-                  yAxisColor="#1a1f3a"
-                  xAxisColor="#1a1f3a"
-                  rulesColor="#1a1f3a"
-                  backgroundColor="transparent"
-                  hideYAxisText={false}
-                  yAxisTextStyle={{ color: '#6b7280', fontSize: 10 }}
-                  yAxisLabelSuffix="k"
-                  formatYLabel={(value) => {
-                    const num = parseInt(value);
-                    return num >= 1000 ? `${(num / 1000).toFixed(0)}k` : value;
-                  }}
-                  dataPointsColor="#10b981"
-                  dataPointsRadius={3}
+                  curved={true}
+                  areaChart={true}
+                  startFillColor="#10b981"
+                  endFillColor="#10b981"
+                  startOpacity={0.3}
+                  endOpacity={0}
+                  hideAxesAndRules={true}
+                  hideDataPoints={true}
                   spacing={40}
+                  initialSpacing={0}
+                  endSpacing={0}
                 />
               </View>
             </View>
@@ -336,36 +330,46 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    padding: 20,
     paddingBottom: 100,
   },
   chartCard: {
-    backgroundColor: '#1a1f3a',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#1E1E2E',
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   chartHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   chartTitle: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_700Bold',
-    color: '#ffffff',
-    marginBottom: 12,
+    fontSize: 12,
+    fontFamily: 'Montserrat_500Medium',
+    color: '#A1A1AA',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   chartContainer: {
     alignItems: 'center',
-    marginVertical: 8,
+    marginVertical: 12,
+    height: 150,
+    justifyContent: 'center',
   },
   chartValue: {
-    fontSize: 24,
+    fontSize: 36,
     fontFamily: 'Montserrat_700Bold',
     color: '#ffffff',
-    marginTop: 8,
+    marginTop: 12,
   },
   percentageBadge: {
     flexDirection: 'row',
@@ -378,16 +382,24 @@ const styles = StyleSheet.create({
     color: '#10b981',
   },
   section: {
-    backgroundColor: '#1a1f3a',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#1E1E2E',
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 16,
     marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   sectionTitle: {
     fontSize: 16,
@@ -397,52 +409,55 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: 12,
     fontFamily: 'Montserrat_400Regular',
-    color: '#6b7280',
+    color: '#A1A1AA',
   },
   userCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0f1419',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 8,
+    height: 70,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   userAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    marginRight: 12,
+    marginRight: 16,
+    backgroundColor: '#0f1419',
   },
   userInfo: {
     flex: 1,
+    justifyContent: 'center',
   },
   userName: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: 'Montserrat_600SemiBold',
     color: '#ffffff',
     marginBottom: 4,
   },
   userPoints: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'Montserrat_400Regular',
-    color: '#6b7280',
+    color: '#A1A1AA',
   },
   viewAllButton: {
-    backgroundColor: '#0f1419',
-    borderRadius: 8,
-    padding: 12,
+    paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
   },
   viewAllText: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: 'Montserrat_600SemiBold',
-    color: '#ffffff',
+    color: '#10b981',
+    letterSpacing: 0.5,
   },
   logRow: {
-    paddingVertical: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#0f1419',
+    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   logText: {
     fontSize: 11,
