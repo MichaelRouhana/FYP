@@ -64,9 +64,14 @@ export default function DashboardScreen() {
     ? ((totalActiveUsersCount / totalUsersCount) * 100).toFixed(1)
     : '0.0';
 
-  // Get top 5 users
+  // Get top 5 users sorted by points (descending)
   const topUsers = users
-    .sort((a, b) => (b.totalPoints || b.points || 0) - (a.totalPoints || a.points || 0))
+    .map(user => ({
+      ...user,
+      // Ensure we get the actual points value from the backend
+      displayPoints: user.totalPoints ?? user.points ?? 0,
+    }))
+    .sort((a, b) => b.displayPoints - a.displayPoints)
     .slice(0, 5);
 
   const onRefresh = async () => {
@@ -212,7 +217,7 @@ export default function DashboardScreen() {
                   <View style={styles.listRowContent}>
                     <Text style={styles.listRowTitle}>{user.username}</Text>
                     <Text style={styles.listRowSubtitle}>
-                      {(user.totalPoints || user.points || 0).toLocaleString()} POINTS
+                      {((user as any).displayPoints ?? user.totalPoints ?? user.points ?? 0).toLocaleString()} POINTS
                     </Text>
                   </View>
                 </View>
@@ -254,7 +259,7 @@ export default function DashboardScreen() {
                 </View>
               )}
               <TouchableOpacity style={styles.viewAllButton}>
-                <Text style={styles.viewAllText}>View All</Text>
+                <Text style={styles.viewAllText}>VIEW ALL</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -279,25 +284,25 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: '#030712',
   },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1C1C1E',
+    borderBottomColor: '#1F2937',
   },
   headerTitle: {
     fontSize: 28,
     fontFamily: 'Montserrat_700Bold',
-    color: '#ffffff',
+    color: '#F9FAFB',
     letterSpacing: 0.5,
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#0D0D0D',
+    backgroundColor: '#030712',
     borderBottomWidth: 1,
-    borderBottomColor: '#1C1C1E',
+    borderBottomColor: '#1F2937',
   },
   tab: {
     flex: 1,
@@ -314,7 +319,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   tabTextActive: {
-    color: '#ffffff',
+    color: '#F9FAFB',
     fontFamily: 'Montserrat_600SemiBold',
   },
   tabIndicator: {
@@ -378,10 +383,21 @@ const styles = StyleSheet.create({
     color: '#22c55e',
   },
   section: {
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#111827',
     borderRadius: 16,
     padding: 16,
-    marginBottom: 20,
+    marginHorizontal: 16,
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -390,14 +406,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 14,
     fontFamily: 'Montserrat_700Bold',
-    color: '#ffffff',
+    color: '#F9FAFB',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   sectionSubtitle: {
     fontSize: 13,
     fontFamily: 'Montserrat_400Regular',
-    color: '#9ca3af',
+    color: '#9CA3AF',
   },
   listRow: {
     flexDirection: 'row',
@@ -405,14 +423,14 @@ const styles = StyleSheet.create({
     height: 72,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2C2C2E',
+    borderBottomColor: '#1F2937',
   },
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
     marginRight: 12,
-    backgroundColor: '#2C2C2E',
+    backgroundColor: '#1F2937',
   },
   listRowContent: {
     flex: 1,
@@ -421,13 +439,13 @@ const styles = StyleSheet.create({
   listRowTitle: {
     fontSize: 15,
     fontFamily: 'Montserrat_600SemiBold',
-    color: '#ffffff',
+    color: '#F9FAFB',
     marginBottom: 4,
   },
   listRowSubtitle: {
     fontSize: 13,
     fontFamily: 'Montserrat_400Regular',
-    color: '#9ca3af',
+    color: '#9CA3AF',
   },
   viewAllButton: {
     paddingVertical: 16,
@@ -443,12 +461,12 @@ const styles = StyleSheet.create({
   logRow: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2C2C2E',
+    borderBottomColor: '#1F2937',
   },
   logText: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'monospace',
-    color: '#9ca3af',
+    color: '#9CA3AF',
     lineHeight: 16,
   },
   loadingContainer: {
@@ -466,6 +484,6 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: 16,
     fontFamily: 'Montserrat_500Medium',
-    color: '#9ca3af',
+    color: '#9CA3AF',
   },
 });
