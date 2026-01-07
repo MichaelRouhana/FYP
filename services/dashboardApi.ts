@@ -32,6 +32,12 @@ export interface DashboardUsersData {
   logs: DashboardLog[];
 }
 
+export interface DashboardStats {
+  totalBets: number;
+  wonBets: number;
+  lostBets: number;
+}
+
 /**
  * Fetch total users chart data
  */
@@ -128,11 +134,28 @@ export async function getLostBets(): Promise<ChartPoint[]> {
 }
 
 /**
+ * Fetch dashboard stats (total/won/lost bets)
+ */
+export async function getDashboardStats(timeRange: '24h' | '7d' | 'all' = '7d'): Promise<DashboardStats> {
+  try {
+    const response = await api.get('/dashboard/stats', {
+      params: { range: timeRange },
+    });
+    return response.data || { totalBets: 0, wonBets: 0, lostBets: 0 };
+  } catch (error: any) {
+    console.error('Error fetching dashboard stats:', error);
+    throw error;
+  }
+}
+
+/**
  * Fetch top betters (users with most bets)
  */
-export async function getTopBetters(): Promise<DashboardUser[]> {
+export async function getTopBetters(timeRange: '24h' | '7d' | 'all' = '7d'): Promise<DashboardUser[]> {
   try {
-    const response = await api.get('/dashboard/topBetters');
+    const response = await api.get('/dashboard/topBetters', {
+      params: { range: timeRange },
+    });
     return response.data || [];
   } catch (error: any) {
     console.error('Error fetching top betters:', error);
@@ -143,9 +166,11 @@ export async function getTopBetters(): Promise<DashboardUser[]> {
 /**
  * Fetch top pointers (users with most points)
  */
-export async function getTopPointers(): Promise<DashboardUser[]> {
+export async function getTopPointers(timeRange: '24h' | '7d' | 'all' = '7d'): Promise<DashboardUser[]> {
   try {
-    const response = await api.get('/dashboard/topPointers');
+    const response = await api.get('/dashboard/topPointers', {
+      params: { range: timeRange },
+    });
     return response.data || [];
   } catch (error: any) {
     console.error('Error fetching top pointers:', error);

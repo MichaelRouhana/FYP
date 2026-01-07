@@ -11,6 +11,7 @@ interface DashboardChartProps {
   data: Array<{ value: number; label: string }>;
   color: string;
   badgeValue?: string; // Optional percentage badge
+  bigNumber?: number; // Optional big number to display
 }
 
 export default function DashboardChart({
@@ -18,6 +19,7 @@ export default function DashboardChart({
   data,
   color,
   badgeValue,
+  bigNumber,
 }: DashboardChartProps) {
   const screenWidth = Dimensions.get('window').width;
   const chartWidth = screenWidth - 80; // Account for padding
@@ -30,7 +32,12 @@ export default function DashboardChart({
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{title}</Text>
+        <View>
+          <Text style={styles.cardTitle}>{title}</Text>
+          {bigNumber !== undefined && (
+            <Text style={styles.bigNumber}>{bigNumber.toLocaleString()}</Text>
+          )}
+        </View>
         {badgeValue && (
           <View style={styles.badgeContainer}>
             <Ionicons name="ellipse" size={6} color={color} />
@@ -101,6 +108,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_700Bold',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  bigNumber: {
+    color: '#F9FAFB',
+    fontSize: 28,
+    fontFamily: 'Montserrat_700Bold',
   },
   badgeContainer: {
     flexDirection: 'row',

@@ -8,16 +8,22 @@ import {
   getLostBets,
   getTopBetters,
   getTopPointers,
+  getDashboardStats,
   ChartPoint,
   DashboardUser,
+  DashboardStats,
 } from '@/services/dashboardApi';
 
+export type TimeRange = '24h' | '7d' | 'all';
+
 export function useDashboardBets() {
+  const [filter, setFilter] = useState<TimeRange>('7d');
   const [totalBets, setTotalBets] = useState<ChartPoint[]>([]);
   const [wonBets, setWonBets] = useState<ChartPoint[]>([]);
   const [lostBets, setLostBets] = useState<ChartPoint[]>([]);
   const [topBetters, setTopBetters] = useState<DashboardUser[]>([]);
   const [topPointers, setTopPointers] = useState<DashboardUser[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({ totalBets: 0, wonBets: 0, lostBets: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,17 +76,21 @@ export function useDashboardBets() {
       ];
 
       // Fetch all bets data in parallel, with mock fallback
-      const [totalBetsData, wonBetsData, lostBetsData, bettersData, pointersData] = await Promise.all([
+      // Note: Chart data (totalBets, wonBets, lostBets) always shows last 7 days for trend visualization
+      // Stats (total/won/lost counts) are filtered by timeRange
+      const [totalBetsData, wonBetsData, lostBetsData, statsData, bettersData, pointersData] = await Promise.all([
         getTotalBets().catch(() => mockTotalBets),
         getWonBets().catch(() => mockWonBets),
         getLostBets().catch(() => mockLostBets),
-        getTopBetters().catch(() => mockTopBetters),
-        getTopPointers().catch(() => mockTopPointers),
+        getDashboardStats(filter).catch(() => ({ totalBets: 25500, wonBets: 10799, lostBets: 10799 })),
+        getTopBetters(filter).catch(() => mockTopBetters),
+        getTopPointers(filter).catch(() => mockTopPointers),
       ]);
 
       setTotalBets(totalBetsData);
       setWonBets(wonBetsData);
       setLostBets(lostBetsData);
+      setStats(statsData);
       setTopBetters(bettersData);
       setTopPointers(pointersData);
     } catch (err: any) {
@@ -89,16 +99,19 @@ export function useDashboardBets() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter]);
 
   useEffect(() => {
     fetchDashboardBets();
   }, [fetchDashboardBets]);
 
   return {
+    filter,
+    setFilter,
     totalBets,
     wonBets,
     lostBets,
+    stats,
     topBetters,
     topPointers,
     loading,

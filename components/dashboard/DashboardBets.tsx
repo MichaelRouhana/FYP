@@ -16,9 +16,12 @@ import DashboardChart from './DashboardChart';
 
 export default function DashboardBets() {
   const {
+    filter,
+    setFilter,
     totalBets,
     wonBets,
     lostBets,
+    stats,
     topBetters,
     topPointers,
     loading,
@@ -99,12 +102,36 @@ export default function DashboardBets() {
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
+      {/* Filter Header */}
+      <View style={styles.filterContainer}>
+        <Text style={styles.filterLabel}>Time Range:</Text>
+        <View style={styles.filterButtons}>
+          <TouchableOpacity
+            style={[styles.filterButton, filter === '24h' && styles.filterButtonActive]}
+            onPress={() => setFilter('24h')}
+          >
+            <Text style={[styles.filterButtonText, filter === '24h' && styles.filterButtonTextActive]}>
+              24 Hours
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, filter === '7d' && styles.filterButtonActive]}
+            onPress={() => setFilter('7d')}
+          >
+            <Text style={[styles.filterButtonText, filter === '7d' && styles.filterButtonTextActive]}>
+              7 Days
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Section A: The 3 Charts */}
       <DashboardChart
         title="TOTAL BETS"
         data={totalBetsData}
         color="#818CF8"
         badgeValue="1.3%"
+        bigNumber={stats.totalBets}
       />
 
       <DashboardChart
@@ -112,6 +139,7 @@ export default function DashboardBets() {
         data={wonBetsData}
         color="#10B981"
         badgeValue="1.3%"
+        bigNumber={stats.wonBets}
       />
 
       <DashboardChart
@@ -119,6 +147,7 @@ export default function DashboardBets() {
         data={lostBetsData}
         color="#EF4444"
         badgeValue="1.3%"
+        bigNumber={stats.lostBets}
       />
 
       {/* Section B: Top Betters Leaderboard */}
@@ -221,6 +250,43 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 100,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#030712',
+  },
+  filterLabel: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_600SemiBold',
+    color: '#9CA3AF',
+  },
+  filterButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#1F2937',
+  },
+  filterButtonActive: {
+    backgroundColor: '#1F2937',
+    borderColor: '#22c55e',
+  },
+  filterButtonText: {
+    fontSize: 13,
+    fontFamily: 'Montserrat_600SemiBold',
+    color: '#9CA3AF',
+  },
+  filterButtonTextActive: {
+    color: '#22c55e',
   },
   loadingContainer: {
     flex: 1,
