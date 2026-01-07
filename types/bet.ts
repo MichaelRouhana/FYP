@@ -45,6 +45,15 @@ export interface BetResponseDTO {
     odd: number;
     status: BetStatus;
   }>;
+  // Match details from the first leg's fixture (for main display)
+  homeTeam?: string;
+  awayTeam?: string;
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
+  homeScore?: number;
+  awayScore?: number;
+  matchDate?: string; // ISO date string
+  matchStatus?: string; // e.g., "FT", "NS", "LIVE"
 }
 
 // View DTO for bet details

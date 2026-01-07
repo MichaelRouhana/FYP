@@ -14,8 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/context/ThemeContext';
 import { getBetById } from '@/services/betApi';
-import { getFixtureDetails } from '@/services/matchApi';
-import { FootballApiFixture } from '@/types/fixture';
+import { BetResponseDTO, BetStatus } from '@/types/bet';
 
 // Helper to map market type to display name
 const getMarketDisplayName = (marketType: string): string => {
@@ -58,13 +57,6 @@ const formatSelectionName = (marketType: string, selection: string): string => {
   return selection;
 };
 
-// Helper to format date and time from fixture
-const formatMatchDateTime = (fixture: FootballApiFixture) => {
-  const date = new Date(fixture.fixture.date);
-  const matchDate = date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
-  const matchTime = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
-  return { matchDate, matchTime };
-};
 
 export default function BetDetailsScreen() {
   const insets = useSafeAreaInsets();
@@ -83,8 +75,8 @@ export default function BetDetailsScreen() {
 
       try {
         setLoading(true);
-        // Fetch bet from API
-        const betResponse = await getBetById(id);
+        // Fetch bet from API (now includes match details)
+        const betResponse: BetResponseDTO = await getBetById(id);
         
         if (!betResponse || !betResponse.legs || betResponse.legs.length === 0) {
           console.error('Invalid bet response:', betResponse);
@@ -93,68 +85,50 @@ export default function BetDetailsScreen() {
           return;
         }
 
-        // Extract fixtureId from the first leg (for single match bets)
-        // For accumulator bets, we use the first leg's fixture for the main display
+        // Extract fixtureId from the first leg (for navigation/reference)
         const firstLeg = betResponse.legs[0];
         const fixtureId = firstLeg.fixtureId;
 
-        if (!fixtureId) {
-          console.error('No fixtureId found in bet legs');
-          setBetSlip(null);
-          setLoading(false);
-          return;
-        }
-
-        // Fetch fixture details
-        let fixture: FootballApiFixture | null = null;
-        try {
-          fixture = await getFixtureDetails(fixtureId);
-        } catch (fixtureError) {
-          console.error('Error fetching fixture details:', fixtureError);
-          // Continue with bet data even if fixture fetch fails
-        }
-
-        // Format match date and time
-        const { matchDate, matchTime } = fixture 
-          ? formatMatchDateTime(fixture)
-          : { matchDate: new Date().toISOString().split('T')[0], matchTime: 'TBD' };
+        // Format match date and time from betResponse.matchDate
+        const matchDateObj = betResponse.matchDate ? new Date(betResponse.matchDate) : new Date();
+        const matchDate = matchDateObj.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+        const matchTime = matchDateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
 
         // Determine if match is finished but bet is still pending
-        const isMatchFinished = fixture?.fixture.status.short === 'FT' || 
-                               fixture?.fixture.status.short === 'AET' || 
-                               fixture?.fixture.status.short === 'PEN';
-        const isBetPending = betResponse.status === 'PENDING';
+        const finishedStatuses = ['FT', 'AET', 'PEN', 'PST', 'CANC', 'ABD', 'AWD', 'WO'];
+        const isMatchFinished = betResponse.matchStatus ? finishedStatuses.includes(betResponse.matchStatus) : false;
+        const isBetPending = betResponse.status === BetStatus.PENDING;
         const showAwaitingSettlement = isMatchFinished && isBetPending;
 
-        // Transform API response to BetSlip format with real fixture data
+        // Transform API response to BetSlip format using bet fields directly
         const transformedBet = {
           id: betResponse.id,
-          matchId: String(fixtureId),
-          homeTeam: fixture?.teams.home.name || 'Team A',
-          awayTeam: fixture?.teams.away.name || 'Team B',
-          homeTeamLogo: fixture?.teams.home.logo || '',
-          awayTeamLogo: fixture?.teams.away.logo || '',
-          homeScore: fixture?.goals.home ?? undefined,
-          awayScore: fixture?.goals.away ?? undefined,
+          matchId: String(fixtureId || betResponse.id),
+          homeTeam: betResponse.homeTeam || 'Team A',
+          awayTeam: betResponse.awayTeam || 'Team B',
+          homeTeamLogo: betResponse.homeTeamLogo || '',
+          awayTeamLogo: betResponse.awayTeamLogo || '',
+          homeScore: betResponse.homeScore,
+          awayScore: betResponse.awayScore,
           matchTime,
           matchDate,
           wagerAmount: betResponse.stake,
-          status: betResponse.status === 'PENDING' ? 'Pending' : 
-                  betResponse.status === 'WON' ? 'Won' : 
-                  betResponse.status === 'LOST' ? 'Lost' : 'Pending',
+          status: betResponse.status === BetStatus.PENDING ? 'Pending' : 
+                  betResponse.status === BetStatus.WON ? 'Won' : 
+                  betResponse.status === BetStatus.LOST ? 'Lost' : 'Pending',
           legs: betResponse.legs.map((leg: any) => ({
             id: leg.id,
             selectionName: formatSelectionName(leg.marketType, leg.selection),
             marketName: getMarketDisplayName(leg.marketType),
             odds: leg.odd || 1.0,
-            status: leg.status === 'PENDING' ? 'Pending' : 
-                    leg.status === 'WON' ? 'Won' : 
-                    leg.status === 'LOST' ? 'Lost' : 'Pending',
+            status: leg.status === BetStatus.PENDING ? 'Pending' : 
+                    leg.status === BetStatus.WON ? 'Won' : 
+                    leg.status === BetStatus.LOST ? 'Lost' : 'Pending',
           })),
           totalOdds: betResponse.totalOdds,
           potentialWinnings: betResponse.potentialWinnings,
           showAwaitingSettlement,
-          fixtureStatus: fixture?.fixture.status.short || 'NS',
+          fixtureStatus: betResponse.matchStatus || 'NS',
         };
         
         setBetSlip(transformedBet);
@@ -188,18 +162,12 @@ export default function BetDetailsScreen() {
     return Math.round(betSlip.wagerAmount * totalOdds);
   }, [betSlip, totalOdds]);
 
-  // Determine global status based on legs
+  // Determine global status based on bet response status (already calculated on backend)
   const globalStatus = useMemo(() => {
     if (!betSlip) return 'Pending';
-    
-    const hasLost = betSlip.legs.some((leg) => leg.status === 'Lost');
-    const allWon = betSlip.legs.every((leg) => leg.status === 'Won');
-    const allPending = betSlip.legs.every((leg) => leg.status === 'Pending');
-
-    if (hasLost) return 'Lost';
-    if (allWon) return 'Won';
-    if (allPending) return 'Pending';
-    return 'Pending'; // Mixed statuses default to pending
+    // Use the status from betSlip which comes from betResponse.status
+    return betSlip.status === 'won' ? 'Won' : 
+           betSlip.status === 'lost' ? 'Lost' : 'Pending';
   }, [betSlip]);
 
   // Status color helpers
