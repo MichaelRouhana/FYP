@@ -122,6 +122,14 @@ export default function DashboardBets() {
               7 Days
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, filter === 'all' && styles.filterButtonActive]}
+            onPress={() => setFilter('all')}
+          >
+            <Text style={[styles.filterButtonText, filter === 'all' && styles.filterButtonTextActive]}>
+              All
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
