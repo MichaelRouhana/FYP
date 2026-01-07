@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart } from 'react-native-gifted-charts';
 import { Ionicons } from '@expo/vector-icons';
 import { useDashboardUsers } from '@/hooks/useDashboardUsers';
+import DashboardBets from '@/components/dashboard/DashboardBets';
 import Colors from '@/constants/Colors';
 
 type TabType = 'USERS' | 'BETS' | 'MATCHES';
@@ -265,11 +266,7 @@ export default function DashboardScreen() {
           </>
         )}
 
-        {activeTab === 'BETS' && (
-          <View style={styles.placeholderContainer}>
-            <Text style={styles.placeholderText}>BETS tab coming soon</Text>
-          </View>
-        )}
+        {activeTab === 'BETS' && <DashboardBets />}
 
         {activeTab === 'MATCHES' && (
           <View style={styles.placeholderContainer}>

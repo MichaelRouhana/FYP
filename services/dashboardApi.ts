@@ -14,6 +14,7 @@ export interface DashboardUser {
   pfp?: string;
   totalPoints?: number;
   points?: number;
+  totalBets?: number; // For top betters
 }
 
 export interface DashboardLog {
@@ -83,6 +84,71 @@ export async function getDashboardLogs(): Promise<DashboardLog[]> {
     if (error.response?.status === 501 || error.response?.status === 404) {
       return [];
     }
+    throw error;
+  }
+}
+
+/**
+ * Fetch total bets chart data
+ */
+export async function getTotalBets(): Promise<ChartPoint[]> {
+  try {
+    const response = await api.get('/dashboard/totalBets');
+    return response.data || [];
+  } catch (error: any) {
+    console.error('Error fetching total bets:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch won bets chart data
+ */
+export async function getWonBets(): Promise<ChartPoint[]> {
+  try {
+    const response = await api.get('/dashboard/wonBets');
+    return response.data || [];
+  } catch (error: any) {
+    console.error('Error fetching won bets:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch lost bets chart data
+ */
+export async function getLostBets(): Promise<ChartPoint[]> {
+  try {
+    const response = await api.get('/dashboard/lostBets');
+    return response.data || [];
+  } catch (error: any) {
+    console.error('Error fetching lost bets:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch top betters (users with most bets)
+ */
+export async function getTopBetters(): Promise<DashboardUser[]> {
+  try {
+    const response = await api.get('/dashboard/topBetters');
+    return response.data || [];
+  } catch (error: any) {
+    console.error('Error fetching top betters:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch top pointers (users with most points)
+ */
+export async function getTopPointers(): Promise<DashboardUser[]> {
+  try {
+    const response = await api.get('/dashboard/topPointers');
+    return response.data || [];
+  } catch (error: any) {
+    console.error('Error fetching top pointers:', error);
     throw error;
   }
 }
