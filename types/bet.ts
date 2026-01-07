@@ -66,6 +66,15 @@ export interface BetViewAllDTO {
   stake: number;
   status: string;
   createdDate?: string; // ISO date string for grouping accumulator bets
+  // Fixture details
+  homeTeam?: string;
+  awayTeam?: string;
+  homeTeamLogo?: string;
+  awayTeamLogo?: string;
+  homeScore?: number;
+  awayScore?: number;
+  matchDate?: string; // ISO date string
+  matchStatus?: string; // e.g., "FT", "NS", "LIVE"
 }
 
 // Paged response wrapper

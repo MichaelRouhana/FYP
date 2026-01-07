@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getAllBets, getAllMockBets, getBetById } from '@/services/betApi';
 import { BetViewAllDTO } from '@/types/bet';
-import api from '@/services/api';
-import { FixtureViewDTO } from '@/types/fixture';
 
 export interface UIBet {
   id: number;
@@ -21,6 +19,7 @@ export interface UIBet {
   selection: string;
   marketType: string;
   createdDate?: string; // For grouping accumulator bets
+  matchStatus?: string; // e.g., "FT", "NS", "LIVE" - to determine if match is finished
 }
 
 export interface BidsByDate {
@@ -93,49 +92,27 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
         console.log(`[useBettingHistory] ✅ Fetched ${bets.length} bets from API`);
         console.log(`[useBettingHistory] 📋 Bet IDs fetched: [${bets.map(b => b.id).join(', ')}]`);
 
-        // Fetch all public fixtures to map bet data
-        console.log('[useBettingHistory] Fetching public fixtures for mapping...');
-        const fixturesResponse = await api.get<FixtureViewDTO[]>('/fixtures/public');
-        const fixtures = fixturesResponse.data;
-        console.log(`[useBettingHistory] ✅ Fetched ${fixtures.length} public fixtures`);
-
-        // Create a map for quick fixture lookup
-        const fixtureMap = new Map<number, FixtureViewDTO>();
-        fixtures.forEach((fixture) => fixtureMap.set(fixture.id, fixture));
-
-        // Transform real bets to UI format
-        let mappedCount = 0;
-        let missingFixtureCount = 0;
-        let missingFixtureIdCount = 0;
-        
+        // Transform real bets to UI format using fixture details from bet object
         realUiBets = bets
           .map((bet: BetViewAllDTO) => {
-            const fixtureId = bet.fixtureId; 
-            if (!fixtureId) {
-              missingFixtureIdCount++;
-              console.warn(`[useBettingHistory] ⚠️ Bet ${bet.id} missing fixtureId`);
-              return null;
-            }
-            const fixture = fixtureMap.get(fixtureId);
-
-            if (!fixture) {
-              missingFixtureCount++;
-              console.warn(`[useBettingHistory] ⚠️ Fixture ${fixtureId} not found in public fixtures for bet ${bet.id} (stake: ${bet.stake}, selection: ${bet.selection})`);
+            // Use fixture details directly from bet object
+            if (!bet.homeTeam || !bet.awayTeam) {
+              console.warn(`[useBettingHistory] ⚠️ Bet ${bet.id} missing fixture details (homeTeam: ${bet.homeTeam}, awayTeam: ${bet.awayTeam})`);
               return null;
             }
 
-            mappedCount++;
-            const matchDate = new Date(fixture.rawJson.fixture.date);
+            // Parse match date from bet object
+            const matchDate = bet.matchDate ? new Date(bet.matchDate) : new Date();
             
             const uiBet: UIBet = {
               id: bet.id,
-              matchId: String(fixtureId),
-              homeTeam: fixture.rawJson.teams.home.name,
-              awayTeam: fixture.rawJson.teams.away.name,
-              homeTeamLogo: fixture.rawJson.teams.home.logo,
-              awayTeamLogo: fixture.rawJson.teams.away.logo,
-              homeScore: fixture.rawJson.goals.home ?? undefined,
-              awayScore: fixture.rawJson.goals.away ?? undefined,
+              matchId: String(bet.fixtureId || bet.id),
+              homeTeam: bet.homeTeam,
+              awayTeam: bet.awayTeam,
+              homeTeamLogo: bet.homeTeamLogo || `https://ui-avatars.com/api/?name=${encodeURIComponent(bet.homeTeam)}&background=3b82f6&color=fff&size=200`,
+              awayTeamLogo: bet.awayTeamLogo || `https://ui-avatars.com/api/?name=${encodeURIComponent(bet.awayTeam)}&background=3b82f6&color=fff&size=200`,
+              homeScore: bet.homeScore,
+              awayScore: bet.awayScore,
               matchTime: matchDate.toLocaleTimeString('en-US', {
                 hour: '2-digit',
                 minute: '2-digit',
@@ -145,15 +122,14 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
               status: bet.status.toLowerCase() as 'pending' | 'won' | 'lost',
               selection: bet.selection,
               marketType: bet.marketType,
-              createdDate: bet.createdDate ? new Date(bet.createdDate).toISOString() : undefined, // Convert LocalDateTime to ISO string
+              createdDate: bet.createdDate ? new Date(bet.createdDate).toISOString() : undefined,
+              matchStatus: bet.matchStatus, // Store match status for filtering
             };
             
-            console.log(`[useBettingHistory] 📝 Mapped bet ${bet.id}: stake=${bet.stake}, createdDate=${uiBet.createdDate || 'N/A'}, selection=${bet.selection}`);
+            console.log(`[useBettingHistory] 📝 Mapped bet ${bet.id}: stake=${bet.stake}, matchStatus=${bet.matchStatus}, selection=${bet.selection}`);
             return uiBet;
           })
           .filter((bet): bet is UIBet => bet !== null);
-        
-        console.log(`[useBettingHistory] 📊 Mapping summary: ${mappedCount} mapped, ${missingFixtureCount} missing fixtures, ${missingFixtureIdCount} missing fixtureId`);
         
         console.log(`[useBettingHistory] ✅ Successfully mapped ${realUiBets.length} real bets to UI format`);
       } catch (apiError: any) {
@@ -295,10 +271,25 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
       };
 
             // Filter and group by status (using grouped bets)
+            // Helper to check if match is finished based on matchStatus
+            const isMatchFinished = (matchStatus?: string): boolean => {
+              if (!matchStatus) return false;
+              const finishedStatuses = ['FT', 'AET', 'PEN', 'PST', 'CANC', 'ABD', 'AWD', 'WO'];
+              return finishedStatuses.includes(matchStatus);
+            };
+
             const allBids = groupByDate(groupedBets);
-            const pendingBids = groupByDate(groupedBets.filter((bet) => bet.status === 'pending'));
+            // Pending tab: bets that are pending AND match is not finished
+            const pendingBids = groupByDate(
+              groupedBets.filter((bet) => bet.status === 'pending' && !isMatchFinished(bet.matchStatus))
+            );
+            // Results tab: bets that are won/lost OR matches that are finished (even if bet is pending)
             const resultBids = groupByDate(
-              groupedBets.filter((bet) => bet.status === 'won' || bet.status === 'lost')
+              groupedBets.filter((bet) => 
+                bet.status === 'won' || 
+                bet.status === 'lost' || 
+                (bet.status === 'pending' && isMatchFinished(bet.matchStatus))
+              )
             );
       
       console.log(`[useBettingHistory] 📅 Grouped bets: ${allBids.length} date groups (all), ${pendingBids.length} date groups (pending), ${resultBids.length} date groups (results)`);
