@@ -13,7 +13,9 @@ import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/context/ThemeContext';
-import { getBetById, getAllMockBets } from '@/services/betApi';
+import { getBetById } from '@/services/betApi';
+import { getFixtureDetails } from '@/services/matchApi';
+import { FootballApiFixture } from '@/types/fixture';
 
 // Helper to map market type to display name
 const getMarketDisplayName = (marketType: string): string => {
@@ -56,148 +58,12 @@ const formatSelectionName = (marketType: string, selection: string): string => {
   return selection;
 };
 
-// Mock Bet Slip Data Generator (fallback)
-const generateMockBetSlip = (betId: string): any | null => {
-  // Mock data based on bet ID
-  const mockSlips: Record<string, BetSlip> = {
-    '1': {
-      id: '1',
-      matchId: '123',
-      homeTeam: 'Roma',
-      awayTeam: 'Genoa',
-      homeTeamLogo: 'https://media.api-sports.io/football/teams/99.png',
-      awayTeamLogo: 'https://media.api-sports.io/football/teams/107.png',
-      homeScore: 2,
-      awayScore: 1,
-      matchTime: '02:00 PM',
-      matchDate: '2025-11-22',
-      wagerAmount: 100,
-      status: 'Won',
-      legs: [
-        {
-          id: 'leg-1',
-          selectionName: 'Roma to Win',
-          marketName: 'Match Winner',
-          odds: 1.5,
-          status: 'Won',
-        },
-        {
-          id: 'leg-2',
-          selectionName: 'Over 2.5 Goals',
-          marketName: 'Goals Over/Under',
-          odds: 1.8,
-          status: 'Won',
-        },
-        {
-          id: 'leg-3',
-          selectionName: 'Both Teams to Score - Yes',
-          marketName: 'Both Teams To Score',
-          odds: 1.6,
-          status: 'Won',
-        },
-      ],
-    },
-    '2': {
-      id: '2',
-      matchId: '124',
-      homeTeam: 'PSG',
-      awayTeam: 'Lorient',
-      homeTeamLogo: 'https://media.api-sports.io/football/teams/85.png',
-      awayTeamLogo: 'https://media.api-sports.io/football/teams/99.png',
-      homeScore: 1,
-      awayScore: 0,
-      matchTime: '02:00 PM',
-      matchDate: '2025-11-22',
-      wagerAmount: 50,
-      status: 'Pending',
-      legs: [
-        {
-          id: 'leg-1',
-          selectionName: 'PSG to Win',
-          marketName: 'Match Winner',
-          odds: 1.2,
-          status: 'Pending',
-        },
-        {
-          id: 'leg-2',
-          selectionName: 'Under 2.5 Goals',
-          marketName: 'Goals Over/Under',
-          odds: 2.1,
-          status: 'Pending',
-        },
-      ],
-    },
-    '3': {
-      id: '3',
-      matchId: '125',
-      homeTeam: 'PSG',
-      awayTeam: 'Lorient',
-      homeTeamLogo: 'https://media.api-sports.io/football/teams/85.png',
-      awayTeamLogo: 'https://media.api-sports.io/football/teams/99.png',
-      homeScore: 0,
-      awayScore: 2,
-      matchTime: '02:00 PM',
-      matchDate: '2025-11-22',
-      wagerAmount: 100,
-      status: 'Lost',
-      legs: [
-        {
-          id: 'leg-1',
-          selectionName: 'PSG to Win',
-          marketName: 'Match Winner',
-          odds: 1.2,
-          status: 'Lost',
-        },
-        {
-          id: 'leg-2',
-          selectionName: 'Over 2.5 Goals',
-          marketName: 'Goals Over/Under',
-          odds: 1.8,
-          status: 'Won',
-        },
-      ],
-    },
-  };
-
-  // Return specific mock if exists, otherwise generate a default one
-  if (mockSlips[betId]) {
-    return mockSlips[betId];
-  }
-
-  // Generate a default bet slip for any other ID
-  const statuses: ('Pending' | 'Won' | 'Lost')[] = ['Pending', 'Won', 'Lost'];
-  const randomStatus = statuses[parseInt(betId) % 3] || 'Pending';
-  
-  return {
-    id: betId,
-    matchId: `match-${betId}`,
-    homeTeam: 'Team A',
-    awayTeam: 'Team B',
-    homeTeamLogo: 'https://media.api-sports.io/football/teams/85.png',
-    awayTeamLogo: 'https://media.api-sports.io/football/teams/99.png',
-    homeScore: randomStatus === 'Won' ? 2 : randomStatus === 'Lost' ? 0 : undefined,
-    awayScore: randomStatus === 'Won' ? 1 : randomStatus === 'Lost' ? 2 : undefined,
-    matchTime: '02:00 PM',
-    matchDate: '2025-11-22',
-    wagerAmount: 100,
-    status: randomStatus,
-    legs: [
-      {
-        id: 'leg-1',
-        selectionName: 'Team A to Win',
-        marketName: 'Match Winner',
-        odds: 1.5,
-        status: randomStatus === 'Pending' ? 'Pending' : randomStatus === 'Won' ? 'Won' : 'Lost',
-      },
-      {
-        id: 'leg-2',
-        selectionName: 'Over 2.5 Goals',
-        marketName: 'Goals Over/Under',
-        odds: 1.8,
-        status: randomStatus === 'Pending' ? 'Pending' : 'Won',
-      },
-    ],
-  };
+// Helper to format date and time from fixture
+const formatMatchDateTime = (fixture: FootballApiFixture) => {
+  const date = new Date(fixture.fixture.date);
+  const matchDate = date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const matchTime = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+  return { matchDate, matchTime };
 };
 
 export default function BetDetailsScreen() {
@@ -217,55 +83,84 @@ export default function BetDetailsScreen() {
 
       try {
         setLoading(true);
-        // Try to get from API
+        // Fetch bet from API
         const betResponse = await getBetById(id);
         
-        if (betResponse && betResponse.legs && betResponse.legs.length > 0) {
-          // Transform API response to BetSlip format
-          // For accumulator bets, we need to fetch fixture data for each leg
-          // For now, use the first leg's fixtureId to get match info
-          const firstLeg = betResponse.legs[0];
-          
-          // TODO: Fetch fixture data for each leg to display match info
-          // For now, use a simplified structure
-          const transformedBet = {
-            id: betResponse.id,
-            matchId: String(firstLeg.fixtureId),
-            homeTeam: 'Team A', // TODO: Fetch from fixture
-            awayTeam: 'Team B', // TODO: Fetch from fixture
-            homeTeamLogo: '', // TODO: Fetch from fixture
-            awayTeamLogo: '', // TODO: Fetch from fixture
-            homeScore: undefined,
-            awayScore: undefined,
-            matchTime: 'TBD',
-            matchDate: new Date().toISOString(),
-            wagerAmount: betResponse.stake,
-            status: betResponse.status === 'PENDING' ? 'Pending' : 
-                    betResponse.status === 'WON' ? 'Won' : 
-                    betResponse.status === 'LOST' ? 'Lost' : 'Pending',
-            legs: betResponse.legs.map((leg: any) => ({
-              id: leg.id,
-              selectionName: formatSelectionName(leg.marketType, leg.selection),
-              marketName: getMarketDisplayName(leg.marketType),
-              odds: leg.odd || 1.0,
-              status: leg.status === 'PENDING' ? 'Pending' : 
-                      leg.status === 'WON' ? 'Won' : 
-                      leg.status === 'LOST' ? 'Lost' : 'Pending',
-            })),
-            totalOdds: betResponse.totalOdds,
-            potentialWinnings: betResponse.potentialWinnings,
-          };
-          setBetSlip(transformedBet);
-        } else {
-          // Fallback to hardcoded mock data
-          const fallbackBet = generateMockBetSlip(id);
-          setBetSlip(fallbackBet);
+        if (!betResponse || !betResponse.legs || betResponse.legs.length === 0) {
+          console.error('Invalid bet response:', betResponse);
+          setBetSlip(null);
+          setLoading(false);
+          return;
         }
+
+        // Extract fixtureId from the first leg (for single match bets)
+        // For accumulator bets, we use the first leg's fixture for the main display
+        const firstLeg = betResponse.legs[0];
+        const fixtureId = firstLeg.fixtureId;
+
+        if (!fixtureId) {
+          console.error('No fixtureId found in bet legs');
+          setBetSlip(null);
+          setLoading(false);
+          return;
+        }
+
+        // Fetch fixture details
+        let fixture: FootballApiFixture | null = null;
+        try {
+          fixture = await getFixtureDetails(fixtureId);
+        } catch (fixtureError) {
+          console.error('Error fetching fixture details:', fixtureError);
+          // Continue with bet data even if fixture fetch fails
+        }
+
+        // Format match date and time
+        const { matchDate, matchTime } = fixture 
+          ? formatMatchDateTime(fixture)
+          : { matchDate: new Date().toISOString().split('T')[0], matchTime: 'TBD' };
+
+        // Determine if match is finished but bet is still pending
+        const isMatchFinished = fixture?.fixture.status.short === 'FT' || 
+                               fixture?.fixture.status.short === 'AET' || 
+                               fixture?.fixture.status.short === 'PEN';
+        const isBetPending = betResponse.status === 'PENDING';
+        const showAwaitingSettlement = isMatchFinished && isBetPending;
+
+        // Transform API response to BetSlip format with real fixture data
+        const transformedBet = {
+          id: betResponse.id,
+          matchId: String(fixtureId),
+          homeTeam: fixture?.teams.home.name || 'Team A',
+          awayTeam: fixture?.teams.away.name || 'Team B',
+          homeTeamLogo: fixture?.teams.home.logo || '',
+          awayTeamLogo: fixture?.teams.away.logo || '',
+          homeScore: fixture?.goals.home ?? undefined,
+          awayScore: fixture?.goals.away ?? undefined,
+          matchTime,
+          matchDate,
+          wagerAmount: betResponse.stake,
+          status: betResponse.status === 'PENDING' ? 'Pending' : 
+                  betResponse.status === 'WON' ? 'Won' : 
+                  betResponse.status === 'LOST' ? 'Lost' : 'Pending',
+          legs: betResponse.legs.map((leg: any) => ({
+            id: leg.id,
+            selectionName: formatSelectionName(leg.marketType, leg.selection),
+            marketName: getMarketDisplayName(leg.marketType),
+            odds: leg.odd || 1.0,
+            status: leg.status === 'PENDING' ? 'Pending' : 
+                    leg.status === 'WON' ? 'Won' : 
+                    leg.status === 'LOST' ? 'Lost' : 'Pending',
+          })),
+          totalOdds: betResponse.totalOdds,
+          potentialWinnings: betResponse.potentialWinnings,
+          showAwaitingSettlement,
+          fixtureStatus: fixture?.fixture.status.short || 'NS',
+        };
+        
+        setBetSlip(transformedBet);
       } catch (error) {
         console.error('Error fetching bet:', error);
-        // Fallback to hardcoded mock data
-        const fallbackBet = generateMockBetSlip(id);
-        setBetSlip(fallbackBet);
+        setBetSlip(null);
       } finally {
         setLoading(false);
       }
@@ -460,6 +355,14 @@ export default function BetDetailsScreen() {
               </View>
             </View>
           </View>
+          {(betSlip as any)?.showAwaitingSettlement && (
+            <View style={[styles.awaitingSettlementContainer, { backgroundColor: isDark ? 'rgba(255, 193, 7, 0.1)' : 'rgba(255, 193, 7, 0.2)' }]}>
+              <Ionicons name="warning" size={16} color="#FFC107" />
+              <Text style={[styles.awaitingSettlementText, { color: '#FFC107' }]}>
+                Match finished - Awaiting settlement
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Legs Section */}
@@ -713,6 +616,18 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  awaitingSettlementContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  awaitingSettlementText: {
+    fontSize: 13,
+    fontFamily: 'Montserrat_600SemiBold',
   },
 });
 
