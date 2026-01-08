@@ -310,6 +310,7 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
             <FlatList
               data={matchUsers}
               keyExtractor={(item) => item.userId.toString()}
+              scrollEnabled={false}
               renderItem={({ item }) => (
                 <View style={[styles.userRow, { backgroundColor: isDark ? '#111827' : '#FFFFFF', borderColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
                   <Image
