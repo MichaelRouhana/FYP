@@ -14,10 +14,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Image,
   ImageBackground,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -26,10 +28,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMatchData } from '@/hooks/useMatchData';
 import { useUserBalance } from '@/hooks/useUserBalance';
+import { useProfile } from '@/hooks/useProfile';
 import { placeBet, createMatchWinnerBet, getOddsForSelection, getOdds } from '@/services/betApi';
 import { MarketType, BetRequestDTO } from '@/types/bet';
-import { getFixtureInjuries, getBetTypes, getOddsForFixture } from '@/services/matchApi';
-import { FootballApiInjury } from '@/types/fixture';
+import { getFixtureInjuries, getBetTypes, getOddsForFixture, getMatchSettings, updateMatchSettings, getPredictionSettings, updatePredictionSettings, getMatchUsers } from '@/services/matchApi';
+import { FootballApiInjury, MatchSettings, MatchPredictionSettings, MatchUserStats } from '@/types/fixture';
 import {
   mapLineupsToUI,
   mapStatsToUI,
@@ -51,7 +54,7 @@ import {
   BetType,
 } from '@/utils/oddsMapper';
 
-type TabType = 'details' | 'predictions' | 'summary' | 'lineups' | 'stats' | 'h2h' | 'table' | 'power' | 'commentary';
+type TabType = 'details' | 'predictions' | 'summary' | 'lineups' | 'stats' | 'h2h' | 'table' | 'power' | 'commentary' | 'settings';
 type MatchStatus = 'upcoming' | 'live' | 'finished';
 type BetSelection = 'home' | 'draw' | 'away' | null;
 type GoalsOverUnder = 'x1' | '12' | 'x2' | null;
@@ -70,6 +73,7 @@ const ALL_TABS: { id: TabType; label: string }[] = [
   { id: 'stats', label: 'STATS' },
   { id: 'h2h', label: 'H2H' },
   { id: 'power', label: 'POWER' },
+  { id: 'settings', label: 'SETTINGS' },
 ];
 
 // Tab configuration per match status (based on user requirements)
@@ -122,9 +126,17 @@ const getMatchStatus = (statusShort: string | undefined): MatchStatus => {
 /**
  * Get filtered tabs based on match status with dynamic labels
  */
-const getTabsForStatus = (status: MatchStatus): { id: TabType; label: string }[] => {
+const getTabsForStatus = (status: MatchStatus, isAdmin: boolean = false): { id: TabType; label: string }[] => {
   const allowedTabs = TABS_BY_STATUS[status];
-  return ALL_TABS.filter(tab => allowedTabs.includes(tab.id)).map(tab => {
+  const filteredTabs = ALL_TABS.filter(tab => {
+    // Always include settings tab for admins
+    if (tab.id === 'settings') {
+      return isAdmin;
+    }
+    return allowedTabs.includes(tab.id);
+  });
+  
+  return filteredTabs.map(tab => {
     // For live games: "summary" tab shows as "COMMENTARY"
     if (status === 'live' && tab.id === 'summary') {
       return { ...tab, label: 'COMMENTARY' };
@@ -158,6 +170,8 @@ export default function MatchDetailsScreen() {
     predictions: predictionsData,
   } = useMatchData(id || '');
   const { balance, refetch: refetchBalance } = useUserBalance();
+  const { user } = useProfile();
+  const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.includes('ROLE_ADMIN') || false;
   const [submitting, setSubmitting] = useState(false);
   const [injuries, setInjuries] = useState<FootballApiInjury[]>([]);
   const [injuryFilter, setInjuryFilter] = useState<'home' | 'away'>('home');
@@ -209,8 +223,8 @@ export default function MatchDetailsScreen() {
   }, [matchData?.fixture?.status?.short]);
 
   const availableTabs = useMemo(() => {
-    return getTabsForStatus(matchStatus);
-  }, [matchStatus]);
+    return getTabsForStatus(matchStatus, isAdmin);
+  }, [matchStatus, isAdmin]);
 
   // Auto-select appropriate default tab when match status changes
   const [hasAutoSelectedTab, setHasAutoSelectedTab] = useState(false);
@@ -3186,6 +3200,327 @@ export default function MatchDetailsScreen() {
     </View>
   );
 
+  // ============================================
+  // Admin Settings Tab
+  // ============================================
+  const [settingsSubTab, setSettingsSubTab] = useState<'details' | 'predictions' | 'users'>('details');
+  const [matchSettings, setMatchSettings] = useState<MatchSettings | null>(null);
+  const [predictionSettings, setPredictionSettings] = useState<MatchPredictionSettings | null>(null);
+  const [matchUsers, setMatchUsers] = useState<MatchUserStats[]>([]);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+
+  // Fetch settings data when settings tab is selected
+  useEffect(() => {
+    if (selectedTab === 'settings' && id) {
+      const fixtureId = parseInt(id);
+      if (!isNaN(fixtureId)) {
+        fetchSettingsData(fixtureId);
+      }
+    }
+  }, [selectedTab, id]);
+
+  const fetchSettingsData = async (fixtureId: number) => {
+    setSettingsLoading(true);
+    try {
+      const [settings, predSettings, users] = await Promise.all([
+        getMatchSettings(fixtureId).catch(() => null),
+        getPredictionSettings(fixtureId).catch(() => null),
+        getMatchUsers(fixtureId).catch(() => []),
+      ]);
+      setMatchSettings(settings);
+      setPredictionSettings(predSettings);
+      setMatchUsers(users || []);
+    } catch (error) {
+      console.error('[Settings Tab] Error fetching data:', error);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleMatchSettingToggle = async (field: keyof MatchSettings, value: boolean) => {
+    if (!id) return;
+    const fixtureId = parseInt(id);
+    if (isNaN(fixtureId)) return;
+
+    // Optimistic update
+    setMatchSettings(prev => prev ? { ...prev, [field]: value } : null);
+
+    try {
+      await updateMatchSettings(fixtureId, { [field]: value });
+    } catch (error) {
+      console.error('[Settings Tab] Error updating match settings:', error);
+      // Revert on error
+      setMatchSettings(prev => prev ? { ...prev, [field]: !value } : null);
+      Alert.alert('Error', 'Failed to update setting. Please try again.');
+    }
+  };
+
+  const handlePredictionSettingToggle = async (field: keyof MatchPredictionSettings, value: boolean) => {
+    if (!id) return;
+    const fixtureId = parseInt(id);
+    if (isNaN(fixtureId)) return;
+
+    // Optimistic update
+    setPredictionSettings(prev => prev ? { ...prev, [field]: value } : null);
+
+    try {
+      await updatePredictionSettings(fixtureId, { [field]: value });
+    } catch (error) {
+      console.error('[Settings Tab] Error updating prediction settings:', error);
+      // Revert on error
+      setPredictionSettings(prev => prev ? { ...prev, [field]: !value } : null);
+      Alert.alert('Error', 'Failed to update setting. Please try again.');
+    }
+  };
+
+  const renderSettingsTab = () => {
+    if (settingsLoading) {
+      return (
+        <View style={styles.settingsLoadingContainer}>
+          <ActivityIndicator size="large" color={isDark ? '#22c55e' : '#32A95D'} />
+          <Text style={[styles.settingsLoadingText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+            Loading settings...
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.settingsContainer}>
+        {/* Sub-tab Navigation */}
+        <View style={styles.settingsSubNav}>
+          {(['details', 'predictions', 'users'] as const).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[
+                styles.settingsSubNavItem,
+                settingsSubTab === tab && styles.settingsSubNavItemActive,
+                { backgroundColor: settingsSubTab === tab ? (isDark ? '#1f2937' : '#E5E7EB') : 'transparent' },
+              ]}
+              onPress={() => setSettingsSubTab(tab)}
+            >
+              <Text
+                style={[
+                  styles.settingsSubNavText,
+                  { color: settingsSubTab === tab ? (isDark ? '#22c55e' : '#32A95D') : (isDark ? '#9ca3af' : '#6B7280') },
+                ]}
+              >
+                {tab.toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Sub-tab Content */}
+        {settingsSubTab === 'details' && (
+          <View style={styles.settingsContent}>
+            <View style={[styles.settingsCard, { backgroundColor: isDark ? '#111827' : '#FFFFFF', borderColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+              {/* Show Match */}
+              <View style={styles.settingsRow}>
+                <View style={styles.settingsRowContent}>
+                  <Text style={[styles.settingsRowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+                    Show Match
+                  </Text>
+                  <Text style={[styles.settingsRowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                    Make this match visible to public users
+                  </Text>
+                </View>
+                <Switch
+                  value={matchSettings?.showMatch ?? false}
+                  onValueChange={(value) => handleMatchSettingToggle('showMatch', value)}
+                  trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+
+              {/* Allow Betting */}
+              <View style={[styles.settingsRow, styles.settingsRowDivider, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                <View style={styles.settingsRowContent}>
+                  <Text style={[styles.settingsRowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+                    Allow Betting
+                  </Text>
+                  <Text style={[styles.settingsRowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                    Enable pre-match betting for this fixture
+                  </Text>
+                </View>
+                <Switch
+                  value={matchSettings?.allowBetting ?? false}
+                  onValueChange={(value) => handleMatchSettingToggle('allowBetting', value)}
+                  trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+
+              {/* Allow Betting Halftime */}
+              <View style={[styles.settingsRow, styles.settingsRowDivider, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                <View style={styles.settingsRowContent}>
+                  <Text style={[styles.settingsRowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+                    Allow Betting Halftime
+                  </Text>
+                  <Text style={[styles.settingsRowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                    Enable live/halftime betting for this fixture
+                  </Text>
+                </View>
+                <Switch
+                  value={matchSettings?.allowBettingHT ?? false}
+                  onValueChange={(value) => handleMatchSettingToggle('allowBettingHT', value)}
+                  trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
+        {settingsSubTab === 'predictions' && (
+          <View style={styles.settingsContent}>
+            <View style={[styles.settingsCard, { backgroundColor: isDark ? '#111827' : '#FFFFFF', borderColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+              {/* Match Winner */}
+              <View style={styles.settingsRow}>
+                <View style={styles.settingsRowContent}>
+                  <Text style={[styles.settingsRowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+                    Match Winner
+                  </Text>
+                  <Text style={[styles.settingsRowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                    Enable match winner predictions
+                  </Text>
+                </View>
+                <Switch
+                  value={predictionSettings?.whoWillWin ?? true}
+                  onValueChange={(value) => handlePredictionSettingToggle('whoWillWin', value)}
+                  trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+
+              {/* Over/Under 2.5 */}
+              <View style={[styles.settingsRow, styles.settingsRowDivider, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                <View style={styles.settingsRowContent}>
+                  <Text style={[styles.settingsRowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+                    Over/Under 2.5
+                  </Text>
+                  <Text style={[styles.settingsRowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                    Enable over/under goals predictions
+                  </Text>
+                </View>
+                <Switch
+                  value={predictionSettings?.goalsOverUnder ?? true}
+                  onValueChange={(value) => handlePredictionSettingToggle('goalsOverUnder', value)}
+                  trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+
+              {/* Both Teams to Score */}
+              <View style={[styles.settingsRow, styles.settingsRowDivider, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                <View style={styles.settingsRowContent}>
+                  <Text style={[styles.settingsRowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+                    Both Teams to Score
+                  </Text>
+                  <Text style={[styles.settingsRowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                    Enable both teams to score predictions
+                  </Text>
+                </View>
+                <Switch
+                  value={predictionSettings?.bothTeamsScore ?? true}
+                  onValueChange={(value) => handlePredictionSettingToggle('bothTeamsScore', value)}
+                  trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+
+              {/* Double Chance */}
+              <View style={[styles.settingsRow, styles.settingsRowDivider, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                <View style={styles.settingsRowContent}>
+                  <Text style={[styles.settingsRowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+                    Double Chance
+                  </Text>
+                  <Text style={[styles.settingsRowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                    Enable double chance predictions
+                  </Text>
+                </View>
+                <Switch
+                  value={predictionSettings?.doubleChance ?? true}
+                  onValueChange={(value) => handlePredictionSettingToggle('doubleChance', value)}
+                  trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+
+              {/* Correct Score */}
+              <View style={[styles.settingsRow, styles.settingsRowDivider, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                <View style={styles.settingsRowContent}>
+                  <Text style={[styles.settingsRowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+                    Correct Score
+                  </Text>
+                  <Text style={[styles.settingsRowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                    Enable correct score predictions
+                  </Text>
+                </View>
+                <Switch
+                  value={predictionSettings?.scorePrediction ?? true}
+                  onValueChange={(value) => handlePredictionSettingToggle('scorePrediction', value)}
+                  trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+
+              {/* Half Time / Full Time */}
+              <View style={[styles.settingsRow, styles.settingsRowDivider, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                <View style={styles.settingsRowContent}>
+                  <Text style={[styles.settingsRowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+                    Half Time / Full Time
+                  </Text>
+                  <Text style={[styles.settingsRowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                    Enable half time / full time predictions
+                  </Text>
+                </View>
+                <Switch
+                  value={predictionSettings?.halfTimeFullTime ?? true}
+                  onValueChange={(value) => handlePredictionSettingToggle('halfTimeFullTime', value)}
+                  trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
+                  thumbColor="#ffffff"
+                />
+              </View>
+            </View>
+          </View>
+        )}
+
+        {settingsSubTab === 'users' && (
+          <View style={styles.settingsContent}>
+            {matchUsers.length === 0 ? (
+              <View style={styles.settingsEmptyContainer}>
+                <Text style={[styles.settingsEmptyText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                  No active bets on this match
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={matchUsers}
+                keyExtractor={(item) => item.userId.toString()}
+                renderItem={({ item }) => (
+                  <View style={[styles.settingsUserRow, { backgroundColor: isDark ? '#111827' : '#FFFFFF', borderColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                    <Image
+                      source={{ uri: item.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.username)}&background=3b82f6&color=fff&size=200` }}
+                      style={styles.settingsUserAvatar}
+                    />
+                    <Text style={[styles.settingsUserName, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+                      {item.username}
+                    </Text>
+                    <Text style={[styles.settingsUserWagered, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+                      {item.totalWagered.toLocaleString()} pts
+                    </Text>
+                  </View>
+                )}
+                ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }} />}
+              />
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: isDark ? '#080C17' : '#F3F4F6' }]}>
       {/* Header & Score Section with Gradient */}
@@ -3338,8 +3673,9 @@ export default function MatchDetailsScreen() {
           // For live games: commentary tab shows commentary content (but commentary tab is hidden in live)
           matchStatus === 'finished' ? renderSummaryTab() : renderCommentaryTab()
         )}
+        {selectedTab === 'settings' && renderSettingsTab()}
         {/* Fallback for any unhandled tab */}
-        {!['details', 'predictions', 'summary', 'lineups', 'stats', 'h2h', 'table', 'power', 'commentary'].includes(selectedTab) && renderPlaceholderTab()}
+        {!['details', 'predictions', 'summary', 'lineups', 'stats', 'h2h', 'table', 'power', 'commentary', 'settings'].includes(selectedTab) && renderPlaceholderTab()}
     </ScrollView>
     </View>
   );
@@ -3695,6 +4031,109 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Montserrat_500Medium',
     color: '#6b7280',
+  },
+  // Settings Tab
+  settingsContainer: {
+    flex: 1,
+  },
+  settingsLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  settingsLoadingText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_400Regular',
+    marginTop: 12,
+  },
+  settingsSubNav: {
+    flexDirection: 'row',
+    backgroundColor: '#030712',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  settingsSubNavItem: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  settingsSubNavItemActive: {
+    // Active state handled by backgroundColor in component
+  },
+  settingsSubNavText: {
+    fontSize: 13,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  settingsContent: {
+    flex: 1,
+    padding: 16,
+  },
+  settingsCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+  },
+  settingsRowDivider: {
+    borderBottomWidth: 1,
+  },
+  settingsRowContent: {
+    flex: 1,
+    marginRight: 16,
+  },
+  settingsRowTitle: {
+    fontSize: 15,
+    fontFamily: 'Montserrat_700Bold',
+    marginBottom: 4,
+  },
+  settingsRowDescription: {
+    fontSize: 13,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  settingsEmptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  settingsEmptyText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  settingsUserRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  settingsUserAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 12,
+    backgroundColor: '#1f2937',
+  },
+  settingsUserName: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  settingsUserWagered: {
+    fontSize: 15,
+    fontFamily: 'Montserrat_700Bold',
   },
   // Summary Tab
   summaryContainer: {

@@ -9,18 +9,26 @@ export interface FixtureViewDTO {
 }
 
 export interface MatchPredictionSettings {
-  goalsOverUnder: boolean;
-  bothTeamsScore: boolean;
+  goalsOverUnder: boolean; // overUnder25
+  bothTeamsScore: boolean; // bothTeamsToScore
   firstTeamToScore: boolean;
   doubleChance: boolean;
-  scorePrediction: boolean;
-  whoWillWin: boolean;
+  scorePrediction: boolean; // correctScore
+  whoWillWin: boolean; // matchWinner
+  halfTimeFullTime: boolean;
 }
 
 export interface MatchSettings {
-  allowBettingHT: boolean;
-  showMatch: boolean;
-  allowBetting: boolean;
+  allowBettingHT: boolean; // allowBettingHalftime
+  showMatch: boolean; // Visible to public
+  allowBetting: boolean; // Open for pre-match bets
+}
+
+export interface MatchUserStats {
+  userId: number;
+  username: string;
+  avatar: string;
+  totalWagered: number; // Total stake amount for this fixture
 }
 
 // Football-API Standard Response (rawJson structure)

@@ -57,14 +57,8 @@ export default function DashboardBets() {
   // Get top 3 betters
   const top3Betters = topBetters.slice(0, 3);
 
-  // Get top 3 pointers
-  const top3Pointers = topPointers
-    .map(user => ({
-      ...user,
-      displayPoints: user.totalPoints ?? user.points ?? 0,
-    }))
-    .sort((a, b) => b.displayPoints - a.displayPoints)
-    .slice(0, 3);
+  // Get top 3 pointers (already sorted by backend)
+  const top3Pointers = topPointers.slice(0, 3);
 
   // Get trophy icon based on rank
   const getTrophyIcon = (rank: number) => {
@@ -185,7 +179,7 @@ export default function DashboardBets() {
                   <View style={styles.listRowContent}>
                     <Text style={styles.listRowTitle}>{user.username?.toUpperCase()}</Text>
                     <Text style={styles.listRowSubtitle}>
-                      {((user as any).totalBets || 0).toLocaleString()} BETS
+                      {(user.totalBets || 0).toLocaleString()} BETS
                     </Text>
                   </View>
                   {getTrophyIcon(rank)}
@@ -230,7 +224,7 @@ export default function DashboardBets() {
                   <View style={styles.listRowContent}>
                     <Text style={styles.listRowTitle}>{user.username?.toUpperCase()}</Text>
                     <Text style={styles.listRowSubtitle}>
-                      {((user as any).displayPoints ?? user.totalPoints ?? user.points ?? 0).toLocaleString()} POINTS
+                      {(user.totalPoints || user.points || 0).toLocaleString()} PTS
                     </Text>
                   </View>
                   {getTrophyIcon(rank)}

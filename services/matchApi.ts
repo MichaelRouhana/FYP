@@ -1,5 +1,5 @@
 import api from './api';
-import { FootballApiFixture } from '@/types/fixture';
+import { FootballApiFixture, MatchSettings, MatchPredictionSettings, MatchUserStats } from '@/types/fixture';
 
 // Football-API Forwarder Endpoints
 
@@ -212,5 +212,68 @@ export const getOddsForFixture = async (fixtureId: string | number) => {
   );
   console.log('[matchApi] Odds response:', response.data?.response?.length || 0, 'items');
   return response.data?.response || [];
+};
+
+// ============================================
+// Admin Match Settings API Functions
+// ============================================
+
+/**
+ * Get match settings for a fixture
+ * GET /api/v1/fixtures/{fixtureId}/settings
+ */
+export const getMatchSettings = async (fixtureId: number): Promise<MatchSettings> => {
+  console.log('[matchApi] Fetching match settings for fixture:', fixtureId);
+  const response = await api.get<MatchSettings>(`/fixtures/${fixtureId}/settings`);
+  console.log('[matchApi] Match settings response:', response.data);
+  return response.data;
+};
+
+/**
+ * Update match settings for a fixture (partial update)
+ * PATCH /api/v1/fixtures/{fixtureId}/settings
+ */
+export const updateMatchSettings = async (
+  fixtureId: number,
+  data: Partial<MatchSettings>
+): Promise<void> => {
+  console.log('[matchApi] Updating match settings for fixture:', fixtureId, 'data:', data);
+  await api.patch(`/fixtures/${fixtureId}/settings`, data);
+  console.log('[matchApi] Match settings updated successfully');
+};
+
+/**
+ * Get prediction settings for a fixture
+ * GET /api/v1/fixtures/{fixtureId}/prediction-settings
+ */
+export const getPredictionSettings = async (fixtureId: number): Promise<MatchPredictionSettings> => {
+  console.log('[matchApi] Fetching prediction settings for fixture:', fixtureId);
+  const response = await api.get<MatchPredictionSettings>(`/fixtures/${fixtureId}/prediction-settings`);
+  console.log('[matchApi] Prediction settings response:', response.data);
+  return response.data;
+};
+
+/**
+ * Update prediction settings for a fixture (partial update)
+ * PATCH /api/v1/fixtures/{fixtureId}/prediction-settings
+ */
+export const updatePredictionSettings = async (
+  fixtureId: number,
+  data: Partial<MatchPredictionSettings>
+): Promise<void> => {
+  console.log('[matchApi] Updating prediction settings for fixture:', fixtureId, 'data:', data);
+  await api.patch(`/fixtures/${fixtureId}/prediction-settings`, data);
+  console.log('[matchApi] Prediction settings updated successfully');
+};
+
+/**
+ * Get users betting on a fixture with their total wagered amounts
+ * GET /api/v1/fixtures/{fixtureId}/users
+ */
+export const getMatchUsers = async (fixtureId: number): Promise<MatchUserStats[]> => {
+  console.log('[matchApi] Fetching users betting on fixture:', fixtureId);
+  const response = await api.get<MatchUserStats[]>(`/fixtures/${fixtureId}/users`);
+  console.log('[matchApi] Match users response:', response.data?.length || 0, 'users');
+  return response.data || [];
 };
 
