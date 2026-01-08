@@ -12,10 +12,12 @@ import {
   Switch,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@/context/ThemeContext';
 import { createCommunity, CommunityRequestDTO } from '@/services/communityApi';
 
@@ -27,8 +29,56 @@ export default function CreateCommunityScreen() {
   const [shortDescription, setShortDescription] = useState('');
   const [description, setDescription] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
-  const [logoUrl, setLogoUrl] = useState('');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const pickImageFromLibrary = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Photo library permission is required');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        ...(ImagePicker.MediaTypeOptions && { mediaTypes: ImagePicker.MediaTypeOptions.Images }),
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setSelectedImage(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.error('Error picking image from library:', err);
+      Alert.alert('Error', 'Failed to pick image from library');
+    }
+  };
+
+  const takePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Camera permission is required');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        ...(ImagePicker.MediaTypeOptions && { mediaTypes: ImagePicker.MediaTypeOptions.Images }),
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        setSelectedImage(result.assets[0].uri);
+      }
+    } catch (err) {
+      console.error('Error taking photo:', err);
+      Alert.alert('Error', 'Failed to take photo');
+    }
+  };
 
   const handleCreate = async () => {
     // Validation
@@ -48,10 +98,9 @@ export default function CreateCommunityScreen() {
         description: description.trim(),
         shortDescription: shortDescription.trim() || undefined,
         isPrivate,
-        logoUrl: logoUrl.trim() || undefined,
       };
 
-      await createCommunity(requestData);
+      await createCommunity(requestData, selectedImage);
       
       Alert.alert('Success', 'Community created successfully!', [
         {
@@ -72,20 +121,22 @@ export default function CreateCommunityScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: isDark ? '#030712' : '#F3F4F6' }]}>
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-        <TouchableOpacity
-          style={styles.closeButton}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="close" size={28} color={isDark ? '#F9FAFB' : '#18223A'} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
-          Create Community
-        </Text>
-        <View style={styles.headerRight} />
-      </View>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: isDark ? '#030712' : '#F3F4F6' }]}>
+        {/* Header */}
+        <View style={[styles.header, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="close" size={28} color={isDark ? '#F9FAFB' : '#18223A'} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+            Create Community
+          </Text>
+          <View style={styles.headerRight} />
+        </View>
 
       <ScrollView
         style={styles.scrollView}
@@ -164,30 +215,58 @@ export default function CreateCommunityScreen() {
           />
         </View>
 
-        {/* Logo URL Field */}
+        {/* Logo Image Picker */}
         <View style={styles.section}>
           <Text style={[styles.label, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
-            Logo URL
+            Community Logo
           </Text>
           <Text style={[styles.hint, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
-            Optional: URL to community logo image
+            Optional: Upload a square logo image
           </Text>
-          <TextInput
-            style={[
-              styles.input,
-              {
-                backgroundColor: isDark ? '#111827' : '#FFFFFF',
-                color: isDark ? '#F9FAFB' : '#18223A',
-                borderColor: isDark ? '#1f2937' : '#E5E7EB',
-              },
-            ]}
-            placeholder="https://example.com/logo.png"
-            placeholderTextColor={isDark ? '#6b7280' : '#9CA3AF'}
-            value={logoUrl}
-            onChangeText={setLogoUrl}
-            keyboardType="url"
-            autoCapitalize="none"
-          />
+          
+          {/* Image Preview */}
+          <View style={styles.imageContainer}>
+            {selectedImage ? (
+              <View style={styles.imageWrapper}>
+                <Image source={{ uri: selectedImage }} style={styles.previewImage} />
+                <TouchableOpacity
+                  style={styles.removeImageButton}
+                  onPress={() => setSelectedImage(null)}
+                >
+                  <Ionicons name="close-circle" size={24} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={[styles.placeholderContainer, { backgroundColor: isDark ? '#111827' : '#FFFFFF', borderColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+                <Ionicons name="image-outline" size={48} color={isDark ? '#6b7280' : '#9CA3AF'} />
+                <Text style={[styles.placeholderText, { color: isDark ? '#6b7280' : '#9CA3AF' }]}>
+                  No image selected
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Image Picker Buttons */}
+          <View style={styles.imagePickerButtons}>
+            <TouchableOpacity
+              style={[styles.imagePickerButton, { backgroundColor: isDark ? '#111827' : '#FFFFFF', borderColor: isDark ? '#1f2937' : '#E5E7EB' }]}
+              onPress={pickImageFromLibrary}
+            >
+              <Ionicons name="images-outline" size={20} color={isDark ? '#F9FAFB' : '#18223A'} />
+              <Text style={[styles.imagePickerButtonText, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+                Choose from Library
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.imagePickerButton, { backgroundColor: isDark ? '#111827' : '#FFFFFF', borderColor: isDark ? '#1f2937' : '#E5E7EB' }]}
+              onPress={takePhoto}
+            >
+              <Ionicons name="camera-outline" size={20} color={isDark ? '#F9FAFB' : '#18223A'} />
+              <Text style={[styles.imagePickerButtonText, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+                Take Photo
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Private Community Toggle */}
@@ -228,7 +307,8 @@ export default function CreateCommunityScreen() {
           )}
         </TouchableOpacity>
       </ScrollView>
-    </View>
+      </View>
+    </>
   );
 }
 
@@ -317,6 +397,66 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Montserrat_700Bold',
     letterSpacing: 0.5,
+  },
+  imageContainer: {
+    marginBottom: 12,
+  },
+  imageWrapper: {
+    position: 'relative',
+    width: 120,
+    height: 120,
+    alignSelf: 'center',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+    padding: 2,
+  },
+  placeholderContainer: {
+    width: 120,
+    height: 120,
+    alignSelf: 'center',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placeholderText: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+    marginTop: 8,
+  },
+  imagePickerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  imagePickerButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  imagePickerButtonText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_600SemiBold',
   },
 });
 
