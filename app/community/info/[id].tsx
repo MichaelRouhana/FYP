@@ -24,6 +24,7 @@ import {
   getMembersWithRoles,
   promoteToModerator,
   demoteToMember,
+  kickUser,
   CommunityMemberDTO
 } from '@/services/communityApi';
 import { Moderator, Member, LeaderboardEntry } from '@/types/chat';
@@ -196,24 +197,44 @@ function MembersTab({ communityId, isOwner, currentUserEmail }: {
     }
   };
 
+  const handleKick = async (userEmail: string, username: string) => {
+    try {
+      await kickUser(communityId, userEmail);
+      Alert.alert('Success', `${username} has been removed from the community`);
+      // Refresh members list
+      const members = await getMembersWithRoles(communityId);
+      setMembersWithRoles(members);
+      setActionMenuVisible(null);
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Failed to kick user');
+    }
+  };
+
   const getRoleBadge = (roles: string[] = []) => {
     if (roles.includes('OWNER')) {
-      return { text: '👑 Admin', color: '#fbbf24' }; // Gold
+      return { text: '👑 Admin', color: '#fbbf24', icon: '👑' }; // Gold
     }
     if (roles.includes('MODERATOR')) {
-      return { text: '🛡️ Mod', color: '#3b82f6' }; // Blue
+      return { text: '🛡️ Mod', color: '#3b82f6', icon: '🛡️' }; // Blue
     }
     return null;
   };
 
   const renderMember = ({ item }: { item: CommunityMemberDTO }) => {
-    const roleBadge = getRoleBadge(item.roles);
+    const roleBadge = getRoleBadge(item.roles || []);
     const isCurrentUser = currentUserEmail && item.email === currentUserEmail;
-    const isModerator = item.roles?.includes('MODERATOR') || item.roles?.includes('OWNER');
+    const isOwnerRole = item.roles?.includes('OWNER') || false;
+    const isModeratorRole = item.roles?.includes('MODERATOR') || false;
+    const isModerator = isModeratorRole || isOwnerRole;
     const canShowActions = isOwner && !isCurrentUser; // Don't show actions for self
 
     return (
-      <View style={[styles.memberRow, { backgroundColor: isDark ? '#111827' : '#FFFFFF', borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border }]}>
+      <View style={[styles.memberRow, { 
+        backgroundColor: isDark ? '#111827' : '#FFFFFF', 
+        borderWidth: isDark ? 0 : 1, 
+        borderColor: theme.colors.border,
+        position: 'relative',
+      }]}>
         <Image 
           source={{ uri: item.pfp || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.username)}&background=3b82f6&color=fff` }} 
           style={styles.memberAvatar} 
@@ -224,9 +245,13 @@ function MembersTab({ communityId, isOwner, currentUserEmail }: {
               {item.username.toUpperCase()}
             </Text>
             {roleBadge && (
-              <View style={[styles.roleBadge, { backgroundColor: roleBadge.color + '20' }]}>
+              <View style={[styles.roleBadge, { 
+                backgroundColor: roleBadge.color + '25',
+                borderColor: roleBadge.color + '60',
+              }]}>
+                <Text style={[styles.roleBadgeIcon]}>{roleBadge.icon}</Text>
                 <Text style={[styles.roleBadgeText, { color: roleBadge.color }]}>
-                  {roleBadge.text}
+                  {roleBadge.text.replace(/[👑🛡️]/g, '').trim()}
                 </Text>
               </View>
             )}
@@ -244,41 +269,109 @@ function MembersTab({ communityId, isOwner, currentUserEmail }: {
           </TouchableOpacity>
         )}
         {actionMenuVisible === item.id.toString() && (
-          <View style={[styles.actionMenu, { backgroundColor: isDark ? '#1f2937' : '#f9fafb', borderColor: theme.colors.border }]}>
+          <View 
+            style={[styles.actionMenu, { 
+              backgroundColor: isDark ? '#1f2937' : '#f9fafb', 
+              borderColor: theme.colors.border,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.25,
+              shadowRadius: 3.84,
+              elevation: 5,
+            }]}
+          >
             {isModerator ? (
-              <TouchableOpacity
-                onPress={() => {
-                  Alert.alert(
-                    'Demote Moderator',
-                    `Are you sure you want to demote ${item.username} to a regular member?`,
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Demote', style: 'destructive', onPress: () => handleDemote(item.id) },
-                    ]
-                  );
-                }}
-                style={styles.actionMenuItem}
-              >
-                <Ionicons name="arrow-down" size={18} color={theme.colors.text} />
-                <Text style={[styles.actionMenuText, { color: theme.colors.text }]}>Demote to Member</Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert(
+                      'Demote Moderator',
+                      `Are you sure you want to demote ${item.username} to a regular member?`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Demote', style: 'destructive', onPress: () => handleDemote(item.id) },
+                      ]
+                    );
+                  }}
+                  style={styles.actionMenuItem}
+                >
+                  <Ionicons name="arrow-down" size={18} color={theme.colors.text} />
+                  <Text style={[styles.actionMenuText, { color: theme.colors.text }]}>Demote to Member</Text>
+                </TouchableOpacity>
+                <View style={[styles.actionMenuDivider, { backgroundColor: theme.colors.separator }]} />
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert(
+                      'Kick User',
+                      `Are you sure you want to remove ${item.username} from this community?`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Kick', 
+                          style: 'destructive', 
+                          onPress: () => {
+                            if (item.email) {
+                              handleKick(item.email, item.username);
+                            } else {
+                              Alert.alert('Error', 'Cannot kick user: email not available');
+                            }
+                          }
+                        },
+                      ]
+                    );
+                  }}
+                  style={styles.actionMenuItem}
+                >
+                  <Ionicons name="person-remove" size={18} color="#ef4444" />
+                  <Text style={[styles.actionMenuText, { color: '#ef4444' }]}>Kick User</Text>
+                </TouchableOpacity>
+              </>
             ) : (
-              <TouchableOpacity
-                onPress={() => {
-                  Alert.alert(
-                    'Promote to Moderator',
-                    `Are you sure you want to promote ${item.username} to moderator?`,
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Promote', onPress: () => handlePromote(item.id) },
-                    ]
-                  );
-                }}
-                style={styles.actionMenuItem}
-              >
-                <Ionicons name="arrow-up" size={18} color={theme.colors.text} />
-                <Text style={[styles.actionMenuText, { color: theme.colors.text }]}>Promote to Moderator</Text>
-              </TouchableOpacity>
+              <>
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert(
+                      'Promote to Moderator',
+                      `Are you sure you want to promote ${item.username} to moderator?`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Promote', onPress: () => handlePromote(item.id) },
+                      ]
+                    );
+                  }}
+                  style={styles.actionMenuItem}
+                >
+                  <Ionicons name="arrow-up" size={18} color={theme.colors.text} />
+                  <Text style={[styles.actionMenuText, { color: theme.colors.text }]}>Promote to Moderator</Text>
+                </TouchableOpacity>
+                <View style={[styles.actionMenuDivider, { backgroundColor: theme.colors.separator }]} />
+                <TouchableOpacity
+                  onPress={() => {
+                    Alert.alert(
+                      'Kick User',
+                      `Are you sure you want to remove ${item.username} from this community?`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Kick', 
+                          style: 'destructive', 
+                          onPress: () => {
+                            if (item.email) {
+                              handleKick(item.email, item.username);
+                            } else {
+                              Alert.alert('Error', 'Cannot kick user: email not available');
+                            }
+                          }
+                        },
+                      ]
+                    );
+                  }}
+                  style={styles.actionMenuItem}
+                >
+                  <Ionicons name="person-remove" size={18} color="#ef4444" />
+                  <Text style={[styles.actionMenuText, { color: '#ef4444' }]}>Kick User</Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
         )}
@@ -814,13 +907,20 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 4,
+  },
+  roleBadgeIcon: {
+    fontSize: 12,
   },
   roleBadgeText: {
     fontSize: 10,
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: 'Montserrat_700Bold',
     letterSpacing: 0.5,
   },
   actionButton: {
@@ -851,6 +951,12 @@ const styles = StyleSheet.create({
   actionMenuText: {
     fontSize: 14,
     fontFamily: 'Inter_500Medium',
+    marginLeft: 4,
+  },
+  actionMenuDivider: {
+    height: 1,
+    marginVertical: 4,
+    marginHorizontal: 8,
   },
 
   // Leaderboard Tab Styles

@@ -147,3 +147,19 @@ export async function getMembersWithRoles(communityId: number | string): Promise
   }
 }
 
+/**
+ * Kick a user from the community
+ * POST /api/v1/communities/kick/{communityId}?email={userEmail}
+ * Only OWNER can kick members
+ */
+export async function kickUser(communityId: number | string, userEmail: string): Promise<void> {
+  try {
+    await api.post(`/communities/kick/${communityId}`, null, {
+      params: { email: userEmail }
+    });
+  } catch (error: any) {
+    console.error('[communityApi] Error kicking user:', error);
+    throw error;
+  }
+}
+
