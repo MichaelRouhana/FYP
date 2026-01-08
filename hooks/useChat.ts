@@ -604,7 +604,7 @@ export function useChatMessages(communityId: string) {
 
     try {
       // Get current user ID from token (you may need to decode JWT or get from storage)
-      const token = await SecureStore.getItemAsync('jwt_token');
+      const token = await getItem('jwt_token');
       // For now, we'll let the backend extract user from token
       // The payload structure matches CommunityMessageDTO
       // Note: senderUsername is set by backend from authenticated user, we only send content
