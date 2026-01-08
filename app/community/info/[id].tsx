@@ -267,17 +267,20 @@ export default function CommunityInfoScreen() {
   };
 
   const handleQRCode = () => {
-    if (!community || !community.inviteCode) {
-      console.warn('[CommunityInfo] Cannot navigate to QR: inviteCode missing');
+    if (!community) {
+      console.warn('[CommunityInfo] Cannot navigate to QR: community missing');
       return;
     }
+
+    // Ensure inviteCode is never null/undefined when passing to navigation
+    const safeInviteCode = community.inviteCode || '';
 
     router.push({
       pathname: '/community/qr/[id]',
       params: {
         id: community.id.toString(),
         name: community.name,
-        inviteCode: community.inviteCode,
+        inviteCode: safeInviteCode,
       },
     });
   };

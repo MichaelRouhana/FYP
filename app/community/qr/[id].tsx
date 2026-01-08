@@ -26,8 +26,8 @@ export default function QRCodeScreen() {
     router.back();
   };
 
-  // If inviteCode is missing, show error message
-  if (!inviteCode) {
+  // If inviteCode is missing, null, undefined, or string 'null'/'undefined', show error message
+  if (!inviteCode || inviteCode === 'null' || inviteCode === 'undefined') {
     return (
       <View style={[styles.container, { 
         paddingTop: insets.top, 
@@ -78,29 +78,43 @@ export default function QRCodeScreen() {
         {/* QR Code Container */}
         <View style={styles.qrWrapper}>
           <View style={styles.qrContainer}>
-            <QRCode
-              value={inviteCode}
-              size={200}
-              backgroundColor="#FFFFFF"
-              color="#000000"
-            />
+            {inviteCode && inviteCode !== 'null' && inviteCode !== 'undefined' ? (
+              <QRCode
+                value={inviteCode}
+                size={200}
+                backgroundColor="#FFFFFF"
+                color="#000000"
+              />
+            ) : (
+              <View style={styles.unavailableContainer}>
+                <Text style={styles.unavailableText}>Code Unavailable</Text>
+              </View>
+            )}
           </View>
 
           {/* Invite Code Display */}
-          <View style={styles.codeDisplayContainer}>
-            <Text style={styles.codeLabel}>Code:</Text>
-            <Text 
-              style={styles.codeText}
-              selectable={true}
-            >
-              {inviteCode}
-            </Text>
-          </View>
+          {inviteCode && inviteCode !== 'null' && inviteCode !== 'undefined' && (
+            <View style={styles.codeDisplayContainer}>
+              <Text style={styles.codeLabel}>Code:</Text>
+              <Text 
+                style={styles.codeText}
+                selectable={true}
+              >
+                {inviteCode}
+              </Text>
+            </View>
+          )}
 
           {/* Instruction Text */}
-          <Text style={styles.instructionText}>
-            Scan this code to join
-          </Text>
+          {inviteCode && inviteCode !== 'null' && inviteCode !== 'undefined' ? (
+            <Text style={styles.instructionText}>
+              Scan this code to join
+            </Text>
+          ) : (
+            <Text style={styles.instructionText}>
+              Invite code is not available for this community
+            </Text>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -199,6 +213,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  unavailableContainer: {
+    height: 200,
+    width: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  unavailableText: {
+    fontSize: 16,
+    fontFamily: 'Inter_400Regular',
+    color: '#9ca3af',
+    textAlign: 'center',
   },
 });
 
