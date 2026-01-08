@@ -337,52 +337,26 @@ export const getAllBets = async (
 };
 
 /**
- * Get bet by ID (real API)
- * Note: Backend endpoint is commented out, but we'll use the pattern
- * If the endpoint is not available, we'll check mock bets as fallback
+ * Get bet by ID (real API only - no mock fallback)
  */
-export const getBetById = async (id: string | number): Promise<BetResponseDTO | null> => {
-  try {
-    // Try real API first
-    const response = await api.get<BetResponseDTO>(`/bets/${id}`);
-    return response.data;
-  } catch (error: any) {
-    // If API endpoint is not available, fall back to mock bets
-    console.warn('[getBetById] API endpoint not available, checking mock bets');
-    
-    // Try exact match first
-    let bet = MOCK_BETS.find((b) => b.id === String(id));
-    
-    // If not found, try numeric match (e.g., "1" matches "bet-1")
-    if (!bet && !String(id).startsWith('bet-')) {
-      bet = MOCK_BETS.find((b) => {
-        const numericId = b.id.replace('bet-', '');
-        return numericId === String(id) || String(b.id) === String(id);
-      });
+export const getBetById = async (id: string | number): Promise<BetResponseDTO> => {
+  // Convert to number if needed (handles "bet-1" format for legacy support)
+  let numericId: number;
+  if (typeof id === 'string' && id.startsWith('bet-')) {
+    numericId = Number(id.replace('bet-', ''));
+    if (isNaN(numericId)) {
+      throw new Error('Invalid bet ID format');
     }
-    
-    // Also try reverse (if id is "bet-1", try to find by numeric "1")
-    if (!bet && String(id).startsWith('bet-')) {
-      const numericId = String(id).replace('bet-', '');
-      bet = MOCK_BETS.find((b) => b.id.replace('bet-', '') === numericId);
+  } else {
+    numericId = Number(id);
+    if (isNaN(numericId)) {
+      throw new Error('Invalid bet ID format');
     }
-    
-    // Convert mock bet to BetResponseDTO format if found
-    if (bet) {
-      // Return a simplified BetResponseDTO from mock data
-      return {
-        id: parseInt(bet.id.replace('bet-', '')) || 0,
-        fixtureId: bet.fixtureId,
-        marketType: bet.legs[0]?.marketType || MarketType.MATCH_WINNER,
-        selection: bet.legs[0]?.selection || '',
-        stake: bet.wagerAmount,
-        status: bet.status === 'Pending' ? 'PENDING' : bet.status === 'Won' ? 'WON' : 'LOST',
-        // Add other required fields if needed
-      } as BetResponseDTO;
-    }
-    
-    return null;
   }
+
+  // Call real API only (no mock fallback)
+  const response = await api.get<BetResponseDTO>(`/bets/${numericId}`);
+  return response.data;
 };
 
 /**

@@ -53,11 +53,10 @@ export default function BiddingScreen() {
   const filteredBids = getFilteredBids();
 
   const handleMatchPress = (bid: any) => {
-    // Use originalId if available (for mock bets), otherwise use numeric ID
-    const betId = bid.originalId || (bid.id ? `bet-${bid.id}` : String(bid.id));
+    // Use numeric ID directly (no more mock bets with "bet-1" format)
     router.push({
       pathname: '/bidding/[id]',
-      params: { id: betId },
+      params: { id: String(bid.id) },
     });
   };
 

@@ -64,22 +64,46 @@ export default function BetDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [betSlip, setBetSlip] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch bet data
   useEffect(() => {
     const fetchBet = async () => {
-      if (!id) {
+      // Validate ID - must be a valid number
+      if (!id || isNaN(Number(id))) {
+        console.warn('[getBetById] Invalid bet ID:', id);
+        setError('Invalid Bet ID');
         setLoading(false);
+        setBetSlip(null);
         return;
+      }
+
+      // Extract numeric ID if it's in "bet-1" format (legacy support)
+      let numericId: number;
+      if (id.startsWith('bet-')) {
+        const extractedId = id.replace('bet-', '');
+        if (isNaN(Number(extractedId))) {
+          setError('Invalid Bet ID');
+          setLoading(false);
+          setBetSlip(null);
+          return;
+        }
+        numericId = Number(extractedId);
+      } else {
+        numericId = Number(id);
       }
 
       try {
         setLoading(true);
+        setError(null);
+        console.log('[getBetById] Fetching bet with ID:', numericId);
+        
         // Fetch bet from API (now includes match details)
-        const betResponse: BetResponseDTO = await getBetById(id);
+        const betResponse: BetResponseDTO = await getBetById(numericId);
         
         if (!betResponse || !betResponse.legs || betResponse.legs.length === 0) {
-          console.error('Invalid bet response:', betResponse);
+          console.error('[getBetById] Invalid bet response:', betResponse);
+          setError('Bet not found or invalid response');
           setBetSlip(null);
           setLoading(false);
           return;
@@ -132,8 +156,18 @@ export default function BetDetailsScreen() {
         };
         
         setBetSlip(transformedBet);
-      } catch (error) {
-        console.error('Error fetching bet:', error);
+      } catch (error: any) {
+        console.error('[getBetById] Error fetching bet:', error);
+        
+        // Handle different error types
+        if (error.response?.status === 404 || error.response?.status === 400) {
+          setError('Bet not found');
+        } else if (error.response?.status === 401 || error.response?.status === 403) {
+          setError('You do not have access to this bet');
+        } else {
+          setError(error.response?.data?.message || error.message || 'Failed to load bet details');
+        }
+        
         setBetSlip(null);
       } finally {
         setLoading(false);
@@ -217,7 +251,7 @@ export default function BetDetailsScreen() {
     );
   }
 
-  if (!betSlip) {
+  if (!betSlip || error) {
     return (
       <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
         <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
@@ -228,9 +262,16 @@ export default function BetDetailsScreen() {
           <View style={{ width: 24 }} />
         </View>
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: theme.colors.textSecondary }]}>
-            Bet not found
+          <Ionicons name="alert-circle-outline" size={48} color={theme.colors.textSecondary} />
+          <Text style={[styles.errorText, { color: theme.colors.text }]}>
+            {error || 'Bet not found'}
           </Text>
+          <TouchableOpacity
+            style={[styles.backButtonError, { backgroundColor: theme.colors.primary }]}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -413,10 +454,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 32,
+    gap: 16,
   },
   errorText: {
     fontSize: 16,
-    fontFamily: 'Montserrat_400Regular',
+    fontFamily: 'Montserrat_600SemiBold',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  backButtonError: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  backButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: 'Montserrat_600SemiBold',
   },
   loadingContainer: {
     flex: 1,

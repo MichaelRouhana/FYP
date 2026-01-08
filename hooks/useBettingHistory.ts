@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getAllBets, getAllMockBets, getBetById } from '@/services/betApi';
+import { getAllBets } from '@/services/betApi';
 import { BetViewAllDTO } from '@/types/bet';
 
 export interface UIBet {
   id: number;
-  originalId?: string; // Store original ID for mock bets (e.g., "bet-1")
   matchId: string;
   homeTeam: string;
   awayTeam: string;
@@ -52,98 +51,56 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
       setLoading(true);
       setError(null);
 
-      // Fetch mock bets first
-      const mockBets = getAllMockBets();
+      console.log('[useBettingHistory] Fetching bets from API...');
       
-      // Transform mock bets to UI format
-      const mockUiBets: UIBet[] = mockBets.map((bet, index) => {
-        const timeparts = bet.matchTime.split(' ');
-        // Extract numeric ID from "bet-1" format, or use index as fallback
-        const numericId = bet.id.startsWith('bet-') 
-          ? parseInt(bet.id.replace('bet-', '')) || (index + 1000) // Use 1000+ to avoid conflicts
-          : parseInt(bet.id) || (index + 1000);
-        
-        return {
-          id: numericId,
-          originalId: bet.id, // Store original ID for navigation
-          matchId: String(bet.fixtureId),
-          homeTeam: bet.homeTeam,
-          awayTeam: bet.awayTeam,
-          homeTeamLogo: bet.homeTeamLogo,
-          awayTeamLogo: bet.awayTeamLogo,
-          homeScore: bet.homeScore,
-          awayScore: bet.awayScore,
-          matchTime: timeparts[0] || bet.matchTime,
-          matchDate: bet.matchDate,
-          points: bet.wagerAmount,
-          status: bet.status.toLowerCase() as 'pending' | 'won' | 'lost',
-          selection: bet.legs.map((leg) => leg.selection).join(' + '),
-          marketType: bet.legs.length > 1 ? 'MULTI_LEG' : bet.legs[0]?.marketType || 'MATCH_WINNER',
-        };
-      });
+      // Fetch real bets from API only (no mock data)
+      const betsResponse = await getAllBets(0, 50);
+      const bets = betsResponse.content;
+      console.log(`[useBettingHistory] ✅ Fetched ${bets.length} bets from API`);
+      console.log(`[useBettingHistory] 📋 Bet IDs fetched: [${bets.map(b => b.id).join(', ')}]`);
 
-      // Also try to fetch real bets (if API is available)
-      let realUiBets: UIBet[] = [];
-      try {
-        console.log('[useBettingHistory] Fetching bets from API...');
-        // Fetch with larger page size and sort by newest first
-        const betsResponse = await getAllBets(0, 50);
-        const bets = betsResponse.content;
-        console.log(`[useBettingHistory] ✅ Fetched ${bets.length} bets from API`);
-        console.log(`[useBettingHistory] 📋 Bet IDs fetched: [${bets.map(b => b.id).join(', ')}]`);
+      // Transform bets to UI format using fixture details from bet object
+      const realUiBets: UIBet[] = bets
+        .map((bet: BetViewAllDTO) => {
+          // Use fixture details directly from bet object
+          if (!bet.homeTeam || !bet.awayTeam) {
+            console.warn(`[useBettingHistory] ⚠️ Bet ${bet.id} missing fixture details (homeTeam: ${bet.homeTeam}, awayTeam: ${bet.awayTeam})`);
+            return null;
+          }
 
-        // Transform real bets to UI format using fixture details from bet object
-        realUiBets = bets
-          .map((bet: BetViewAllDTO) => {
-            // Use fixture details directly from bet object
-            if (!bet.homeTeam || !bet.awayTeam) {
-              console.warn(`[useBettingHistory] ⚠️ Bet ${bet.id} missing fixture details (homeTeam: ${bet.homeTeam}, awayTeam: ${bet.awayTeam})`);
-              return null;
-            }
+          // Parse match date from bet object
+          const matchDate = bet.matchDate ? new Date(bet.matchDate) : new Date();
+          
+          const uiBet: UIBet = {
+            id: bet.id,
+            matchId: String(bet.fixtureId || bet.id),
+            homeTeam: bet.homeTeam,
+            awayTeam: bet.awayTeam,
+            homeTeamLogo: bet.homeTeamLogo || `https://ui-avatars.com/api/?name=${encodeURIComponent(bet.homeTeam)}&background=3b82f6&color=fff&size=200`,
+            awayTeamLogo: bet.awayTeamLogo || `https://ui-avatars.com/api/?name=${encodeURIComponent(bet.awayTeam)}&background=3b82f6&color=fff&size=200`,
+            homeScore: bet.homeScore,
+            awayScore: bet.awayScore,
+            matchTime: matchDate.toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            matchDate: matchDate.toISOString(),
+            points: bet.stake,
+            status: bet.status.toLowerCase() as 'pending' | 'won' | 'lost',
+            selection: bet.selection,
+            marketType: bet.marketType,
+            createdDate: bet.createdDate ? new Date(bet.createdDate).toISOString() : undefined,
+            matchStatus: bet.matchStatus, // Store match status for filtering
+          };
+          
+          console.log(`[useBettingHistory] 📝 Mapped bet ${bet.id}: stake=${bet.stake}, matchStatus=${bet.matchStatus}, selection=${bet.selection}`);
+          return uiBet;
+        })
+        .filter((bet): bet is UIBet => bet !== null);
+      
+      console.log(`[useBettingHistory] ✅ Successfully mapped ${realUiBets.length} real bets to UI format`);
 
-            // Parse match date from bet object
-            const matchDate = bet.matchDate ? new Date(bet.matchDate) : new Date();
-            
-            const uiBet: UIBet = {
-              id: bet.id,
-              matchId: String(bet.fixtureId || bet.id),
-              homeTeam: bet.homeTeam,
-              awayTeam: bet.awayTeam,
-              homeTeamLogo: bet.homeTeamLogo || `https://ui-avatars.com/api/?name=${encodeURIComponent(bet.homeTeam)}&background=3b82f6&color=fff&size=200`,
-              awayTeamLogo: bet.awayTeamLogo || `https://ui-avatars.com/api/?name=${encodeURIComponent(bet.awayTeam)}&background=3b82f6&color=fff&size=200`,
-              homeScore: bet.homeScore,
-              awayScore: bet.awayScore,
-              matchTime: matchDate.toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-              }),
-              matchDate: matchDate.toISOString(),
-              points: bet.stake,
-              status: bet.status.toLowerCase() as 'pending' | 'won' | 'lost',
-              selection: bet.selection,
-              marketType: bet.marketType,
-              createdDate: bet.createdDate ? new Date(bet.createdDate).toISOString() : undefined,
-              matchStatus: bet.matchStatus, // Store match status for filtering
-            };
-            
-            console.log(`[useBettingHistory] 📝 Mapped bet ${bet.id}: stake=${bet.stake}, matchStatus=${bet.matchStatus}, selection=${bet.selection}`);
-            return uiBet;
-          })
-          .filter((bet): bet is UIBet => bet !== null);
-        
-        console.log(`[useBettingHistory] ✅ Successfully mapped ${realUiBets.length} real bets to UI format`);
-      } catch (apiError: any) {
-        console.error('[useBettingHistory] ❌ Error fetching real bets:', apiError);
-        console.error('[useBettingHistory] Error details:', apiError.response?.data || apiError.message);
-      }
-
-      // Combine mock and real bets, removing duplicates by ID
-      const allUiBets = [...mockUiBets, ...realUiBets];
-      const uniqueBets = allUiBets.filter((bet, index, self) => 
-        index === self.findIndex((b) => b.id === bet.id)
-      );
-
-      console.log(`[useBettingHistory] 📦 Combined bets: ${mockUiBets.length} mock + ${realUiBets.length} real = ${allUiBets.length} total, ${uniqueBets.length} unique`);
+      const uniqueBets = realUiBets;
 
       // Group accumulator bets together
       // Accumulator bets are bets with the same stake and created within 2 seconds of each other
