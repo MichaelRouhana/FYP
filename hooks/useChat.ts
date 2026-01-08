@@ -174,6 +174,7 @@ interface CommunityResponseDTO {
   location: string;
   about: string;
   rules: string[];
+  inviteCode?: string;
   userIds: number[];
 }
 

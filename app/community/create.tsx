@@ -113,8 +113,18 @@ export default function CreateCommunityScreen() {
       ]);
     } catch (error: any) {
       console.error('[CreateCommunity] Error:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to create community';
-      Alert.alert('Error', errorMessage);
+      
+      // Handle 413 Payload Too Large error specifically
+      if (error.response?.status === 413) {
+        Alert.alert(
+          'File Too Large',
+          'The image is too large. Please select an image under 10MB.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        const errorMessage = error.response?.data?.message || error.message || 'Failed to create community';
+        Alert.alert('Error', errorMessage);
+      }
     } finally {
       setLoading(false);
     }

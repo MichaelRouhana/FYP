@@ -88,6 +88,7 @@ export interface Community {
   logo: string;
   unreadCount?: number;
   memberCount?: string;      // e.g. "1.8M members"
+  inviteCode?: string;       // QR code invitation code
 }
 
 /**
@@ -136,5 +137,6 @@ export interface CommunityInfo {
   rules: string[];
   members: Member[];
   leaderboard: LeaderboardEntry[];
+  inviteCode?: string;       // QR code invitation code
 }
 
