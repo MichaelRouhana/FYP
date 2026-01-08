@@ -134,6 +134,7 @@ function RootLayoutNav() {
           <Stack.Screen name="community/info/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="community/qr/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="community/scan" options={{ headerShown: false }} />
+          <Stack.Screen name="community/create" options={{ presentation: 'modal', title: 'Create Community' }} />
           <Stack.Screen name="admin/index" options={{ title: 'Admin Dashboard' }} />
           <Stack.Screen name="admin/users" options={{ title: 'Users' }} />
           <Stack.Screen name="admin/matches" options={{ title: 'Matches & Events' }} />

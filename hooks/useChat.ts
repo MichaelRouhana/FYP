@@ -245,11 +245,45 @@ export function useCommunities() {
     );
   }, [communities]);
 
+  const refreshCommunities = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await api.get<CommunityResponseDTO[]>(
+        '/communities/my'
+      );
+      
+      const mappedCommunities: Community[] = (Array.isArray(response.data) ? response.data : response.data.content || []).map((dto) => ({
+        id: dto.id.toString(),
+        name: dto.name || 'Unnamed Community',
+        lastMessage: 'No messages yet',
+        lastMessageTime: '',
+        logo: dto.logo || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(dto.name || 'Community') + '&background=3b82f6&color=fff',
+        unreadCount: 0,
+        memberCount: dto.userIds?.length 
+          ? dto.userIds.length === 1 
+            ? '1 member' 
+            : `${dto.userIds.length.toLocaleString()} members`
+          : '0 members',
+      }));
+      
+      setCommunities(mappedCommunities);
+    } catch (err: any) {
+      console.error('Error fetching communities:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to fetch communities');
+      setCommunities([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     communities,
     loading,
     error,
     searchCommunities,
+    refreshCommunities,
   };
 }
 

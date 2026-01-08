@@ -79,6 +79,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <TabBarIcon name="chat" color={color} focused={focused} />
           ),
+          headerShown: true,
         }}
       />
       <Tabs.Screen

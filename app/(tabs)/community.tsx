@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import { router, Stack } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -13,16 +13,31 @@ import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/context/ThemeContext';
+import { useProfile } from '@/hooks/useProfile';
 import { useCommunities } from '@/hooks/useChat';
 import { Community } from '@/types/chat';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
-  const { communities, searchCommunities } = useCommunities();
+  const { communities, searchCommunities, refreshCommunities } = useCommunities();
+  const { user } = useProfile();
   const [searchQuery, setSearchQuery] = useState('');
   
   // Get the dynamic theme colors
   const { theme, isDark } = useTheme();
+  
+  // Check if user is admin
+  const isAdmin = user?.roles?.some(
+    (role) => role.toUpperCase() === 'ADMIN' || role.toUpperCase() === 'ROLE_ADMIN'
+  ) || false;
+
+  // Refresh communities when screen comes into focus (e.g., after creating a new one)
+  useFocusEffect(
+    useCallback(() => {
+      refreshCommunities();
+    }, [refreshCommunities])
+  );
 
   const filteredCommunities = useMemo(() => {
     return searchCommunities(searchQuery);
@@ -91,17 +106,38 @@ export default function CommunityScreen() {
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.menuButton}>
-          <Ionicons name="menu" size={28} color={theme.colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>COMMUNITIES</Text>
-        <TouchableOpacity style={styles.headerRight} onPress={handleScanPress}>
-          <Ionicons name="camera" size={28} color={theme.colors.icon} />
-        </TouchableOpacity>
-      </View>
+    <>
+      <Stack.Screen
+        options={{
+          headerLeft: () => isAdmin ? (
+            <TouchableOpacity
+              onPress={() => router.push('/community/create')}
+              style={{ marginLeft: 16 }}
+            >
+              <Ionicons name="add-circle-outline" size={28} color={isDark ? '#F9FAFB' : '#18223A'} />
+            </TouchableOpacity>
+          ) : null,
+          title: 'Communities',
+          headerStyle: {
+            backgroundColor: isDark ? '#030712' : '#FFFFFF',
+          },
+          headerTintColor: isDark ? '#F9FAFB' : '#18223A',
+          headerTitleStyle: {
+            fontFamily: 'Montserrat_700Bold',
+            fontSize: 20,
+            letterSpacing: 1,
+          },
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={handleScanPress}
+              style={{ marginRight: 16 }}
+            >
+              <Ionicons name="camera" size={28} color={isDark ? '#F9FAFB' : '#18223A'} />
+            </TouchableOpacity>
+          ),
+        }}
+      />
+      <View style={[styles.container, { paddingTop: 0, backgroundColor: theme.colors.background }]}>
 
       {/* Search Bar - Custom light gray for Light Mode */}
       <View style={[
