@@ -251,6 +251,9 @@ export default function BetDetailsScreen() {
     }
   };
 
+  // Debug log to see exactly what data is driving the UI
+  console.log('[getBetById] RENDER BET:', betSlip);
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -371,11 +374,13 @@ export default function BetDetailsScreen() {
               <View
                 style={[
                   styles.statusBadge,
-                  { backgroundColor: getStatusColor(globalStatus) },
+                  { backgroundColor: getStatusColor(betSlip.status || BetStatus.PENDING) },
                 ]}
               >
-                {getStatusIcon(globalStatus)}
-                <Text style={styles.statusBadgeText}>{globalStatus}</Text>
+                {getStatusIcon(betSlip.status || BetStatus.PENDING)}
+                <Text style={styles.statusBadgeText}>
+                  {getStatusDisplayText(betSlip.status || BetStatus.PENDING)}
+                </Text>
               </View>
             </View>
           </View>
@@ -670,4 +675,5 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
   },
 });
+
 
