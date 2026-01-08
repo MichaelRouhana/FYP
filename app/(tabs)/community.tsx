@@ -183,6 +183,7 @@ export default function CommunityScreen() {
         <Text style={[styles.browseButtonText, { color: theme.colors.text }]}>BROWSE COMMUNITIES</Text>
       </TouchableOpacity>
     </View>
+    </>
   );
 }
 
