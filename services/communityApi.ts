@@ -54,11 +54,9 @@ export async function createCommunity(
       } as any);
     }
     
-    const response = await api.post<CommunityResponseDTO>('/communities', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    // DO NOT set Content-Type header manually - Axios will set it automatically
+    // with the correct boundary for multipart/form-data
+    const response = await api.post<CommunityResponseDTO>('/communities', formData);
     
     return response.data;
   } catch (error: any) {

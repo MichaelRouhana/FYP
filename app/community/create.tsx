@@ -41,7 +41,7 @@ export default function CreateCommunityScreen() {
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        ...(ImagePicker.MediaTypeOptions && { mediaTypes: ImagePicker.MediaTypeOptions.Images }),
+        ...(ImagePicker.MediaType && { mediaTypes: ImagePicker.MediaType.Images }),
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
@@ -65,7 +65,7 @@ export default function CreateCommunityScreen() {
       }
 
       const result = await ImagePicker.launchCameraAsync({
-        ...(ImagePicker.MediaTypeOptions && { mediaTypes: ImagePicker.MediaTypeOptions.Images }),
+        ...(ImagePicker.MediaType && { mediaTypes: ImagePicker.MediaType.Images }),
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
