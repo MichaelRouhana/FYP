@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { router, useLocalSearchParams } from 'expo-router';
-import React from 'react';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,12 +9,15 @@ import {
   Image,
   ScrollView,
   FlatList,
+  ActivityIndicator,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/context/ThemeContext';
 import { useCommunityInfo } from '@/hooks/useChat';
+import { useProfile } from '@/hooks/useProfile';
+import { getCommunityById, CommunityResponseDTO } from '@/services/communityApi';
 import { Moderator, Member, LeaderboardEntry } from '@/types/chat';
 
 const Tab = createMaterialTopTabNavigator();
@@ -223,15 +226,59 @@ export default function CommunityInfoScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useProfile();
+  
+  const [community, setCommunity] = useState<CommunityResponseDTO | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Check if user is admin
+  const isAdmin = user?.roles?.some(
+    (role) => role.toUpperCase() === 'ADMIN' || role.toUpperCase() === 'ROLE_ADMIN'
+  ) || false;
+
+  // Fetch community data
+  useEffect(() => {
+    const fetchCommunity = async () => {
+      if (!id) {
+        setError('Community ID is required');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getCommunityById(id);
+        setCommunity(data);
+      } catch (err: any) {
+        console.error('[CommunityInfo] Error fetching community:', err);
+        setError(err.response?.data?.message || err.message || 'Failed to load community');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCommunity();
+  }, [id]);
 
   const handleBack = () => {
     router.back();
   };
 
   const handleQRCode = () => {
+    if (!community || !community.inviteCode) {
+      console.warn('[CommunityInfo] Cannot navigate to QR: inviteCode missing');
+      return;
+    }
+
     router.push({
       pathname: '/community/qr/[id]',
-      params: { id },
+      params: {
+        id: community.id.toString(),
+        name: community.name,
+        inviteCode: community.inviteCode,
+      },
     });
   };
 
@@ -240,20 +287,71 @@ export default function CommunityInfoScreen() {
     console.log('Leave community:', id);
   };
 
-  return (
-    <View style={[styles.screenBackground, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={28} color={theme.colors.icon} />
-        </TouchableOpacity>
+  // Show loading state
+  if (loading) {
+    return (
+      <View style={[styles.screenBackground, { paddingTop: insets.top, backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={[styles.errorText, { color: theme.colors.textSecondary, marginTop: 16 }]}>Loading community...</Text>
+      </View>
+    );
+  }
 
-        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>COMMUNITY</Text>
-
-        <TouchableOpacity onPress={handleQRCode} style={styles.qrButton}>
-          <Ionicons name="qr-code" size={22} color={theme.colors.icon} />
+  // Show error state
+  if (error || !community) {
+    return (
+      <View style={[styles.screenBackground, { paddingTop: insets.top, backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={[styles.errorText, { color: theme.colors.textSecondary }]}>
+          {error || 'Community not found'}
+        </Text>
+        <TouchableOpacity onPress={handleBack} style={[styles.backButton, { marginTop: 16 }]}>
+          <Text style={{ color: theme.colors.primary }}>Go Back</Text>
         </TouchableOpacity>
       </View>
+    );
+  }
+
+  return (
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: 'COMMUNITY',
+          headerStyle: {
+            backgroundColor: theme.colors.headerBackground,
+          },
+          headerTintColor: theme.colors.text,
+          headerTitleStyle: {
+            fontFamily: 'Montserrat_700Bold',
+            fontSize: 18,
+            letterSpacing: 1,
+          },
+          headerLeft: () => (
+            <TouchableOpacity onPress={handleBack} style={{ marginLeft: 8 }}>
+              <Ionicons name="chevron-back" size={28} color={theme.colors.icon} />
+            </TouchableOpacity>
+          ),
+          headerRight: () => {
+            // Only show QR button if user is admin and inviteCode exists
+            if (isAdmin && community.inviteCode) {
+              return (
+                <TouchableOpacity
+                  onPress={handleQRCode}
+                  style={{ marginRight: 16 }}
+                >
+                  <Ionicons 
+                    name="qr-code-outline" 
+                    size={24} 
+                    color={isDark ? '#F9FAFB' : '#18223A'} 
+                  />
+                </TouchableOpacity>
+              );
+            }
+            return <View style={{ width: 40 }} />; // Spacer to maintain layout
+          },
+        }}
+      />
+      <View style={[styles.screenBackground, { paddingTop: 0, backgroundColor: theme.colors.background }]}>
 
       {/* Tabs - Order: ABOUT, MEMBERS, LEADERBOARD */}
       <Tab.Navigator
@@ -276,7 +374,8 @@ export default function CommunityInfoScreen() {
           {() => <LeaderboardTab communityId={id} />}
         </Tab.Screen>
       </Tab.Navigator>
-    </View>
+      </View>
+    </>
   );
 }
 

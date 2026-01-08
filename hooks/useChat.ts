@@ -686,6 +686,7 @@ export function useCommunityDetails(communityId: string) {
               ? '1 member' 
               : `${dto.userIds.length.toLocaleString()} members`
             : '0 members',
+          inviteCode: dto.inviteCode, // Include invite code for QR generation
         };
         
         setCommunity(mappedCommunity);

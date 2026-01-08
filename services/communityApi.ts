@@ -65,3 +65,18 @@ export async function createCommunity(
   }
 }
 
+/**
+ * Get community details by ID
+ * GET /api/v1/communities/{id}
+ * Returns full CommunityResponseDTO including inviteCode
+ */
+export async function getCommunityById(id: number | string): Promise<CommunityResponseDTO> {
+  try {
+    const response = await api.get<CommunityResponseDTO>(`/communities/${id}`);
+    return response.data;
+  } catch (error: any) {
+    console.error('[communityApi] Error fetching community:', error);
+    throw error;
+  }
+}
+

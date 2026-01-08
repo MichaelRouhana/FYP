@@ -5,252 +5,200 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Image,
+  ScrollView,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { GradientBackground } from '@/components/GradientBackground';
 import { useTheme } from '@/context/ThemeContext';
-import { useCommunityDetails } from '@/hooks/useChat';
 
 export default function QRCodeScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
-  const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
-  const { community } = useCommunityDetails(id);
+  const { id, name, inviteCode } = useLocalSearchParams<{ 
+    id: string; 
+    name: string; 
+    inviteCode?: string;
+  }>();
 
   const handleBack = () => {
     router.back();
   };
 
-  const handleScanPress = () => {
-    router.push('/community/scan');
-  };
-
-  // Generate QR value for the community
-  const qrValue = JSON.stringify({
-    type: 'community_invite',
-    communityId: id,
-    communityName: community?.name ?? name,
-    timestamp: Date.now(),
-  });
-
-  return (
-    <GradientBackground isDark={isDark}>
-      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
-        {/* Header */}
-        <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
+  // If inviteCode is missing, show error message
+  if (!inviteCode) {
+    return (
+      <View style={[styles.container, { 
+        paddingTop: insets.top, 
+        backgroundColor: '#030712',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+      }]}>
+        <View style={[styles.header, { backgroundColor: 'transparent' }]}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={28} color={theme.colors.icon} />
+            <Ionicons name="chevron-back" size={28} color={isDark ? '#F9FAFB' : '#18223A'} />
           </TouchableOpacity>
-
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>QR CODE</Text>
-
-          <TouchableOpacity style={styles.qrButton}>
-            <Ionicons name="qr-code" size={24} color={theme.colors.icon} />
-          </TouchableOpacity>
+          <View style={{ flex: 1 }} />
         </View>
-
-        {/* QR Card */}
-        <View style={[styles.qrCard, { 
-          backgroundColor: theme.colors.cardBackground,
-          borderColor: theme.colors.border 
-        }]}>
-          {/* Community Info */}
-          <View style={styles.communityInfo}>
-            <View style={[styles.communityAvatar, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
-              <Image
-                source={{ uri: community?.logo }}
-                style={styles.communityLogo}
-                defaultSource={require('@/assets/images/icon.png')}
-              />
-            </View>
-            <View style={styles.communityDetails}>
-              <Text style={[styles.communityName, { color: theme.colors.text }]}>
-                {community?.name ?? name ?? 'COMMUNITY'}
-              </Text>
-              <Text style={[styles.memberCount, { color: theme.colors.textSecondary }]}>
-                {community?.memberCount ?? '1.8M members'}
-              </Text>
-            </View>
-          </View>
-
-          {/* QR Code */}
-          <View style={styles.qrContainer}>
-            <QRCode
-              value={qrValue}
-              size={260}
-              backgroundColor="#fff"
-              color="#000"
-              logo={community?.logo ? { uri: community.logo } : undefined}
-              logoSize={40}
-              logoBackgroundColor="#fff"
-              logoBorderRadius={20}
-            />
-          </View>
-
-          {/* Scan Me Button */}
-          <TouchableOpacity
-            style={[styles.scanButton, {
-              backgroundColor: isDark ? '#1a2234' : '#FFFFFF',
-              borderColor: theme.colors.border
-            }]}
-            onPress={handleScanPress}
-            activeOpacity={0.8}
-          >
-            <View style={styles.scanIconWrapper}>
-              <View style={[styles.scanCorner, { borderColor: theme.colors.primary }]} />
-              <View style={[styles.scanCorner, styles.scanCornerTR, { borderColor: theme.colors.primary }]} />
-              <View style={[styles.scanCorner, styles.scanCornerBL, { borderColor: theme.colors.primary }]} />
-              <View style={[styles.scanCorner, styles.scanCornerBR, { borderColor: theme.colors.primary }]} />
-            </View>
-            <Text style={[styles.scanText, { color: theme.colors.text }]}>SCAN ME</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Instructions */}
-        <View style={styles.instructions}>
-          <Text style={[styles.instructionText, { color: theme.colors.textSecondary }]}>
-            Share this QR code with friends to invite them to join the community
+        
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={64} color="#ef4444" />
+          <Text style={[styles.errorTitle, { color: '#F9FAFB' }]}>
+            No Invite Code Available
+          </Text>
+          <Text style={[styles.errorText, { color: '#9ca3af' }]}>
+            No Invite Code available for this community.
           </Text>
         </View>
       </View>
-    </GradientBackground>
+    );
+  }
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: '#030712' }]}>
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: 'transparent' }]}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Ionicons name="chevron-back" size={28} color="#F9FAFB" />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }} />
+      </View>
+
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Community Name - H1 Style */}
+        <Text style={styles.communityNameTitle}>
+          {name || 'COMMUNITY'}
+        </Text>
+
+        {/* QR Code Container */}
+        <View style={styles.qrWrapper}>
+          <View style={styles.qrContainer}>
+            <QRCode
+              value={inviteCode}
+              size={200}
+              backgroundColor="#FFFFFF"
+              color="#000000"
+            />
+          </View>
+
+          {/* Invite Code Display */}
+          <View style={styles.codeDisplayContainer}>
+            <Text style={styles.codeLabel}>Code:</Text>
+            <Text 
+              style={styles.codeText}
+              selectable={true}
+            >
+              {inviteCode}
+            </Text>
+          </View>
+
+          {/* Instruction Text */}
+          <Text style={styles.instructionText}>
+            Scan this code to join
+          </Text>
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
+    backgroundColor: '#030712',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   backButton: {
     padding: 4,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontFamily: 'Montserrat_700Bold',
-    letterSpacing: 1,
-  },
-  qrButton: {
-    padding: 4,
-  },
-  qrCard: {
-    borderRadius: 20,
-    padding: 20,
-    marginTop: 20,
-    borderWidth: 1,
-  },
-  communityInfo: {
-    flexDirection: 'row',
+  scrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
-    marginBottom: 20,
-  },
-  communityAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
     justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
+    paddingHorizontal: 24,
+    paddingBottom: 40,
   },
-  communityLogo: {
-    width: 40,
-    height: 40,
-    resizeMode: 'contain',
-  },
-  communityDetails: {
-    marginLeft: 14,
-  },
-  communityName: {
-    fontSize: 16,
+  communityNameTitle: {
+    fontSize: 32,
     fontFamily: 'Montserrat_700Bold',
-    letterSpacing: 0.5,
+    color: '#F9FAFB',
+    letterSpacing: 1,
+    textAlign: 'center',
+    marginBottom: 48,
+    marginTop: 20,
   },
-  memberCount: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 2,
+  qrWrapper: {
+    alignItems: 'center',
+    width: '100%',
   },
   qrContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 32,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  scanButton: {
-    flexDirection: 'row',
+  codeDisplayContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    paddingVertical: 14,
-    marginTop: 20,
-    borderWidth: 1,
+    marginBottom: 24,
   },
-  scanIconWrapper: {
-    width: 20,
-    height: 20,
-    position: 'relative',
-    marginRight: 10,
-  },
-  scanCorner: {
-    position: 'absolute',
-    width: 6,
-    height: 6,
-    borderTopWidth: 2,
-    borderLeftWidth: 2,
-    top: 0,
-    left: 0,
-  },
-  scanCornerTR: {
-    borderTopWidth: 2,
-    borderRightWidth: 2,
-    borderLeftWidth: 0,
-    top: 0,
-    right: 0,
-    left: 'auto',
-  },
-  scanCornerBL: {
-    borderBottomWidth: 2,
-    borderLeftWidth: 2,
-    borderTopWidth: 0,
-    bottom: 0,
-    top: 'auto',
-    left: 0,
-  },
-  scanCornerBR: {
-    borderBottomWidth: 2,
-    borderRightWidth: 2,
-    borderTopWidth: 0,
-    borderLeftWidth: 0,
-    bottom: 0,
-    top: 'auto',
-    right: 0,
-    left: 'auto',
-  },
-  scanText: {
+  codeLabel: {
     fontSize: 14,
-    fontFamily: 'Montserrat_700Bold',
-    letterSpacing: 1,
+    fontFamily: 'Montserrat_500Medium',
+    color: '#9ca3af',
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
-  instructions: {
-    marginTop: 30,
-    paddingHorizontal: 20,
+  codeText: {
+    fontSize: 28,
+    fontFamily: 'Montserrat_700Bold',
+    color: '#F9FAFB',
+    letterSpacing: 2,
+    textAlign: 'center',
   },
   instructionText: {
-    fontSize: 14,
+    fontSize: 16,
+    fontFamily: 'Inter_400Regular',
+    color: '#9ca3af',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontFamily: 'Montserrat_700Bold',
+    marginTop: 24,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 16,
     fontFamily: 'Inter_400Regular',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 24,
   },
 });
 
