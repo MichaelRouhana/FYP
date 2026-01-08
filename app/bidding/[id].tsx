@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, Stack } from 'expo-router';
 import React, { useMemo, useEffect, useState } from 'react';
 import {
   View,
@@ -231,53 +231,48 @@ export default function BetDetailsScreen() {
     }
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
-        <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>BET DETAILS</Text>
-          <View style={{ width: 24 }} />
-        </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
-            Loading bet details...
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (!betSlip || error) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
-        <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>BET DETAILS</Text>
-          <View style={{ width: 24 }} />
-        </View>
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={theme.colors.textSecondary} />
-          <Text style={[styles.errorText, { color: theme.colors.text }]}>
-            {error || 'Bet not found'}
-          </Text>
-          <TouchableOpacity
-            style={[styles.backButtonError, { backgroundColor: theme.colors.primary }]}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.backButtonText}>Go Back</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
   return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      {loading ? (
+        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
+          <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: theme.colors.text }]}>BET DETAILS</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={theme.colors.primary} />
+            <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+              Loading bet details...
+            </Text>
+          </View>
+        </View>
+      ) : !betSlip || error ? (
+        <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
+          <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={theme.colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: theme.colors.text }]}>BET DETAILS</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle-outline" size={48} color={theme.colors.textSecondary} />
+            <Text style={[styles.errorText, { color: theme.colors.text }]}>
+              {error || 'Bet not found'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.backButtonError, { backgroundColor: theme.colors.primary }]}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.backButtonText}>Go Back</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
@@ -424,6 +419,8 @@ export default function BetDetailsScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>
+      )}
+    </>
   );
 }
 
