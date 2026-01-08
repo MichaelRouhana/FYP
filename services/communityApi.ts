@@ -94,3 +94,56 @@ export async function joinCommunityByInviteCode(inviteCode: string): Promise<voi
   }
 }
 
+/**
+ * Promote a member to moderator
+ * PUT /api/v1/communities/{communityId}/promote/{userId}
+ * Only OWNER can promote members
+ */
+export async function promoteToModerator(communityId: number | string, userId: number | string): Promise<void> {
+  try {
+    await api.put(`/communities/${communityId}/promote/${userId}`);
+  } catch (error: any) {
+    console.error('[communityApi] Error promoting user to moderator:', error);
+    throw error;
+  }
+}
+
+/**
+ * Demote a moderator to member
+ * PUT /api/v1/communities/{communityId}/demote/{userId}
+ * Only OWNER can demote moderators
+ */
+export async function demoteToMember(communityId: number | string, userId: number | string): Promise<void> {
+  try {
+    await api.put(`/communities/${communityId}/demote/${userId}`);
+  } catch (error: any) {
+    console.error('[communityApi] Error demoting moderator to member:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get community members with roles
+ * GET /api/v1/communities/{communityId}/members/with-roles
+ */
+export interface CommunityMemberDTO {
+  id: number;
+  username: string;
+  email: string;
+  pfp: string;
+  points: number;
+  about?: string;
+  country?: string;
+  roles: string[]; // Community roles: 'OWNER', 'MODERATOR', 'MEMBER'
+}
+
+export async function getMembersWithRoles(communityId: number | string): Promise<CommunityMemberDTO[]> {
+  try {
+    const response = await api.get<CommunityMemberDTO[]>(`/communities/${communityId}/members/with-roles`);
+    return response.data;
+  } catch (error: any) {
+    console.error('[communityApi] Error fetching members with roles:', error);
+    throw error;
+  }
+}
+

@@ -102,7 +102,7 @@ export interface Moderator {
 }
 
 /**
- * Community member with points
+ * Community member with points and roles
  */
 export interface Member {
   id: string;
@@ -110,6 +110,8 @@ export interface Member {
   avatar: string;
   points: number;
   joinedAt?: Date;
+  roles?: string[]; // Community roles: 'OWNER', 'MODERATOR', 'MEMBER'
+  email?: string; // For identification
 }
 
 /**

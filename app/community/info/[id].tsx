@@ -10,6 +10,7 @@ import {
   ScrollView,
   FlatList,
   ActivityIndicator,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,8 +18,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
 import { useCommunityInfo } from '@/hooks/useChat';
 import { useProfile } from '@/hooks/useProfile';
-import { getCommunityById, CommunityResponseDTO } from '@/services/communityApi';
+import { 
+  getCommunityById, 
+  CommunityResponseDTO,
+  getMembersWithRoles,
+  promoteToModerator,
+  demoteToMember,
+  CommunityMemberDTO
+} from '@/services/communityApi';
 import { Moderator, Member, LeaderboardEntry } from '@/types/chat';
+import { Alert } from 'react-native';
 
 const Tab = createMaterialTopTabNavigator();
 
@@ -131,9 +140,151 @@ function AboutTab({ communityId, onLeaveCommunity }: { communityId: string; onLe
 }
 
 // ============ MEMBERS TAB ============
-function MembersTab({ communityId }: { communityId: string }) {
+function MembersTab({ communityId, isOwner, currentUserEmail }: { 
+  communityId: string; 
+  isOwner: boolean;
+  currentUserEmail?: string;
+}) {
   const { theme, isDark } = useTheme();
   const { communityInfo } = useCommunityInfo(communityId);
+  const [membersWithRoles, setMembersWithRoles] = useState<CommunityMemberDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionMenuVisible, setActionMenuVisible] = useState<string | null>(null);
+
+  // Fetch members with roles
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        setLoading(true);
+        const members = await getMembersWithRoles(communityId);
+        setMembersWithRoles(members);
+      } catch (error: any) {
+        console.error('[MembersTab] Error fetching members with roles:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (communityId) {
+      fetchMembers();
+    }
+  }, [communityId]);
+
+  const handlePromote = async (userId: number) => {
+    try {
+      await promoteToModerator(communityId, userId);
+      Alert.alert('Success', 'User promoted to moderator');
+      // Refresh members list
+      const members = await getMembersWithRoles(communityId);
+      setMembersWithRoles(members);
+      setActionMenuVisible(null);
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Failed to promote user');
+    }
+  };
+
+  const handleDemote = async (userId: number) => {
+    try {
+      await demoteToMember(communityId, userId);
+      Alert.alert('Success', 'Moderator demoted to member');
+      // Refresh members list
+      const members = await getMembersWithRoles(communityId);
+      setMembersWithRoles(members);
+      setActionMenuVisible(null);
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Failed to demote user');
+    }
+  };
+
+  const getRoleBadge = (roles: string[] = []) => {
+    if (roles.includes('OWNER')) {
+      return { text: '👑 Admin', color: '#fbbf24' }; // Gold
+    }
+    if (roles.includes('MODERATOR')) {
+      return { text: '🛡️ Mod', color: '#3b82f6' }; // Blue
+    }
+    return null;
+  };
+
+  const renderMember = ({ item }: { item: CommunityMemberDTO }) => {
+    const roleBadge = getRoleBadge(item.roles);
+    const isCurrentUser = currentUserEmail && item.email === currentUserEmail;
+    const isModerator = item.roles?.includes('MODERATOR') || item.roles?.includes('OWNER');
+    const canShowActions = isOwner && !isCurrentUser; // Don't show actions for self
+
+    return (
+      <View style={[styles.memberRow, { backgroundColor: isDark ? '#111827' : '#FFFFFF', borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border }]}>
+        <Image 
+          source={{ uri: item.pfp || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.username)}&background=3b82f6&color=fff` }} 
+          style={styles.memberAvatar} 
+        />
+        <View style={styles.memberInfo}>
+          <View style={styles.memberNameRow}>
+            <Text style={[styles.memberName, { color: theme.colors.text }]}>
+              {item.username.toUpperCase()}
+            </Text>
+            {roleBadge && (
+              <View style={[styles.roleBadge, { backgroundColor: roleBadge.color + '20' }]}>
+                <Text style={[styles.roleBadgeText, { color: roleBadge.color }]}>
+                  {roleBadge.text}
+                </Text>
+              </View>
+            )}
+          </View>
+          <Text style={[styles.memberPoints, { color: theme.colors.textSecondary }]}>
+            {item.points?.toLocaleString() || 0} POINTS
+          </Text>
+        </View>
+        {canShowActions && (
+          <TouchableOpacity
+            onPress={() => setActionMenuVisible(actionMenuVisible === item.id.toString() ? null : item.id.toString())}
+            style={styles.actionButton}
+          >
+            <Ionicons name="ellipsis-vertical" size={20} color={theme.colors.textSecondary} />
+          </TouchableOpacity>
+        )}
+        {actionMenuVisible === item.id.toString() && (
+          <View style={[styles.actionMenu, { backgroundColor: isDark ? '#1f2937' : '#f9fafb', borderColor: theme.colors.border }]}>
+            {isModerator ? (
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert(
+                    'Demote Moderator',
+                    `Are you sure you want to demote ${item.username} to a regular member?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Demote', style: 'destructive', onPress: () => handleDemote(item.id) },
+                    ]
+                  );
+                }}
+                style={styles.actionMenuItem}
+              >
+                <Ionicons name="arrow-down" size={18} color={theme.colors.text} />
+                <Text style={[styles.actionMenuText, { color: theme.colors.text }]}>Demote to Member</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert(
+                    'Promote to Moderator',
+                    `Are you sure you want to promote ${item.username} to moderator?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { text: 'Promote', onPress: () => handlePromote(item.id) },
+                    ]
+                  );
+                }}
+                style={styles.actionMenuItem}
+              >
+                <Ionicons name="arrow-up" size={18} color={theme.colors.text} />
+                <Text style={[styles.actionMenuText, { color: theme.colors.text }]}>Promote to Moderator</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   if (!communityInfo) {
     return (
@@ -143,25 +294,32 @@ function MembersTab({ communityId }: { communityId: string }) {
     );
   }
 
-  const renderMember = ({ item }: { item: Member }) => (
-    <View style={[styles.memberRow, { backgroundColor: isDark ? '#111827' : '#FFFFFF', borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border }]}>
-      <Image source={{ uri: item.avatar }} style={styles.memberAvatar} />
-      <View style={styles.memberInfo}>
-        <Text style={[styles.memberName, { color: theme.colors.text }]}>{item.name.toUpperCase()}</Text>
-        <Text style={[styles.memberPoints, { color: theme.colors.textSecondary }]}>{item.points.toLocaleString()} POINTS</Text>
+  if (loading) {
+    return (
+      <View style={[styles.tabContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
-    </View>
-  );
+    );
+  }
 
   return (
-    <FlatList
-      style={styles.tabContainer}
-      data={communityInfo.members}
-      keyExtractor={(item) => item.id}
-      renderItem={renderMember}
-      contentContainerStyle={styles.listContent}
-      showsVerticalScrollIndicator={false}
-    />
+    <>
+      <FlatList
+        style={styles.tabContainer}
+        data={membersWithRoles}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={renderMember}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        onScrollBeginDrag={() => setActionMenuVisible(null)} // Close menu on scroll
+      />
+      {/* Overlay to close menu when clicking outside */}
+      {actionMenuVisible && (
+        <TouchableWithoutFeedback onPress={() => setActionMenuVisible(null)}>
+          <View style={StyleSheet.absoluteFill} />
+        </TouchableWithoutFeedback>
+      )}
+    </>
   );
 }
 
@@ -231,11 +389,35 @@ export default function CommunityInfoScreen() {
   const [community, setCommunity] = useState<CommunityResponseDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | undefined>(user?.email);
 
-  // Check if user is admin
+  // Check if user is app admin (for QR code access)
   const isAdmin = user?.roles?.some(
     (role) => role.toUpperCase() === 'ADMIN' || role.toUpperCase() === 'ROLE_ADMIN'
   ) || false;
+
+  // Check if user is OWNER of this community
+  useEffect(() => {
+    const checkOwnerStatus = async () => {
+      if (!id || !user?.email) return;
+      
+      try {
+        const members = await getMembersWithRoles(id);
+        const currentUserMember = members.find(m => m.email === user.email);
+        const hasOwnerRole = currentUserMember?.roles?.includes('OWNER') || false;
+        setIsOwner(hasOwnerRole);
+        setCurrentUserEmail(user.email);
+      } catch (error) {
+        console.error('[CommunityInfo] Error checking owner status:', error);
+        setIsOwner(false);
+      }
+    };
+
+    if (user?.email) {
+      checkOwnerStatus();
+    }
+  }, [id, user?.email]);
 
   // Fetch community data
   useEffect(() => {
@@ -371,7 +553,11 @@ export default function CommunityInfoScreen() {
           {() => <AboutTab communityId={id} onLeaveCommunity={handleLeaveCommunity} />}
         </Tab.Screen>
         <Tab.Screen name="MEMBERS">
-          {() => <MembersTab communityId={id} />}
+          {() => <MembersTab 
+            communityId={id} 
+            isOwner={isOwner}
+            currentUserEmail={currentUserEmail}
+          />}
         </Tab.Screen>
         <Tab.Screen name="LEADERBOARD">
           {() => <LeaderboardTab communityId={id} />}
@@ -620,6 +806,51 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontFamily: 'Inter_400Regular',
     marginTop: 2,
+  },
+  memberNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  roleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  roleBadgeText: {
+    fontSize: 10,
+    fontFamily: 'Montserrat_600SemiBold',
+    letterSpacing: 0.5,
+  },
+  actionButton: {
+    padding: 8,
+    marginLeft: 'auto',
+  },
+  actionMenu: {
+    position: 'absolute',
+    right: 8,
+    top: 50,
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 4,
+    minWidth: 180,
+    zIndex: 1000,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  actionMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 8,
+  },
+  actionMenuText: {
+    fontSize: 14,
+    fontFamily: 'Inter_500Medium',
   },
 
   // Leaderboard Tab Styles
