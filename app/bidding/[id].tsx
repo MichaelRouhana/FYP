@@ -125,6 +125,7 @@ export default function BetDetailsScreen() {
         const showAwaitingSettlement = isMatchFinished && isBetPending;
 
         // Transform API response to BetSlip format using bet fields directly
+        // Keep status as uppercase to match backend enum values
         const transformedBet = {
           id: betResponse.id,
           matchId: String(fixtureId || betResponse.id),
@@ -137,17 +138,13 @@ export default function BetDetailsScreen() {
           matchTime,
           matchDate,
           wagerAmount: betResponse.stake,
-          status: betResponse.status === BetStatus.PENDING ? 'Pending' : 
-                  betResponse.status === BetStatus.WON ? 'Won' : 
-                  betResponse.status === BetStatus.LOST ? 'Lost' : 'Pending',
+          status: betResponse.status || BetStatus.PENDING, // Keep uppercase enum value
           legs: betResponse.legs.map((leg: any) => ({
             id: leg.id,
             selectionName: formatSelectionName(leg.marketType, leg.selection),
             marketName: getMarketDisplayName(leg.marketType),
             odds: leg.odd || 1.0,
-            status: leg.status === BetStatus.PENDING ? 'Pending' : 
-                    leg.status === BetStatus.WON ? 'Won' : 
-                    leg.status === BetStatus.LOST ? 'Lost' : 'Pending',
+            status: leg.status || BetStatus.PENDING, // Keep uppercase enum value
           })),
           totalOdds: betResponse.totalOdds,
           potentialWinnings: betResponse.potentialWinnings,
@@ -155,6 +152,7 @@ export default function BetDetailsScreen() {
           fixtureStatus: betResponse.matchStatus || 'NS',
         };
         
+        console.log('[getBetById] RENDER BET:', transformedBet);
         setBetSlip(transformedBet);
       } catch (error: any) {
         console.error('[getBetById] Error fetching bet:', error);
@@ -197,37 +195,59 @@ export default function BetDetailsScreen() {
   }, [betSlip, totalOdds]);
 
   // Determine global status based on bet response status (already calculated on backend)
+  // Backend sends uppercase: 'WON', 'LOST', 'PENDING', 'VOID'
   const globalStatus = useMemo(() => {
-    if (!betSlip) return 'Pending';
-    // Use the status from betSlip which comes from betResponse.status
-    return betSlip.status === 'won' ? 'Won' : 
-           betSlip.status === 'lost' ? 'Lost' : 'Pending';
+    if (!betSlip) return BetStatus.PENDING;
+    // Use the status directly from betSlip (already uppercase from backend)
+    return betSlip.status || BetStatus.PENDING;
   }, [betSlip]);
 
-  // Status color helpers
+  // Status color helpers - handle uppercase enum values
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Won':
-        return '#22c55e'; // Green
-      case 'Lost':
-        return '#ef4444'; // Red
-      case 'Pending':
-        return '#6b7280'; // Grey
+    const statusUpper = status?.toUpperCase();
+    switch (statusUpper) {
+      case BetStatus.WON:
+        return '#10B981'; // Green
+      case BetStatus.LOST:
+        return '#EF4444'; // Red
+      case BetStatus.PENDING:
+        return '#F59E0B'; // Orange/Yellow
+      case BetStatus.VOID:
+        return '#6B7280'; // Gray
       default:
-        return theme.colors.textSecondary;
+        return '#6B7280'; // Default to gray
     }
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'Won':
+    const statusUpper = status?.toUpperCase();
+    switch (statusUpper) {
+      case BetStatus.WON:
         return <Ionicons name="checkmark" size={20} color="#fff" />;
-      case 'Lost':
+      case BetStatus.LOST:
         return <Ionicons name="close" size={20} color="#fff" />;
-      case 'Pending':
+      case BetStatus.PENDING:
         return <Ionicons name="time-outline" size={20} color="#fff" />;
+      case BetStatus.VOID:
+        return <Ionicons name="alert-circle-outline" size={20} color="#fff" />;
       default:
-        return null;
+        return <Ionicons name="time-outline" size={20} color="#fff" />;
+    }
+  };
+
+  const getStatusDisplayText = (status: string) => {
+    const statusUpper = status?.toUpperCase();
+    switch (statusUpper) {
+      case BetStatus.WON:
+        return 'WON';
+      case BetStatus.LOST:
+        return 'LOST';
+      case BetStatus.PENDING:
+        return 'PENDING';
+      case BetStatus.VOID:
+        return 'VOID';
+      default:
+        return 'PENDING';
     }
   };
 
