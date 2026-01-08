@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/context/ThemeContext';
+import { joinCommunityByInviteCode } from '@/services/communityApi';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const SCAN_AREA_SIZE = SCREEN_WIDTH * 0.7; // 70% of screen width
@@ -32,41 +33,41 @@ export default function QRScannerScreen() {
     Linking.openSettings();
   };
 
-  const handleBarCodeScanned = ({ data }: { data: string }) => {
+  const handleBarCodeScanned = async ({ data }: { data: string }) => {
     if (scanned) return; // Prevent multiple scans
     setScanned(true);
 
+    // The QR code contains a plain string (invite code), not JSON
+    const inviteCode = data.trim();
+
+    if (!inviteCode) {
+      Alert.alert('Invalid QR Code', 'The scanned QR code is empty.');
+      setScanned(false);
+      return;
+    }
+
     try {
-      const parsed = JSON.parse(data);
+      // Call API to join community by invite code
+      await joinCommunityByInviteCode(inviteCode);
       
-      // Validate the QR code structure
-      if (parsed.type === 'community_invite' && parsed.communityId) {
-        // Show alert
-        Alert.alert(
-          'Joining Community...',
-          `Joining ${parsed.communityName || 'Community'}...`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                // Navigate to community chat
-                router.push({
-                  pathname: '/community/chat/[id]',
-                  params: {
-                    id: parsed.communityId,
-                    name: parsed.communityName || 'Community',
-                  },
-                });
-              },
+      // Success - show alert and navigate
+      Alert.alert(
+        'Success',
+        'Joined Successfully!',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Navigate to communities list
+              router.push('/community');
             },
-          ]
-        );
-      } else {
-        Alert.alert('Invalid QR Code', 'This QR code is not a valid community invite.');
-        setScanned(false);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to parse QR code. Please try again.');
+          },
+        ]
+      );
+    } catch (error: any) {
+      // Error - show error message
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to join community';
+      Alert.alert('Error', errorMessage);
       setScanned(false);
     }
   };

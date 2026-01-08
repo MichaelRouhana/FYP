@@ -91,17 +91,16 @@ export default function TabLayout() {
           ),
         }}
       />
-      {isAdmin && (
-        <Tabs.Screen
-          name="dashboard"
-          options={{
-            title: 'DashBoard',
-            tabBarIcon: ({ color, focused }) => (
-              <Ionicons name="speedometer-outline" size={24} color={color} style={{ marginBottom: -4 }} />
-            ),
-          }}
-        />
-      )}
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: 'DashBoard',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name="speedometer-outline" size={24} color={color} style={{ marginBottom: -4 }} />
+          ),
+          href: isAdmin ? undefined : null, // Hide tab completely if not admin
+        }}
+      />
     </Tabs>
   );
 }

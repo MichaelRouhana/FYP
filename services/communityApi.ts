@@ -80,3 +80,17 @@ export async function getCommunityById(id: number | string): Promise<CommunityRe
   }
 }
 
+/**
+ * Join a community by invite code
+ * POST /api/v1/communities/join
+ * Accepts invite code in request body using InvitationRequestDTO
+ */
+export async function joinCommunityByInviteCode(inviteCode: string): Promise<void> {
+  try {
+    await api.post('/communities/join', { inviteCode });
+  } catch (error: any) {
+    console.error('[communityApi] Error joining community by invite code:', error);
+    throw error;
+  }
+}
+
