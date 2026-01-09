@@ -7,6 +7,7 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useProfile } from '@/hooks/useProfile';
 import {
   ActivityIndicator,
   Alert,
@@ -27,6 +28,8 @@ type FilterType = 'all' | 'live' | 'upcoming' | 'finished';
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
+  const { user } = useProfile();
+  const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.includes('admin') || false;
   const [selectedDate, setSelectedDate] = useState<string>('0'); // Today
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [showTopLeaguesOnly, setShowTopLeaguesOnly] = useState(false); // Toggle for top 5 leagues
@@ -160,6 +163,7 @@ export default function HomeScreen() {
         date: rawJson.fixture.date,
         leagueId: rawJson.league.id,
         leagueName: rawJson.league.name,
+        matchSettings: fixture.matchSettings, // Include match settings for admin visibility checks
       };
       
       // Debug: Log finished matches to verify they're being processed
@@ -538,6 +542,7 @@ export default function HomeScreen() {
   const renderMatchItem = (match: UIMatch) => {
     const isHot = match.betsCount >= 100;
     const isFavorite = favorites.has(String(match.id));
+    const isHidden = isAdmin && match.matchSettings && match.matchSettings.showMatch === false;
 
     return (
       <TouchableOpacity
@@ -549,8 +554,15 @@ export default function HomeScreen() {
         {/* Time / Live indicator */}
         <View style={styles.matchTimeContainer}>
           {match.status === 'live' ? (
-            <View style={[styles.liveIndicator, { backgroundColor: isDark ? '#1f2937' : '#18223A' }]}>
-              <Text style={[styles.liveText, { color: '#ffffff' }]}>LIVE</Text>
+            <View style={{ alignItems: 'center' }}>
+              <View style={[styles.liveIndicator, { backgroundColor: isDark ? '#1f2937' : '#18223A' }]}>
+                <Text style={[styles.liveText, { color: '#ffffff' }]}>LIVE</Text>
+              </View>
+              {isHidden && (
+                <Text style={[styles.hiddenIndicator, { color: '#ef4444', fontSize: 9, marginTop: 2 }]}>
+                  (Hidden)
+                </Text>
+              )}
             </View>
           ) : match.status === 'finished' && match.scheduledTime ? (
             <View style={{ alignItems: 'center' }}>
@@ -558,12 +570,22 @@ export default function HomeScreen() {
               <Text style={[styles.scheduledTime, { color: theme.colors.textMuted, fontSize: 11, marginTop: 2 }]}>
                 {match.scheduledTime}
               </Text>
+              {isHidden && (
+                <Text style={[styles.hiddenIndicator, { color: '#ef4444', fontSize: 9, marginTop: 2 }]}>
+                  (Hidden)
+                </Text>
+              )}
             </View>
           ) : (
             <View style={{ alignItems: 'center' }}>
-            <Text style={[styles.matchTime, { color: theme.colors.textSecondary }]}>{match.time}</Text>
+              <Text style={[styles.matchTime, { color: theme.colors.textSecondary }]}>{match.time}</Text>
               {match.statusShort === 'PST' && (
                 <Text style={{ color: '#ef4444', fontSize: 10, marginTop: 2 }}>Postponed</Text>
+              )}
+              {isHidden && (
+                <Text style={[styles.hiddenIndicator, { color: '#ef4444', fontSize: 9, marginTop: 2 }]}>
+                  (Hidden)
+                </Text>
               )}
             </View>
           )}

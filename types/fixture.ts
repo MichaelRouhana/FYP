@@ -120,6 +120,7 @@ export interface UIMatch {
   date: string;
   leagueId: number;
   leagueName: string;
+  matchSettings?: MatchSettings; // Include match settings for admin visibility checks
 }
 
 export interface UILeague {
