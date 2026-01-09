@@ -27,12 +27,15 @@ interface AdminMatchSettingsProps {
   fixtureId: number;
 }
 
-// Only show these bet types in the admin settings (the ones we actually support)
+// All available bet types from MatchPredictionSettings interface
 const SUPPORTED_BETS = [
   { key: 'whoWillWin', label: 'Match Winner' },
   { key: 'bothTeamsScore', label: 'Both Teams to Score' },
   { key: 'goalsOverUnder', label: 'Over/Under 2.5' },
   { key: 'doubleChance', label: 'Double Chance' },
+  { key: 'firstTeamToScore', label: 'First Team to Score' },
+  { key: 'scorePrediction', label: 'Correct Score' },
+  { key: 'halfTimeFullTime', label: 'Half Time / Full Time' },
 ] as const;
 
 export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProps) {

@@ -196,7 +196,8 @@ export default function MatchDetailsScreen() {
   const [selectedPicks, setSelectedPicks] = useState<Pick[]>([]);
   
   // All state hooks MUST be called unconditionally
-  const [selectedTab, setSelectedTab] = useState<TabType>('details');
+  // Default to 'settings' tab for admins, otherwise use 'details'
+  const [selectedTab, setSelectedTab] = useState<TabType>(isAdmin ? 'settings' : 'details');
   const [h2hFilter, setH2hFilter] = useState<'meetings' | 'home' | 'away'>('meetings');
   const [h2hShowAll, setH2hShowAll] = useState(false);
   const [tableFilter, setTableFilter] = useState<'all' | 'home' | 'away'>('all');
@@ -229,9 +230,20 @@ export default function MatchDetailsScreen() {
   }, [matchStatus, isAdmin]);
 
   // Auto-select appropriate default tab when match status changes
+  // Skip auto-selection for admins (they should stay on 'settings' tab)
   const [hasAutoSelectedTab, setHasAutoSelectedTab] = useState(false);
   
   React.useEffect(() => {
+    // For admins: ensure they're on the 'settings' tab if it's available
+    if (isAdmin && availableTabs.some(t => t.id === 'settings')) {
+      if (selectedTab !== 'settings') {
+        setSelectedTab('settings');
+      }
+      setHasAutoSelectedTab(true);
+      return;
+    }
+    
+    // For non-admins: auto-select appropriate default tab when match status changes
     if (matchData && !hasAutoSelectedTab) {
       const defaultTab = DEFAULT_TAB_BY_STATUS[matchStatus];
       if (defaultTab && availableTabs.some(t => t.id === defaultTab)) {
@@ -239,7 +251,7 @@ export default function MatchDetailsScreen() {
         setHasAutoSelectedTab(true);
       }
     }
-  }, [matchData, matchStatus, availableTabs, hasAutoSelectedTab]);
+  }, [matchData, matchStatus, availableTabs, hasAutoSelectedTab, isAdmin, selectedTab]);
 
   // Fetch injuries data
   useEffect(() => {
