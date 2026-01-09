@@ -35,20 +35,22 @@ const Tab = createMaterialTopTabNavigator();
 // ============ ABOUT TAB ============
 function AboutTab({ 
   communityId, 
-  onLeaveCommunity
+  onLeaveCommunity,
+  refreshKey
 }: { 
   communityId: string; 
   onLeaveCommunity: () => void;
+  refreshKey?: number;
 }) {
   const { theme, isDark } = useTheme();
-  const { communityInfo } = useCommunityInfo(communityId);
+  const { communityInfo, refresh } = useCommunityInfo(communityId);
   
-  // Expose refresh to parent if needed
+  // Refresh when refreshKey changes (triggered from MembersTab after promote/demote)
   useEffect(() => {
-    if (onRefresh) {
-      // This allows parent to trigger refresh
+    if (refreshKey !== undefined && refreshKey > 0) {
+      refresh();
     }
-  }, [onRefresh]);
+  }, [refreshKey, refresh]);
 
   if (!communityInfo) {
     return (
@@ -162,10 +164,16 @@ function AboutTab({
 }
 
 // ============ MEMBERS TAB ============
-function MembersTab({ communityId, isOwner, currentUserEmail }: { 
+function MembersTab({ 
+  communityId, 
+  isOwner, 
+  currentUserEmail,
+  refreshCommunityInfo
+}: { 
   communityId: string; 
   isOwner: boolean;
   currentUserEmail?: string;
+  refreshCommunityInfo?: () => void;
 }) {
   const { theme, isDark } = useTheme();
   const { communityInfo } = useCommunityInfo(communityId);
@@ -204,8 +212,8 @@ function MembersTab({ communityId, isOwner, currentUserEmail }: {
       
       // Refresh community info to update moderators list in About tab
       // This will trigger useCommunityInfo to refetch and update the moderators list
-      if (refreshCommunityInfoRef) {
-        refreshCommunityInfoRef();
+      if (refreshCommunityInfo) {
+        refreshCommunityInfo();
       }
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to promote user');
@@ -222,8 +230,8 @@ function MembersTab({ communityId, isOwner, currentUserEmail }: {
       setActionMenuVisible(null);
       
       // Refresh community info to update moderators list in About tab
-      if (refreshCommunityInfoRef) {
-        refreshCommunityInfoRef();
+      if (refreshCommunityInfo) {
+        refreshCommunityInfo();
       }
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to demote user');
@@ -677,7 +685,11 @@ export default function CommunityInfoScreen() {
         }}
       >
         <Tab.Screen name="ABOUT" key={`about-${refreshKey}`}>
-          {() => <AboutTab communityId={id} onLeaveCommunity={handleLeaveCommunity} />}
+          {() => <AboutTab 
+            communityId={id} 
+            onLeaveCommunity={handleLeaveCommunity}
+            refreshKey={refreshKey}
+          />}
         </Tab.Screen>
         <Tab.Screen name="MEMBERS" key={`members-${refreshKey}`}>
           {() => <MembersTab 
