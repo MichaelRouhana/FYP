@@ -77,7 +77,8 @@ export default function AdminUsersPage() {
     
     const timer = setTimeout(() => {
       // Convert empty string to undefined so API returns all users
-      const searchValue = searchQuery.trim() || undefined;
+      // This ensures we don't send ?search= (empty) to the backend
+      const searchValue = searchQuery.trim().length > 0 ? searchQuery.trim() : undefined;
       setDebouncedSearch(searchValue);
       setPage(0); // Reset to first page on new search
       setData([]); // Clear existing data
@@ -91,7 +92,9 @@ export default function AdminUsersPage() {
   useEffect(() => {
     if (!hasInitialized.current) return; // Skip initial mount
     
-    fetchUsers(0, debouncedSearch, false);
+    // Always pass undefined for empty search to get all users
+    const searchParam = debouncedSearch && debouncedSearch.trim().length > 0 ? debouncedSearch : undefined;
+    fetchUsers(0, searchParam, false);
   }, [debouncedSearch, fetchUsers]);
 
   // Load more when page changes
@@ -200,7 +203,9 @@ export default function AdminUsersPage() {
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity
-            onPress={() => setSearchQuery('')}
+            onPress={() => {
+              setSearchQuery(''); // Clear search - this will trigger debounce to set undefined
+            }}
             style={styles.clearButton}
           >
             <Ionicons name="close-circle" size={20} color={Colors[colorScheme].muted} />
@@ -213,11 +218,11 @@ export default function AdminUsersPage() {
         data={data}
         renderItem={renderUserRow}
         estimatedItemSize={70}
+        keyExtractor={(item) => item.id.toString()}
         onEndReached={loadMore}
         onEndReachedThreshold={0.5}
         ListFooterComponent={renderFooter}
         ListEmptyComponent={renderEmpty}
-        keyExtractor={(item) => item.id.toString()}
         contentContainerStyle={data.length === 0 ? styles.emptyList : undefined}
       />
     </SafeAreaView>
