@@ -183,7 +183,15 @@ export default function MatchDetailsScreen() {
   const [betTypes, setBetTypes] = useState<BetType[]>([]);
   const [oddsMarkets, setOddsMarkets] = useState<Record<string, Market | null>>({});
   const [oddsLoading, setOddsLoading] = useState(false);
-  const [predictionSettings, setPredictionSettings] = useState<{ whoWillWin?: boolean; bothTeamsScore?: boolean; goalsOverUnder?: boolean; doubleChance?: boolean } | null>(null);
+  const [predictionSettings, setPredictionSettings] = useState<{ 
+    whoWillWin?: boolean; 
+    bothTeamsScore?: boolean; 
+    goalsOverUnder?: boolean; 
+    doubleChance?: boolean;
+    firstTeamToScore?: boolean;
+    scorePrediction?: boolean;
+    halfTimeFullTime?: boolean;
+  } | null>(null);
   
   // Structured picks state
   interface Pick {
@@ -1473,7 +1481,7 @@ export default function MatchDetailsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Match Result (1X2) - Only show if explicitly enabled */}
-        {oddsMarkets.match_winner && predictionSettings?.whoWillWin !== false && (
+        {oddsMarkets.match_winner && predictionSettings !== null && predictionSettings?.whoWillWin !== false && (
         <View style={styles.predictionSection}>
             <Text style={[styles.predictionTitle, styles.predictionTitleFirst, { color: theme.colors.text }]}>
               MATCH RESULT (1X2)
@@ -1520,7 +1528,7 @@ export default function MatchDetailsScreen() {
         )}
 
         {/* Double Chance - Only show if explicitly enabled */}
-        {oddsMarkets.double_chance && predictionSettings?.doubleChance !== false && (
+        {oddsMarkets.double_chance && predictionSettings !== null && predictionSettings?.doubleChance !== false && (
           <View style={styles.predictionSection}>
             <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
               DOUBLE CHANCE
@@ -1567,7 +1575,7 @@ export default function MatchDetailsScreen() {
         )}
 
         {/* Total Goals O/U - Table - Only show if explicitly enabled */}
-        {oddsMarkets.goals_ou && oddsMarkets.goals_ou.isTable && oddsMarkets.goals_ou.tableLines && predictionSettings?.goalsOverUnder !== false && (
+        {oddsMarkets.goals_ou && oddsMarkets.goals_ou.isTable && oddsMarkets.goals_ou.tableLines && predictionSettings !== null && predictionSettings?.goalsOverUnder !== false && (
           <View style={styles.predictionSection}>
             <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
               TOTAL GOALS (O/U)
@@ -1621,7 +1629,7 @@ export default function MatchDetailsScreen() {
         )}
 
         {/* Both Teams To Score - Only show if explicitly enabled */}
-        {oddsMarkets.btts && predictionSettings?.bothTeamsScore !== false && (
+        {oddsMarkets.btts && predictionSettings !== null && predictionSettings?.bothTeamsScore !== false && (
         <View style={styles.predictionSection}>
           <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
             BOTH TEAMS TO SCORE
@@ -1668,8 +1676,8 @@ export default function MatchDetailsScreen() {
           </View>
         )}
 
-        {/* Goals Handicap - Table */}
-        {oddsMarkets.handicap_result && oddsMarkets.handicap_result.isTable && oddsMarkets.handicap_result.tableLines && (
+        {/* Goals Handicap - Table - Only show if prediction settings exist (no specific setting for handicap) */}
+        {oddsMarkets.handicap_result && oddsMarkets.handicap_result.isTable && oddsMarkets.handicap_result.tableLines && predictionSettings !== null && (
           <View style={styles.predictionSection}>
             <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
               GOALS HANDICAP
@@ -1725,8 +1733,8 @@ export default function MatchDetailsScreen() {
           </View>
         )}
 
-        {/* First Team To Score */}
-        {oddsMarkets.team_score_first && (
+        {/* First Team To Score - Only show if explicitly enabled */}
+        {oddsMarkets.team_score_first && predictionSettings !== null && predictionSettings?.firstTeamToScore !== false && (
         <View style={styles.predictionSection}>
           <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
             FIRST TEAM TO SCORE
@@ -1773,8 +1781,8 @@ export default function MatchDetailsScreen() {
           </View>
         )}
 
-        {/* Last Team To Score */}
-        {oddsMarkets.team_score_last && (
+        {/* Last Team To Score - Only show if prediction settings exist (no specific setting for last team) */}
+        {oddsMarkets.team_score_last && predictionSettings !== null && (
           <View style={styles.predictionSection}>
             <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
               LAST TEAM TO SCORE
@@ -1821,8 +1829,8 @@ export default function MatchDetailsScreen() {
         </View>
         )}
 
-        {/* Goals in Both Halves - Estimated */}
-        {oddsMarkets.goals_both_halves && (
+        {/* Goals in Both Halves - Estimated - Only show if prediction settings exist */}
+        {oddsMarkets.goals_both_halves && predictionSettings !== null && (
         <View style={styles.predictionSection}>
             <View style={styles.predictionTitleRow}>
           <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
@@ -1869,8 +1877,8 @@ export default function MatchDetailsScreen() {
           </View>
         )}
 
-        {/* Home Team Total Goals O/U */}
-        {oddsMarkets.team_total_home && oddsMarkets.team_total_home.isTable && oddsMarkets.team_total_home.tableLines && (
+        {/* Home Team Total Goals O/U - Only show if prediction settings exist */}
+        {oddsMarkets.team_total_home && oddsMarkets.team_total_home.isTable && oddsMarkets.team_total_home.tableLines && predictionSettings !== null && (
           <View style={styles.predictionSection}>
             <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
               HOME TEAM TOTAL GOALS (O/U)
@@ -1923,8 +1931,8 @@ export default function MatchDetailsScreen() {
           </View>
         )}
 
-        {/* Away Team Total Goals O/U */}
-        {oddsMarkets.team_total_away && oddsMarkets.team_total_away.isTable && oddsMarkets.team_total_away.tableLines && (
+        {/* Away Team Total Goals O/U - Only show if prediction settings exist */}
+        {oddsMarkets.team_total_away && oddsMarkets.team_total_away.isTable && oddsMarkets.team_total_away.tableLines && predictionSettings !== null && (
           <View style={styles.predictionSection}>
             <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
               AWAY TEAM TOTAL GOALS (O/U)
