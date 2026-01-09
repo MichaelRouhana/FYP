@@ -1,7 +1,7 @@
 // app/admin/users.tsx
 // All Users Page with Search
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   TextInput,
@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
-import { router } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Text, View as ThemedView } from '@/components/Themed';
 import Colors from '@/constants/Colors';
@@ -21,90 +21,78 @@ import { fetchAllUsers, DashboardUser, PagedResponse } from '@/services/dashboar
 
 export default function AdminUsersPage() {
   const colorScheme = useColorScheme() ?? 'light';
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState<string | undefined>(undefined);
-  const [data, setData] = useState<DashboardUser[]>([]);
+  const [users, setUsers] = useState<DashboardUser[]>([]);
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [totalPages, setTotalPages] = useState(0);
-  const hasInitialized = useRef(false);
+  const [initialLoaded, setInitialLoaded] = useState(false);
 
-  // Fetch users
-  const fetchUsers = useCallback(async (pageNum: number, search: string | undefined, append: boolean = false) => {
-    if (loading || loadingMore) return;
+  // Fetch users with proper guards
+  const fetchUsers = useCallback(async (pageNum: number, searchQuery: string = '') => {
+    // Prevent double fetching
+    if (loading) return;
+    
+    // Prevent fetching if we know there's no more data (for pagination)
+    if (pageNum > 0 && !hasMore) return;
 
-    if (append) {
-      setLoadingMore(true);
-    } else {
-      setLoading(true);
-    }
+    setLoading(true);
 
     try {
-      // Pass undefined if search is empty/undefined to get all users
-      const response: PagedResponse<DashboardUser> = await fetchAllUsers(pageNum, search);
+      // Fix: Pass undefined if search is empty so backend gets null/undefined
+      const query = searchQuery.trim() === '' ? undefined : searchQuery.trim();
       
-      if (append) {
-        setData(prev => [...prev, ...response.content]);
+      const response: PagedResponse<DashboardUser> = await fetchAllUsers(pageNum, query);
+      
+      if (pageNum === 0) {
+        // First page or new search - replace data
+        setUsers(response.content);
       } else {
-        setData(response.content);
+        // Pagination - append data
+        setUsers(prev => [...prev, ...response.content]);
       }
 
-      setTotalPages(response.totalPages);
-      setHasMore(!response.last && response.content.length > 0);
+      // Check if we reached the end
+      setHasMore(!response.last);
     } catch (error) {
       console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
-      setLoadingMore(false);
+      setInitialLoaded(true);
     }
-  }, [loading, loadingMore]);
+  }, [loading, hasMore]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // When search changes, reset to page 0 and fetch
+      setPage(0);
+      setHasMore(true); // Reset guard
+      fetchUsers(0, search);
+    }, search ? 600 : 0); // No delay for clearing search (empty string)
+
+    return () => clearTimeout(timer);
+  }, [search, fetchUsers]);
 
   // Initial load on mount
   useEffect(() => {
-    if (!hasInitialized.current) {
-      hasInitialized.current = true;
-      // Load all users immediately on mount
-      fetchUsers(0, undefined, false);
+    if (!initialLoaded) {
+      fetchUsers(0, '');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [initialLoaded, fetchUsers]);
 
-  // Debounce search input and trigger fetch
-  useEffect(() => {
-    if (!hasInitialized.current) return; // Skip until initial load is done
-    
-    const timer = setTimeout(() => {
-      // Convert empty string to undefined so API returns all users
-      // This ensures we don't send ?search= (empty) to the backend
-      const searchValue = searchQuery.trim().length > 0 ? searchQuery.trim() : undefined;
-      setDebouncedSearch(searchValue);
-      setPage(0); // Reset to first page on new search
-      setData([]); // Clear existing data
-      setHasMore(true);
-    }, 600);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // Fetch when debounced search changes (after initial load)
-  useEffect(() => {
-    if (!hasInitialized.current) return; // Skip initial mount
-    
-    // Always pass undefined for empty search to get all users
-    const searchParam = debouncedSearch && debouncedSearch.trim().length > 0 ? debouncedSearch : undefined;
-    fetchUsers(0, searchParam, false);
-  }, [debouncedSearch, fetchUsers]);
-
-  // Load more when page changes
+  // Load more handler with proper guards
   const loadMore = useCallback(() => {
-    if (!loadingMore && hasMore && !loading) {
+    // CRITICAL: Only load more if:
+    // 1. Not currently loading
+    // 2. There's more data available
+    // 3. Initial load has completed
+    if (!loading && hasMore && initialLoaded) {
       const nextPage = page + 1;
       setPage(nextPage);
-      fetchUsers(nextPage, debouncedSearch, true);
+      fetchUsers(nextPage, search);
     }
-  }, [page, hasMore, loadingMore, loading, debouncedSearch, fetchUsers]);
+  }, [loading, hasMore, initialLoaded, page, search, fetchUsers]);
 
   const renderUserRow = ({ item, index }: { item: DashboardUser; index: number }) => {
     const avatarUrl = item.pfp || item.avatarUrl || `https://ui-avatars.com/api/?name=${item.username}&background=16a34a&color=fff&size=200`;
@@ -143,7 +131,7 @@ export default function AdminUsersPage() {
   };
 
   const renderFooter = () => {
-    if (!loadingMore) return null;
+    if (!loading) return null;
     return (
       <View style={styles.footer}>
         <ActivityIndicator size="small" color={Colors[colorScheme].tint} />
@@ -152,7 +140,7 @@ export default function AdminUsersPage() {
   };
 
   const renderEmpty = () => {
-    if (loading) {
+    if (loading && !initialLoaded) {
       return (
         <View style={styles.emptyContainer}>
           <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
@@ -162,70 +150,71 @@ export default function AdminUsersPage() {
     return (
       <View style={styles.emptyContainer}>
         <Text style={[styles.emptyText, { color: Colors[colorScheme].muted }]}>
-          {debouncedSearch && debouncedSearch.trim() ? 'No users found' : 'No users available'}
+          {search.trim() ? 'No users found' : 'No users available'}
         </Text>
       </View>
     );
   };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]} edges={['top']}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: Colors[colorScheme].background }]}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors[colorScheme].text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: Colors[colorScheme].text }]}>
-          All Users
-        </Text>
-        <View style={styles.backButton} />
-      </View>
-
-      {/* Search Bar */}
-      <View style={[styles.searchContainer, { backgroundColor: Colors[colorScheme].card }]}>
-        <Ionicons
-          name="search"
-          size={20}
-          color={Colors[colorScheme].muted}
-          style={styles.searchIcon}
-        />
-        <TextInput
-          style={[styles.searchInput, { color: Colors[colorScheme].text }]}
-          placeholder="Search users..."
-          placeholderTextColor={Colors[colorScheme].muted}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        {searchQuery.length > 0 && (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <SafeAreaView style={[styles.container, { backgroundColor: Colors[colorScheme].background }]} edges={['top']}>
+        {/* Header */}
+        <View style={[styles.header, { backgroundColor: Colors[colorScheme].background }]}>
           <TouchableOpacity
-            onPress={() => {
-              setSearchQuery(''); // Clear search - this will trigger debounce to set undefined
-            }}
-            style={styles.clearButton}
+            onPress={() => router.back()}
+            style={styles.backButton}
           >
-            <Ionicons name="close-circle" size={20} color={Colors[colorScheme].muted} />
+            <Ionicons name="arrow-back" size={24} color={Colors[colorScheme].text} />
           </TouchableOpacity>
-        )}
-      </View>
+          <Text style={[styles.headerTitle, { color: Colors[colorScheme].text }]}>
+            All Users
+          </Text>
+          <View style={styles.backButton} />
+        </View>
 
-      {/* User List */}
-      <FlashList
-        data={data}
-        renderItem={renderUserRow}
-        estimatedItemSize={70}
-        keyExtractor={(item) => item.id.toString()}
-        onEndReached={loadMore}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={renderFooter}
-        ListEmptyComponent={renderEmpty}
-        contentContainerStyle={data.length === 0 ? styles.emptyList : undefined}
-      />
-    </SafeAreaView>
+        {/* Search Bar */}
+        <View style={[styles.searchContainer, { backgroundColor: Colors[colorScheme].card }]}>
+          <Ionicons
+            name="search"
+            size={20}
+            color={Colors[colorScheme].muted}
+            style={styles.searchIcon}
+          />
+          <TextInput
+            style={[styles.searchInput, { color: Colors[colorScheme].text }]}
+            placeholder="Search users..."
+            placeholderTextColor={Colors[colorScheme].muted}
+            value={search}
+            onChangeText={setSearch}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearch('')}
+              style={styles.clearButton}
+            >
+              <Ionicons name="close-circle" size={20} color={Colors[colorScheme].muted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* User List */}
+        <FlashList
+          data={users}
+          renderItem={renderUserRow}
+          estimatedItemSize={70}
+          keyExtractor={(item) => item.id.toString()}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={renderFooter}
+          ListEmptyComponent={renderEmpty}
+          contentContainerStyle={users.length === 0 ? styles.emptyList : undefined}
+        />
+      </SafeAreaView>
+    </>
   );
 }
 
