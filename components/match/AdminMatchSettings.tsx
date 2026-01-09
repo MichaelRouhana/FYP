@@ -259,41 +259,6 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
               />
             </View>
 
-            {/* Correct Score */}
-            <View style={[styles.row, styles.rowDivider, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
-                  Correct Score
-                </Text>
-                <Text style={[styles.rowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
-                  Enable correct score predictions
-                </Text>
-              </View>
-              <Switch
-                value={predictionSettings?.scorePrediction ?? true}
-                onValueChange={(value) => handlePredictionSettingToggle('scorePrediction', value)}
-                trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
-                thumbColor="#ffffff"
-              />
-            </View>
-
-            {/* Half Time / Full Time */}
-            <View style={[styles.row, styles.rowDivider, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
-                  Half Time / Full Time
-                </Text>
-                <Text style={[styles.rowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
-                  Enable half time / full time predictions
-                </Text>
-              </View>
-              <Switch
-                value={predictionSettings?.halfTimeFullTime ?? true}
-                onValueChange={(value) => handlePredictionSettingToggle('halfTimeFullTime', value)}
-                trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
-                thumbColor="#ffffff"
-              />
-            </View>
           </View>
         </View>
       )}

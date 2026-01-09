@@ -31,7 +31,7 @@ import { useUserBalance } from '@/hooks/useUserBalance';
 import { useProfile } from '@/hooks/useProfile';
 import { placeBet, createMatchWinnerBet, getOddsForSelection, getOdds } from '@/services/betApi';
 import { MarketType, BetRequestDTO } from '@/types/bet';
-import { getFixtureInjuries, getBetTypes, getOddsForFixture } from '@/services/matchApi';
+import { getFixtureInjuries, getBetTypes, getOddsForFixture, getPredictionSettings } from '@/services/matchApi';
 import { FootballApiInjury } from '@/types/fixture';
 import AdminMatchSettings from '@/components/match/AdminMatchSettings';
 import {
@@ -183,6 +183,7 @@ export default function MatchDetailsScreen() {
   const [betTypes, setBetTypes] = useState<BetType[]>([]);
   const [oddsMarkets, setOddsMarkets] = useState<Record<string, Market | null>>({});
   const [oddsLoading, setOddsLoading] = useState(false);
+  const [predictionSettings, setPredictionSettings] = useState<{ whoWillWin?: boolean; bothTeamsScore?: boolean; goalsOverUnder?: boolean; doubleChance?: boolean } | null>(null);
   
   // Structured picks state
   interface Pick {
@@ -253,6 +254,22 @@ export default function MatchDetailsScreen() {
       }
     };
     fetchInjuries();
+  }, [id]);
+
+  // Fetch prediction settings
+  useEffect(() => {
+    const fetchSettings = async () => {
+      if (!id) return;
+      try {
+        const settings = await getPredictionSettings(Number(id));
+        setPredictionSettings(settings);
+      } catch (error) {
+        console.error('[MatchDetails] Error fetching prediction settings:', error);
+        // Default to showing all if settings can't be fetched
+        setPredictionSettings(null);
+      }
+    };
+    fetchSettings();
   }, [id]);
 
   // Fetch odds data and resolve bet types
@@ -1444,7 +1461,7 @@ export default function MatchDetailsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Match Result (1X2) */}
-        {oddsMarkets.match_winner && (
+        {oddsMarkets.match_winner && predictionSettings?.whoWillWin !== false && (
         <View style={styles.predictionSection}>
             <Text style={[styles.predictionTitle, styles.predictionTitleFirst, { color: theme.colors.text }]}>
               MATCH RESULT (1X2)
@@ -1491,7 +1508,7 @@ export default function MatchDetailsScreen() {
         )}
 
         {/* Double Chance */}
-        {oddsMarkets.double_chance && (
+        {oddsMarkets.double_chance && predictionSettings?.doubleChance !== false && (
           <View style={styles.predictionSection}>
             <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
               DOUBLE CHANCE
@@ -1538,7 +1555,7 @@ export default function MatchDetailsScreen() {
         )}
 
         {/* Total Goals O/U - Table */}
-        {oddsMarkets.goals_ou && oddsMarkets.goals_ou.isTable && oddsMarkets.goals_ou.tableLines && (
+        {oddsMarkets.goals_ou && oddsMarkets.goals_ou.isTable && oddsMarkets.goals_ou.tableLines && predictionSettings?.goalsOverUnder !== false && (
           <View style={styles.predictionSection}>
             <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
               TOTAL GOALS (O/U)
@@ -1592,7 +1609,7 @@ export default function MatchDetailsScreen() {
         )}
 
         {/* Both Teams To Score */}
-        {oddsMarkets.btts && (
+        {oddsMarkets.btts && predictionSettings?.bothTeamsScore !== false && (
         <View style={styles.predictionSection}>
           <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
             BOTH TEAMS TO SCORE
