@@ -341,6 +341,7 @@ function MembersTab({
         borderWidth: isDark ? 0 : 1, 
         borderColor: theme.colors.border,
         position: 'relative',
+        zIndex: 1, // Base zIndex for member row
       }]}>
         <Image 
           source={{ uri: item.pfp || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.username)}&background=3b82f6&color=fff` }} 
@@ -385,7 +386,9 @@ function MembersTab({
               shadowOpacity: 0.25,
               shadowRadius: 3.84,
               elevation: 5,
+              zIndex: 1001, // Higher than overlay
             }]}
+            pointerEvents="box-none" // Allow touches to pass to children
           >
             {isModerator ? (
               <>
@@ -436,29 +439,44 @@ function MembersTab({
             ) : (
               <>
                 <TouchableOpacity
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   onPress={() => {
-                    console.log(`[UI] Promote button pressed for user: ${item.username} (ID: ${item.id})`);
-                    Alert.alert(
-                      'Promote to Moderator',
-                      `Are you sure you want to promote ${item.username} to moderator?`,
-                      [
-                        { text: 'Cancel', style: 'cancel', onPress: () => console.log('[UI] Promotion cancelled by user') },
-                        { 
-                          text: 'Promote', 
-                          onPress: () => {
-                            console.log(`[UI] User confirmed promotion for ID: ${item.id}`);
-                            if (!item.id) {
-                              console.error('[UI] ❌ ERROR: item.id is undefined or null!');
-                              Alert.alert('Error', 'Cannot promote: User ID is missing.');
-                              return;
+                    console.log(`[UI] ⚡ Promote button TOUCHED for user: ${item.username} (ID: ${item.id})`);
+                    console.log(`[UI] Item details:`, { id: item.id, username: item.username, email: item.email });
+                    
+                    // Close menu first
+                    setActionMenuVisible(null);
+                    
+                    // Small delay to allow menu to close before showing alert
+                    setTimeout(() => {
+                      Alert.alert(
+                        'Promote to Moderator',
+                        `Are you sure you want to promote ${item.username} to moderator?`,
+                        [
+                          { 
+                            text: 'Cancel', 
+                            style: 'cancel', 
+                            onPress: () => console.log('[UI] Promotion cancelled by user') 
+                          },
+                          { 
+                            text: 'Promote', 
+                            onPress: () => {
+                              console.log(`[UI] ✅ User confirmed promotion for ID: ${item.id}`);
+                              if (!item.id) {
+                                console.error('[UI] ❌ ERROR: item.id is undefined or null!');
+                                Alert.alert('Error', 'Cannot promote: User ID is missing.');
+                                return;
+                              }
+                              console.log(`[UI] 🚀 Calling handlePromote(${item.id})...`);
+                              handlePromote(item.id);
                             }
-                            handlePromote(item.id);
-                          }
-                        },
-                      ]
-                    );
+                          },
+                        ]
+                      );
+                    }, 100);
                   }}
-                  style={styles.actionMenuItem}
+                  style={[styles.actionMenuItem, { zIndex: 1002 }]}
                 >
                   <Ionicons name="arrow-up" size={18} color={theme.colors.text} />
                   <Text style={[styles.actionMenuText, { color: theme.colors.text }]}>Promote to Moderator</Text>
@@ -527,8 +545,19 @@ function MembersTab({
       />
       {/* Overlay to close menu when clicking outside */}
       {actionMenuVisible && (
-        <TouchableWithoutFeedback onPress={() => setActionMenuVisible(null)}>
-          <View style={StyleSheet.absoluteFill} />
+        <TouchableWithoutFeedback 
+          onPress={() => {
+            console.log('[UI] Overlay pressed - closing action menu');
+            setActionMenuVisible(null);
+          }}
+        >
+          <View 
+            style={[
+              StyleSheet.absoluteFill,
+              { zIndex: 999, backgroundColor: 'transparent' } // Lower zIndex than menu, transparent
+            ]} 
+            pointerEvents="box-none"
+          />
         </TouchableWithoutFeedback>
       )}
     </>
@@ -1070,8 +1099,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 4,
     minWidth: 180,
-    zIndex: 1000,
-    elevation: 5,
+    zIndex: 1001,
+    elevation: 10, // Higher elevation for Android
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -1082,6 +1111,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     gap: 8,
+    zIndex: 1002, // Even higher zIndex for touchable items
   },
   actionMenuText: {
     fontSize: 14,
