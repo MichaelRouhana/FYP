@@ -202,40 +202,65 @@ function MembersTab({
   }, [communityId]);
 
   const handlePromote = async (userId: number) => {
+    console.log(`[UI] Attempting to promote user: ${userId}...`);
+    
+    // Close action menu immediately
+    setActionMenuVisible(null);
+    
     try {
-      console.log('[MembersTab] Starting promote for user ID:', userId);
-      
-      // Close action menu
-      setActionMenuVisible(null);
-      
       // Await the API call to promote user
-      console.log('[MembersTab] Calling promoteToModerator API...');
+      console.log(`[UI] Calling promoteToModerator API for community ${communityId}, user ${userId}...`);
       await promoteToModerator(communityId, userId);
-      console.log('[MembersTab] ✅ Promote API call succeeded');
       
-      // Show success alert immediately after API call succeeds
-      Alert.alert('Success', 'User has been promoted to Moderator.');
+      console.log('[UI] Success response received from promoteToModerator API');
       
-      // CRITICAL: Refresh both members list AND community info to update moderators in About tab
-      // Refresh members list first (this updates the Members tab) - await to ensure it completes
-      console.log('[MembersTab] Refreshing members list...');
-      await fetchMembersWithRoles();
-      console.log('[MembersTab] ✅ Members list refreshed');
+      // Show success alert with refresh callback - refresh only after user confirms
+      Alert.alert(
+        'Success',
+        'User has been promoted!',
+        [
+          {
+            text: 'OK',
+            onPress: async () => {
+              console.log('[UI] User confirmed success alert, refreshing data...');
+              
+              // CRITICAL: Refresh both members list AND community info to update moderators in About tab
+              try {
+                // Refresh members list first (this updates the Members tab) - await to ensure it completes
+                console.log('[UI] Refreshing members list...');
+                await fetchMembersWithRoles();
+                console.log('[UI] ✅ Members list refreshed successfully');
+                
+                // Refresh community info to update moderators list in About tab
+                // This increments refreshKey which triggers AboutTab to re-fetch via useCommunityInfo
+                if (refreshCommunityInfo) {
+                  console.log('[UI] Triggering community info refresh...');
+                  refreshCommunityInfo();
+                  console.log('[UI] ✅ Community info refresh triggered');
+                } else {
+                  console.warn('[UI] ⚠️ refreshCommunityInfo callback not available');
+                }
+              } catch (refreshError: any) {
+                console.error('[UI] ❌ Error refreshing data after promotion:', refreshError);
+              }
+            }
+          }
+        ]
+      );
       
-      // Refresh community info to update moderators list in About tab
-      // This increments refreshKey which triggers AboutTab to re-fetch via useCommunityInfo
-      if (refreshCommunityInfo) {
-        console.log('[MembersTab] Triggering community info refresh...');
-        refreshCommunityInfo();
-        console.log('[MembersTab] ✅ Community info refresh triggered');
-      } else {
-        console.warn('[MembersTab] ⚠️ refreshCommunityInfo callback not available');
-      }
+      console.log('[UI] ✅ Promotion successful, success alert shown');
     } catch (error: any) {
-      console.error('[MembersTab] ❌ Error promoting user:', error);
-      // Show error alert with detailed message
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to promote user.';
+      console.error('[UI] Error caught during promotion:', error);
+      console.error('[UI] Error details:', {
+        message: error?.message,
+        response: error?.response?.data,
+        status: error?.response?.status,
+      });
+      
+      // Show error alert with exact error message
+      const errorMessage = error?.response?.data?.message || error?.message || 'Failed to promote user.';
       Alert.alert('Error', errorMessage);
+      
       // Make sure action menu is closed even on error
       setActionMenuVisible(null);
     }
@@ -412,12 +437,24 @@ function MembersTab({
               <>
                 <TouchableOpacity
                   onPress={() => {
+                    console.log(`[UI] Promote button pressed for user: ${item.username} (ID: ${item.id})`);
                     Alert.alert(
                       'Promote to Moderator',
                       `Are you sure you want to promote ${item.username} to moderator?`,
                       [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Promote', onPress: () => handlePromote(item.id) },
+                        { text: 'Cancel', style: 'cancel', onPress: () => console.log('[UI] Promotion cancelled by user') },
+                        { 
+                          text: 'Promote', 
+                          onPress: () => {
+                            console.log(`[UI] User confirmed promotion for ID: ${item.id}`);
+                            if (!item.id) {
+                              console.error('[UI] ❌ ERROR: item.id is undefined or null!');
+                              Alert.alert('Error', 'Cannot promote: User ID is missing.');
+                              return;
+                            }
+                            handlePromote(item.id);
+                          }
+                        },
                       ]
                     );
                   }}
