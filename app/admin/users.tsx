@@ -28,6 +28,7 @@ export default function AdminUsersPage() {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // 1. Fetch Function with Strict Guards
   const fetchUsers = useCallback(async (pageNum: number, searchQuery: string, shouldReset: boolean = false) => {
@@ -82,28 +83,79 @@ export default function AdminUsersPage() {
 
   // 2. Initial Load / Search Change with Debounce
   useEffect(() => {
+    // Prevent multiple simultaneous fetches
+    if (loading) {
+      console.log('⚠️ Initial load blocked: Already loading');
+      return;
+    }
+    
     // Reset everything when search changes
     setHasMore(true);
     setPage(0);
     
     // Debounce: Add delay to prevent fetching on every keystroke
     const timeoutId = setTimeout(() => {
-      fetchUsers(0, search, true);
+      const query = search.trim() === '' ? undefined : search.trim();
+      
+      setLoading(true);
+      fetchAllUsers(0, query)
+        .then((response: PagedResponse<DashboardUser>) => {
+          setUsers(response.content);
+          setHasMore(!response.last);
+          setPage(0);
+          setInitialLoadDone(true);
+        })
+        .catch((error: any) => {
+          console.error('❌ Fetch error:', error);
+          if (error.response?.status === 429) {
+            setHasMore(false);
+          }
+        })
+        .finally(() => {
+          setLoading(false);
+        });
     }, search ? 600 : 0); // 600ms delay when typing, immediate when clearing
 
     return () => clearTimeout(timeoutId);
-  }, [search, fetchUsers]);
+  }, [search]); // Only depends on search - no fetchUsers dependency to prevent loops
 
-  // 3. Load More Handler with Strict Guards
+  // 3. Load More Handler - MANUAL BUTTON ONLY (No Automatic Loading)
   const loadMore = useCallback(() => {
     // STRICT GUARDS: Only load more if:
     // 1. Not currently loading
     // 2. There's more data available
     // 3. We have existing users (prevents firing on empty list)
-    if (!loading && hasMore && users.length > 0) {
-      fetchUsers(page + 1, search, false);
+    if (loading || !hasMore || users.length === 0) {
+      console.log('⚠️ Load More blocked:', { loading, hasMore, usersLength: users.length });
+      return;
     }
-  }, [loading, hasMore, users.length, page, search, fetchUsers]);
+
+    console.log('📥 Manual Load More triggered');
+    setLoading(true);
+    
+    const query = search.trim() === '' ? undefined : search.trim();
+    const nextPage = page + 1;
+    
+    fetchAllUsers(nextPage, query)
+      .then((response: PagedResponse<DashboardUser>) => {
+        setUsers(prev => {
+          const existingIds = new Set(prev.map(u => u.id));
+          const newUsers = response.content.filter((u: DashboardUser) => !existingIds.has(u.id));
+          return [...prev, ...newUsers];
+        });
+        setHasMore(!response.last);
+        setPage(nextPage);
+      })
+      .catch((error: any) => {
+        console.error('❌ Load More error:', error);
+        if (error.response?.status === 429) {
+          setHasMore(false);
+        }
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [loading, hasMore, users.length, page, search]);
 
   // Render User Row
   const renderUserRow = ({ item }: { item: DashboardUser }) => {
@@ -142,25 +194,36 @@ export default function AdminUsersPage() {
     );
   };
 
-  // Footer Component - Manual "Load More" Button
+  // Footer Component - Manual "Load More" Button ONLY
   const renderFooter = () => {
     if (loading) {
       return (
         <View style={styles.footer}>
           <ActivityIndicator size="small" color={Colors[colorScheme].tint} />
+          <Text style={[styles.loadingText, { color: Colors[colorScheme].muted }]}>
+            Loading...
+          </Text>
         </View>
       );
     }
     
+    // Only show button if we have more data and existing users
     if (hasMore && users.length > 0) {
       return (
         <TouchableOpacity
-          onPress={loadMore}
+          onPress={() => {
+            console.log('🔘 Load More button pressed');
+            loadMore();
+          }}
           style={[
             styles.loadMoreButton,
-            { backgroundColor: Colors[colorScheme].card }
+            { 
+              backgroundColor: Colors[colorScheme].card,
+              borderColor: Colors[colorScheme].tint + '40'
+            }
           ]}
           activeOpacity={0.7}
+          disabled={loading || !hasMore}
         >
           <Text style={[styles.loadMoreText, { color: Colors[colorScheme].tint }]}>
             Load More Users
@@ -169,7 +232,7 @@ export default function AdminUsersPage() {
       );
     }
     
-    if (users.length > 0) {
+    if (users.length > 0 && !hasMore) {
       return (
         <View style={styles.footer}>
           <Text style={[styles.noMoreText, { color: Colors[colorScheme].muted }]}>
@@ -239,7 +302,7 @@ export default function AdminUsersPage() {
           )}
         </View>
 
-        {/* User List - Manual "Load More" (No Automatic Scrolling) */}
+        {/* User List - MANUAL "Load More" ONLY (No onEndReached, No Automatic Loading) */}
         <FlashList
           data={users}
           renderItem={renderUserRow}
@@ -248,6 +311,8 @@ export default function AdminUsersPage() {
           ListFooterComponent={renderFooter}
           ListEmptyComponent={renderEmpty}
           contentContainerStyle={users.length === 0 ? styles.emptyList : styles.listContent}
+          // EXPLICITLY NO onEndReached - Manual button only!
+          // onEndReached={undefined} - Not needed, just don't include it
         />
       </SafeAreaView>
     </>
@@ -345,6 +410,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     padding: 20,
     fontSize: 14,
+  },
+  loadingText: {
+    marginTop: 8,
+    fontSize: 12,
+    textAlign: 'center',
   },
   emptyContainer: {
     flex: 1,
