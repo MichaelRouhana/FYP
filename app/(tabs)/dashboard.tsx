@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LineChart } from 'react-native-gifted-charts';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useDashboardUsers } from '@/hooks/useDashboardUsers';
 import DashboardBets from '@/components/dashboard/DashboardBets';
 import Colors from '@/constants/Colors';
@@ -223,7 +224,10 @@ export default function DashboardScreen() {
                   </View>
                 </View>
               ))}
-              <TouchableOpacity style={styles.viewAllButton}>
+              <TouchableOpacity 
+                style={styles.viewAllButton}
+                onPress={() => router.push('/admin/users')}
+              >
                 <Text style={styles.viewAllText}>VIEW ALL</Text>
               </TouchableOpacity>
             </View>

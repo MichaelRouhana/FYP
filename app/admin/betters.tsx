@@ -1,5 +1,5 @@
-// app/admin/points.tsx
-// Top Points Leaderboard
+// app/admin/betters.tsx
+// Top Betters Leaderboard
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -16,9 +16,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Text, View as ThemedView } from '@/components/Themed';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { fetchTopPoints, DashboardUser, PagedResponse } from '@/services/dashboardApi';
+import { fetchTopBetters, DashboardUser, PagedResponse } from '@/services/dashboardApi';
 
-export default function AdminPointsPage() {
+export default function AdminBettersPage() {
   const colorScheme = useColorScheme() ?? 'light';
   const [data, setData] = useState<DashboardUser[]>([]);
   const [page, setPage] = useState(0);
@@ -27,7 +27,7 @@ export default function AdminPointsPage() {
   const [hasMore, setHasMore] = useState(true);
   const [totalPages, setTotalPages] = useState(0);
 
-  // Fetch top points
+  // Fetch top betters
   const fetchData = useCallback(async (pageNum: number, append: boolean = false) => {
     if (loading || loadingMore) return;
 
@@ -38,7 +38,7 @@ export default function AdminPointsPage() {
     }
 
     try {
-      const response: PagedResponse<DashboardUser> = await fetchTopPoints(pageNum);
+      const response: PagedResponse<DashboardUser> = await fetchTopBetters(pageNum);
       
       if (append) {
         setData(prev => [...prev, ...response.content]);
@@ -49,7 +49,7 @@ export default function AdminPointsPage() {
       setTotalPages(response.totalPages);
       setHasMore(!response.last && response.content.length > 0);
     } catch (error) {
-      console.error('Error fetching top points:', error);
+      console.error('Error fetching top betters:', error);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -73,7 +73,8 @@ export default function AdminPointsPage() {
   const renderUserRow = ({ item, index }: { item: DashboardUser; index: number }) => {
     const rank = page * 20 + index + 1; // Calculate rank based on page and index
     const avatarUrl = item.pfp || item.avatarUrl || `https://ui-avatars.com/api/?name=${item.username}&background=16a34a&color=fff&size=200`;
-    const points = item.totalPoints || item.points || 0;
+    const wins = item.totalWins || item.wonBets || 0;
+    const winRate = item.winRate || 0;
     
     return (
       <TouchableOpacity
@@ -110,11 +111,18 @@ export default function AdminPointsPage() {
           )}
         </View>
 
-        {/* Points Badge */}
-        <View style={[styles.pointsBadge, { backgroundColor: Colors[colorScheme].tint }]}>
-          <Text style={styles.pointsText}>
-            {points.toLocaleString()}
-          </Text>
+        {/* Wins/Win Rate Badge */}
+        <View style={styles.statsContainer}>
+          <View style={[styles.winsBadge, { backgroundColor: Colors[colorScheme].success + '20' }]}>
+            <Text style={[styles.winsText, { color: Colors[colorScheme].success }]}>
+              {wins} {wins === 1 ? 'Win' : 'Wins'}
+            </Text>
+          </View>
+          {winRate > 0 && (
+            <Text style={[styles.winRateText, { color: Colors[colorScheme].muted }]}>
+              {winRate.toFixed(1)}%
+            </Text>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -157,7 +165,7 @@ export default function AdminPointsPage() {
           <Ionicons name="arrow-back" size={24} color={Colors[colorScheme].text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: Colors[colorScheme].text }]}>
-          Top Points
+          Top Betters
         </Text>
         <View style={styles.backButton} />
       </View>
@@ -238,17 +246,21 @@ const styles = StyleSheet.create({
   country: {
     fontSize: 12,
   },
-  pointsBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    minWidth: 60,
-    alignItems: 'center',
+  statsContainer: {
+    alignItems: 'flex-end',
   },
-  pointsText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: 'bold',
+  winsBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  winsText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  winRateText: {
+    fontSize: 11,
   },
   footer: {
     paddingVertical: 20,
@@ -267,3 +279,4 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
 });
+

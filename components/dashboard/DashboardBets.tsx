@@ -10,6 +10,7 @@ import {
   Image,
   StyleSheet,
 } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useDashboardBets } from '@/hooks/useDashboardBets';
 import DashboardChart from './DashboardChart';
@@ -192,7 +193,10 @@ export default function DashboardBets() {
             <Text style={styles.emptyText}>No betters data available</Text>
           </View>
         )}
-        <TouchableOpacity style={styles.viewAllButton}>
+        <TouchableOpacity 
+          style={styles.viewAllButton}
+          onPress={() => router.push('/admin/betters')}
+        >
           <Text style={styles.viewAllButtonText}>VIEW ALL</Text>
         </TouchableOpacity>
       </View>
@@ -237,7 +241,10 @@ export default function DashboardBets() {
             <Text style={styles.emptyText}>No points data available</Text>
           </View>
         )}
-        <TouchableOpacity style={styles.viewAllButton}>
+        <TouchableOpacity 
+          style={styles.viewAllButton}
+          onPress={() => router.push('/admin/points')}
+        >
           <Text style={styles.viewAllButtonText}>VIEW ALL</Text>
         </TouchableOpacity>
       </View>
