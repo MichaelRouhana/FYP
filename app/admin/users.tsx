@@ -142,14 +142,44 @@ export default function AdminUsersPage() {
     );
   };
 
-  // Footer Component
+  // Footer Component - Manual "Load More" Button
   const renderFooter = () => {
-    if (!loading) return null;
-    return (
-      <View style={styles.footer}>
-        <ActivityIndicator size="small" color={Colors[colorScheme].tint} />
-      </View>
-    );
+    if (loading) {
+      return (
+        <View style={styles.footer}>
+          <ActivityIndicator size="small" color={Colors[colorScheme].tint} />
+        </View>
+      );
+    }
+    
+    if (hasMore && users.length > 0) {
+      return (
+        <TouchableOpacity
+          onPress={loadMore}
+          style={[
+            styles.loadMoreButton,
+            { backgroundColor: Colors[colorScheme].card }
+          ]}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.loadMoreText, { color: Colors[colorScheme].tint }]}>
+            Load More Users
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+    
+    if (users.length > 0) {
+      return (
+        <View style={styles.footer}>
+          <Text style={[styles.noMoreText, { color: Colors[colorScheme].muted }]}>
+            No more users
+          </Text>
+        </View>
+      );
+    }
+    
+    return null;
   };
 
   // Empty Component
@@ -209,14 +239,12 @@ export default function AdminUsersPage() {
           )}
         </View>
 
-        {/* User List - Optimized FlashList Config */}
+        {/* User List - Manual "Load More" (No Automatic Scrolling) */}
         <FlashList
           data={users}
           renderItem={renderUserRow}
           estimatedItemSize={80}
           keyExtractor={(item) => item.id.toString()}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.1}
           ListFooterComponent={renderFooter}
           ListEmptyComponent={renderEmpty}
           contentContainerStyle={users.length === 0 ? styles.emptyList : styles.listContent}
@@ -300,6 +328,23 @@ const styles = StyleSheet.create({
   footer: {
     paddingVertical: 20,
     alignItems: 'center',
+  },
+  loadMoreButton: {
+    padding: 15,
+    alignItems: 'center',
+    margin: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  loadMoreText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  noMoreText: {
+    textAlign: 'center',
+    padding: 20,
+    fontSize: 14,
   },
   emptyContainer: {
     flex: 1,
