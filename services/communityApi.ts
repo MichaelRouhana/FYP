@@ -15,6 +15,17 @@ export interface CommunityRequestDTO {
   rules?: string[];
 }
 
+export interface UserViewDTO {
+  id?: number;
+  username: string;
+  email: string;
+  pfp?: string;
+  roles?: string[]; // Community roles: 'OWNER', 'MODERATOR', 'MEMBER'
+  totalPoints?: number;
+  about?: string;
+  country?: string;
+}
+
 export interface CommunityResponseDTO {
   id: number;
   name: string;
@@ -24,6 +35,8 @@ export interface CommunityResponseDTO {
   rules?: string[];
   inviteCode?: string;
   userIds?: number[];
+  moderators?: UserViewDTO[]; // Real moderators from backend
+  leaderboard?: UserViewDTO[]; // Top 3 leaderboard
 }
 
 /**

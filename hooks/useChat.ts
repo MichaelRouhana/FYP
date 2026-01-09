@@ -819,77 +819,97 @@ export function useCommunityInfo(communityId: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchCommunityInfo = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Fetch community details
-        const [communityResponse, leaderboardResponse, membersResponse] = await Promise.allSettled([
-          api.get<CommunityResponseDTO>(`/communities/${communityId}`),
-          api.get(`/communities/${communityId}/leaderboard`).catch(() => null),
-          api.get(`/communities/${communityId}/members`).catch(() => null),
-        ]);
-        
-        if (communityResponse.status === 'rejected') {
-          throw new Error('Failed to fetch community');
-        }
-        
-        const dto = communityResponse.value.data;
-        
-        // Map backend data to frontend CommunityInfo format
-        const info: CommunityInfo = {
-          id: dto.id.toString(),
-          name: dto.name || 'Unnamed Community',
-          logo: dto.logo || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(dto.name || 'Community') + '&background=3b82f6&color=fff',
-          description: dto.about || `Welcome to ${dto.name}! Join fans from around the world.`,
-          location: dto.location || 'Worldwide',
-          memberCount: dto.userIds?.length 
-            ? dto.userIds.length === 1 
-              ? '1 member' 
-              : `${dto.userIds.length.toLocaleString()} members`
-            : '0 members',
-          moderators: MOCK_MODERATORS, // TODO: Fetch from backend if available
-          rules: dto.rules || [],
-          members: membersResponse.status === 'fulfilled' && membersResponse.value?.data 
-            ? membersResponse.value.data.map((m: any, idx: number) => ({
-                id: m.id?.toString() || `member-${idx}`,
-                name: m.username || m.name || 'Unknown',
-                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(m.username || m.name || 'User')}&background=3b82f6&color=fff`,
-                points: m.points || 0,
-              }))
-            : MOCK_MEMBERS,
-          leaderboard: leaderboardResponse.status === 'fulfilled' && leaderboardResponse.value?.data
-            ? leaderboardResponse.value.data.map((entry: any, idx: number) => ({
-                id: entry.id?.toString() || `leaderboard-${idx}`,
-                rank: idx + 1,
-                name: entry.username || entry.name || 'Unknown',
-                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(entry.username || entry.name || 'User')}&background=22c55e&color=fff`,
-                points: entry.points || 0,
-              }))
-            : MOCK_LEADERBOARD,
-        };
-        
-        setCommunityInfo(info);
-      } catch (err: any) {
-        console.error('Error fetching community info:', err);
-        setError(err.response?.data?.message || err.message || 'Community not found');
-        setCommunityInfo(null);
-      } finally {
-        setLoading(false);
+  const fetchCommunityInfo = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch community details
+      const [communityResponse, leaderboardResponse, membersResponse] = await Promise.allSettled([
+        api.get<CommunityResponseDTO>(`/communities/${communityId}`),
+        api.get(`/communities/${communityId}/leaderboard`).catch(() => null),
+        api.get(`/communities/${communityId}/members`).catch(() => null),
+      ]);
+      
+      if (communityResponse.status === 'rejected') {
+        throw new Error('Failed to fetch community');
       }
-    };
+      
+      const dto = communityResponse.value.data;
+      
+      // Map backend data to frontend CommunityInfo format
+      const info: CommunityInfo = {
+        id: dto.id.toString(),
+        name: dto.name || 'Unnamed Community',
+        logo: dto.logo || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(dto.name || 'Community') + '&background=3b82f6&color=fff',
+        description: dto.about || `Welcome to ${dto.name}! Join fans from around the world.`,
+        location: dto.location || 'Worldwide',
+        memberCount: dto.userIds?.length 
+          ? dto.userIds.length === 1 
+            ? '1 member' 
+            : `${dto.userIds.length.toLocaleString()} members`
+          : '0 members',
+        // Map real moderators from backend
+        moderators: dto.moderators && dto.moderators.length > 0
+          ? dto.moderators.map((mod: any) => {
+              const isOwner = mod.roles?.includes('OWNER') || false;
+              return {
+                id: mod.id?.toString() || mod.email || 'unknown',
+                name: mod.username || 'Unknown',
+                avatar: mod.pfp || `https://ui-avatars.com/api/?name=${encodeURIComponent(mod.username || 'User')}&background=3b82f6&color=fff`,
+                role: isOwner ? 'Admin' : 'Moderator',
+              };
+            })
+          : [], // Empty array instead of MOCK_MODERATORS
+        rules: dto.rules || [],
+        members: membersResponse.status === 'fulfilled' && membersResponse.value?.data 
+          ? membersResponse.value.data.map((m: any, idx: number) => ({
+              id: m.id?.toString() || `member-${idx}`,
+              name: m.username || m.name || 'Unknown',
+              avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(m.username || m.name || 'User')}&background=3b82f6&color=fff`,
+              points: m.points || 0,
+            }))
+          : MOCK_MEMBERS,
+        leaderboard: dto.leaderboard && dto.leaderboard.length > 0
+          ? dto.leaderboard.map((entry: any, idx: number) => ({
+              id: entry.id?.toString() || `leaderboard-${idx}`,
+              rank: idx + 1,
+              name: entry.username || entry.name || 'Unknown',
+              avatar: entry.pfp || `https://ui-avatars.com/api/?name=${encodeURIComponent(entry.username || entry.name || 'User')}&background=22c55e&color=fff`,
+              points: entry.totalPoints || entry.points || 0,
+            }))
+          : leaderboardResponse.status === 'fulfilled' && leaderboardResponse.value?.data
+          ? leaderboardResponse.value.data.map((entry: any, idx: number) => ({
+              id: entry.id?.toString() || `leaderboard-${idx}`,
+              rank: idx + 1,
+              name: entry.username || entry.name || 'Unknown',
+              avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(entry.username || entry.name || 'User')}&background=22c55e&color=fff`,
+              points: entry.points || 0,
+            }))
+          : MOCK_LEADERBOARD,
+      };
+      
+      setCommunityInfo(info);
+    } catch (err: any) {
+      console.error('Error fetching community info:', err);
+      setError(err.response?.data?.message || err.message || 'Community not found');
+      setCommunityInfo(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [communityId]);
 
+  useEffect(() => {
     if (communityId) {
       fetchCommunityInfo();
     }
-  }, [communityId]);
+  }, [communityId, fetchCommunityInfo]);
 
   return {
     communityInfo,
     loading,
     error,
+    refresh: fetchCommunityInfo, // Expose refresh function
   };
 }
 

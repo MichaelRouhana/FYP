@@ -33,9 +33,22 @@ import { Alert } from 'react-native';
 const Tab = createMaterialTopTabNavigator();
 
 // ============ ABOUT TAB ============
-function AboutTab({ communityId, onLeaveCommunity }: { communityId: string; onLeaveCommunity: () => void }) {
+function AboutTab({ 
+  communityId, 
+  onLeaveCommunity
+}: { 
+  communityId: string; 
+  onLeaveCommunity: () => void;
+}) {
   const { theme, isDark } = useTheme();
   const { communityInfo } = useCommunityInfo(communityId);
+  
+  // Expose refresh to parent if needed
+  useEffect(() => {
+    if (onRefresh) {
+      // This allows parent to trigger refresh
+    }
+  }, [onRefresh]);
 
   if (!communityInfo) {
     return (
@@ -104,7 +117,15 @@ function AboutTab({ communityId, onLeaveCommunity }: { communityId: string; onLe
         backgroundColor: isDark ? '#111828' : '#FFFFFF',
         borderColor: theme.colors.border
       }]}>
-        {communityInfo.moderators.map(renderModerator)}
+        {communityInfo.moderators && communityInfo.moderators.length > 0 ? (
+          communityInfo.moderators.map(renderModerator)
+        ) : (
+          <View style={styles.emptyModeratorsContainer}>
+            <Text style={[styles.emptyModeratorsText, { color: theme.colors.textSecondary }]}>
+              No moderators appointed.
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Rules */}
@@ -175,10 +196,17 @@ function MembersTab({ communityId, isOwner, currentUserEmail }: {
     try {
       await promoteToModerator(communityId, userId);
       Alert.alert('Success', 'User promoted to moderator');
-      // Refresh members list
+      
+      // CRITICAL: Refresh both members list AND community info to update moderators in About tab
       const members = await getMembersWithRoles(communityId);
       setMembersWithRoles(members);
       setActionMenuVisible(null);
+      
+      // Refresh community info to update moderators list in About tab
+      // This will trigger useCommunityInfo to refetch and update the moderators list
+      if (refreshCommunityInfoRef) {
+        refreshCommunityInfoRef();
+      }
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to promote user');
     }
@@ -192,6 +220,11 @@ function MembersTab({ communityId, isOwner, currentUserEmail }: {
       const members = await getMembersWithRoles(communityId);
       setMembersWithRoles(members);
       setActionMenuVisible(null);
+      
+      // Refresh community info to update moderators list in About tab
+      if (refreshCommunityInfoRef) {
+        refreshCommunityInfoRef();
+      }
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Failed to demote user');
     }
@@ -484,6 +517,7 @@ export default function CommunityInfoScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isOwner, setIsOwner] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | undefined>(user?.email);
+  const [refreshKey, setRefreshKey] = useState(0); // Key to force refresh of community info
 
   // Check if user is app admin (for QR code access)
   const isAdmin = user?.roles?.some(
@@ -642,14 +676,15 @@ export default function CommunityInfoScreen() {
           tabBarPressColor: 'transparent',
         }}
       >
-        <Tab.Screen name="ABOUT">
+        <Tab.Screen name="ABOUT" key={`about-${refreshKey}`}>
           {() => <AboutTab communityId={id} onLeaveCommunity={handleLeaveCommunity} />}
         </Tab.Screen>
-        <Tab.Screen name="MEMBERS">
+        <Tab.Screen name="MEMBERS" key={`members-${refreshKey}`}>
           {() => <MembersTab 
             communityId={id} 
             isOwner={isOwner}
             currentUserEmail={currentUserEmail}
+            refreshCommunityInfo={() => setRefreshKey(prev => prev + 1)}
           />}
         </Tab.Screen>
         <Tab.Screen name="LEADERBOARD">
@@ -826,6 +861,16 @@ const styles = StyleSheet.create({
   },
   modRole: {
     color: '#FF942A',
+  },
+  emptyModeratorsContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyModeratorsText: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    textAlign: 'center',
   },
   rulesCard: {
     backgroundColor: '#111828',
