@@ -64,7 +64,9 @@ type FirstTeamScore = 'home' | 'away' | null;
 type DoubleChance = 'x1' | '12' | 'x2' | null;
 
 // All available tabs with their labels
+// Settings tab is first for admins
 const ALL_TABS: { id: TabType; label: string }[] = [
+  { id: 'settings', label: 'SETTINGS' },
   { id: 'details', label: 'DETAILS' },
   { id: 'predictions', label: 'PREDICTIONS' },
   { id: 'summary', label: 'SUMMARY' },
@@ -74,7 +76,6 @@ const ALL_TABS: { id: TabType; label: string }[] = [
   { id: 'stats', label: 'STATS' },
   { id: 'h2h', label: 'H2H' },
   { id: 'power', label: 'POWER' },
-  { id: 'settings', label: 'SETTINGS' },
 ];
 
 // Tab configuration per match status (based on user requirements)
@@ -137,7 +138,8 @@ const getTabsForStatus = (status: MatchStatus, isAdmin: boolean = false): { id: 
     return allowedTabs.includes(tab.id);
   });
   
-  return filteredTabs.map(tab => {
+  // Map tabs and apply label transformations
+  const mappedTabs = filteredTabs.map(tab => {
     // For live games: "summary" tab shows as "COMMENTARY"
     if (status === 'live' && tab.id === 'summary') {
       return { ...tab, label: 'COMMENTARY' };
@@ -148,6 +150,17 @@ const getTabsForStatus = (status: MatchStatus, isAdmin: boolean = false): { id: 
     }
     return tab;
   });
+  
+  // For admins: ensure settings tab is first in the list
+  if (isAdmin) {
+    const settingsTab = mappedTabs.find(tab => tab.id === 'settings');
+    const otherTabs = mappedTabs.filter(tab => tab.id !== 'settings');
+    if (settingsTab) {
+      return [settingsTab, ...otherTabs];
+    }
+  }
+  
+  return mappedTabs;
 };
 
 export default function MatchDetailsScreen() {
@@ -238,28 +251,31 @@ export default function MatchDetailsScreen() {
   }, [matchStatus, isAdmin]);
 
   // Auto-select appropriate default tab when match status changes
-  // Skip auto-selection for admins (they should stay on 'settings' tab)
+  // Only set default ONCE on initial load, then allow free tab switching
   const [hasAutoSelectedTab, setHasAutoSelectedTab] = useState(false);
   
   React.useEffect(() => {
-    // For admins: ensure they're on the 'settings' tab if it's available
+    // Only set default tab once - don't interfere with user's tab selection after that
+    if (hasAutoSelectedTab) {
+      return; // User has already selected a tab, don't override
+    }
+    
+    // For admins: set default to 'settings' tab if available (only once)
     if (isAdmin && availableTabs.some(t => t.id === 'settings')) {
-      if (selectedTab !== 'settings') {
-        setSelectedTab('settings');
-      }
+      setSelectedTab('settings');
       setHasAutoSelectedTab(true);
       return;
     }
     
     // For non-admins: auto-select appropriate default tab when match status changes
-    if (matchData && !hasAutoSelectedTab) {
+    if (matchData) {
       const defaultTab = DEFAULT_TAB_BY_STATUS[matchStatus];
       if (defaultTab && availableTabs.some(t => t.id === defaultTab)) {
         setSelectedTab(defaultTab);
         setHasAutoSelectedTab(true);
       }
     }
-  }, [matchData, matchStatus, availableTabs, hasAutoSelectedTab, isAdmin, selectedTab]);
+  }, [matchData, matchStatus, availableTabs, hasAutoSelectedTab, isAdmin]);
 
   // Fetch injuries data
   useEffect(() => {
