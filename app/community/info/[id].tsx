@@ -181,73 +181,114 @@ function MembersTab({
   const [loading, setLoading] = useState(true);
   const [actionMenuVisible, setActionMenuVisible] = useState<string | null>(null);
 
-  // Fetch members with roles
-  useEffect(() => {
-    const fetchMembers = async () => {
-      try {
-        setLoading(true);
-        const members = await getMembersWithRoles(communityId);
-        setMembersWithRoles(members);
-      } catch (error: any) {
-        console.error('[MembersTab] Error fetching members with roles:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Fetch members with roles function
+  const fetchMembersWithRoles = async () => {
+    try {
+      setLoading(true);
+      const members = await getMembersWithRoles(communityId);
+      setMembersWithRoles(members);
+    } catch (error: any) {
+      console.error('[MembersTab] Error fetching members with roles:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Fetch members with roles on mount and when communityId changes
+  useEffect(() => {
     if (communityId) {
-      fetchMembers();
+      fetchMembersWithRoles();
     }
   }, [communityId]);
 
   const handlePromote = async (userId: number) => {
     try {
-      await promoteToModerator(communityId, userId);
-      Alert.alert('Success', 'User promoted to moderator');
+      console.log('[MembersTab] Starting promote for user ID:', userId);
       
-      // CRITICAL: Refresh both members list AND community info to update moderators in About tab
-      const members = await getMembersWithRoles(communityId);
-      setMembersWithRoles(members);
+      // Close action menu
       setActionMenuVisible(null);
       
+      // Await the API call to promote user
+      console.log('[MembersTab] Calling promoteToModerator API...');
+      await promoteToModerator(communityId, userId);
+      console.log('[MembersTab] ✅ Promote API call succeeded');
+      
+      // Show success alert immediately after API call succeeds
+      Alert.alert('Success', 'User has been promoted to Moderator.');
+      
+      // CRITICAL: Refresh both members list AND community info to update moderators in About tab
+      // Refresh members list first (this updates the Members tab) - await to ensure it completes
+      console.log('[MembersTab] Refreshing members list...');
+      await fetchMembersWithRoles();
+      console.log('[MembersTab] ✅ Members list refreshed');
+      
       // Refresh community info to update moderators list in About tab
-      // This will trigger useCommunityInfo to refetch and update the moderators list
+      // This increments refreshKey which triggers AboutTab to re-fetch via useCommunityInfo
       if (refreshCommunityInfo) {
+        console.log('[MembersTab] Triggering community info refresh...');
         refreshCommunityInfo();
+        console.log('[MembersTab] ✅ Community info refresh triggered');
+      } else {
+        console.warn('[MembersTab] ⚠️ refreshCommunityInfo callback not available');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to promote user');
+      console.error('[MembersTab] ❌ Error promoting user:', error);
+      // Show error alert with detailed message
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to promote user.';
+      Alert.alert('Error', errorMessage);
+      // Make sure action menu is closed even on error
+      setActionMenuVisible(null);
     }
   };
 
   const handleDemote = async (userId: number) => {
     try {
-      await demoteToMember(communityId, userId);
-      Alert.alert('Success', 'Moderator demoted to member');
-      // Refresh members list
-      const members = await getMembersWithRoles(communityId);
-      setMembersWithRoles(members);
+      // Close action menu first
       setActionMenuVisible(null);
+      
+      // Await the API call to demote user
+      await demoteToMember(communityId, userId);
+      
+      // Show success alert
+      Alert.alert('Success', 'Moderator has been demoted to member.');
+      
+      // CRITICAL: Refresh both members list AND community info
+      // Refresh members list first - await to ensure it completes
+      await fetchMembersWithRoles();
       
       // Refresh community info to update moderators list in About tab
       if (refreshCommunityInfo) {
         refreshCommunityInfo();
       }
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to demote user');
+      console.error('[MembersTab] Error demoting user:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to demote user.';
+      Alert.alert('Error', errorMessage);
     }
   };
 
   const handleKick = async (userEmail: string, username: string) => {
     try {
-      await kickUser(communityId, userEmail);
-      Alert.alert('Success', `${username} has been removed from the community`);
-      // Refresh members list
-      const members = await getMembersWithRoles(communityId);
-      setMembersWithRoles(members);
+      // Close action menu first
       setActionMenuVisible(null);
+      
+      // Await the API call to kick user
+      await kickUser(communityId, userEmail);
+      
+      // Show success alert
+      Alert.alert('Success', `${username} has been removed from the community`);
+      
+      // Refresh members list - await to ensure it completes
+      await fetchMembersWithRoles();
+      
+      // Refresh community info as well (in case kicked user was a moderator)
+      if (refreshCommunityInfo) {
+        refreshCommunityInfo();
+      }
     } catch (error: any) {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to kick user');
+      console.error('[MembersTab] Error kicking user:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to kick user.';
+      Alert.alert('Error', errorMessage);
     }
   };
 
