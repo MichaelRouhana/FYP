@@ -1460,7 +1460,7 @@ export default function MatchDetailsScreen() {
         contentContainerStyle={styles.predictionsContentContainer}
         showsVerticalScrollIndicator={false}
       >
-        {/* Match Result (1X2) */}
+        {/* Match Result (1X2) - Only show if explicitly enabled */}
         {oddsMarkets.match_winner && predictionSettings?.whoWillWin !== false && (
         <View style={styles.predictionSection}>
             <Text style={[styles.predictionTitle, styles.predictionTitleFirst, { color: theme.colors.text }]}>
@@ -1507,7 +1507,7 @@ export default function MatchDetailsScreen() {
           </View>
         )}
 
-        {/* Double Chance */}
+        {/* Double Chance - Only show if explicitly enabled */}
         {oddsMarkets.double_chance && predictionSettings?.doubleChance !== false && (
           <View style={styles.predictionSection}>
             <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
@@ -1554,7 +1554,7 @@ export default function MatchDetailsScreen() {
           </View>
         )}
 
-        {/* Total Goals O/U - Table */}
+        {/* Total Goals O/U - Table - Only show if explicitly enabled */}
         {oddsMarkets.goals_ou && oddsMarkets.goals_ou.isTable && oddsMarkets.goals_ou.tableLines && predictionSettings?.goalsOverUnder !== false && (
           <View style={styles.predictionSection}>
             <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>
@@ -1608,7 +1608,7 @@ export default function MatchDetailsScreen() {
           </View>
         )}
 
-        {/* Both Teams To Score */}
+        {/* Both Teams To Score - Only show if explicitly enabled */}
         {oddsMarkets.btts && predictionSettings?.bothTeamsScore !== false && (
         <View style={styles.predictionSection}>
           <Text style={[styles.predictionTitle, { color: theme.colors.text }]}>

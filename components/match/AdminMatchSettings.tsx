@@ -27,6 +27,14 @@ interface AdminMatchSettingsProps {
   fixtureId: number;
 }
 
+// Only show these bet types in the admin settings (the ones we actually support)
+const SUPPORTED_BETS = [
+  { key: 'whoWillWin', label: 'Match Winner' },
+  { key: 'bothTeamsScore', label: 'Both Teams to Score' },
+  { key: 'goalsOverUnder', label: 'Over/Under 2.5' },
+  { key: 'doubleChance', label: 'Double Chance' },
+] as const;
+
 export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProps) {
   const { theme, isDark } = useTheme();
   const [settingsSubTab, setSettingsSubTab] = useState<'details' | 'predictions' | 'users'>('details');
@@ -187,78 +195,37 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
       {settingsSubTab === 'predictions' && (
         <View style={styles.content}>
           <View style={[styles.card, { backgroundColor: isDark ? '#111827' : '#FFFFFF', borderColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-            {/* Match Winner */}
-            <View style={styles.row}>
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
-                  Match Winner
-                </Text>
-                <Text style={[styles.rowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
-                  Enable match winner predictions
-                </Text>
-              </View>
-              <Switch
-                value={predictionSettings?.whoWillWin ?? true}
-                onValueChange={(value) => handlePredictionSettingToggle('whoWillWin', value)}
-                trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
-                thumbColor="#ffffff"
-              />
-            </View>
-
-            {/* Over/Under 2.5 */}
-            <View style={[styles.row, styles.rowDivider, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
-                  Over/Under 2.5
-                </Text>
-                <Text style={[styles.rowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
-                  Enable over/under goals predictions
-                </Text>
-              </View>
-              <Switch
-                value={predictionSettings?.goalsOverUnder ?? true}
-                onValueChange={(value) => handlePredictionSettingToggle('goalsOverUnder', value)}
-                trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
-                thumbColor="#ffffff"
-              />
-            </View>
-
-            {/* Both Teams to Score */}
-            <View style={[styles.row, styles.rowDivider, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
-                  Both Teams to Score
-                </Text>
-                <Text style={[styles.rowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
-                  Enable both teams to score predictions
-                </Text>
-              </View>
-              <Switch
-                value={predictionSettings?.bothTeamsScore ?? true}
-                onValueChange={(value) => handlePredictionSettingToggle('bothTeamsScore', value)}
-                trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
-                thumbColor="#ffffff"
-              />
-            </View>
-
-            {/* Double Chance */}
-            <View style={[styles.row, styles.rowDivider, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-              <View style={styles.rowContent}>
-                <Text style={[styles.rowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
-                  Double Chance
-                </Text>
-                <Text style={[styles.rowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
-                  Enable double chance predictions
-                </Text>
-              </View>
-              <Switch
-                value={predictionSettings?.doubleChance ?? true}
-                onValueChange={(value) => handlePredictionSettingToggle('doubleChance', value)}
-                trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
-                thumbColor="#ffffff"
-              />
-            </View>
-
+            {SUPPORTED_BETS.map((bet, index) => {
+              const isLast = index === SUPPORTED_BETS.length - 1;
+              const settingKey = bet.key as keyof MatchPredictionSettings;
+              const settingValue = predictionSettings?.[settingKey] ?? true;
+              
+              return (
+                <View 
+                  key={bet.key}
+                  style={[
+                    styles.row,
+                    !isLast && styles.rowDivider,
+                    !isLast && { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }
+                  ]}
+                >
+                  <View style={styles.rowContent}>
+                    <Text style={[styles.rowTitle, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
+                      {bet.label}
+                    </Text>
+                    <Text style={[styles.rowDescription, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+                      Enable {bet.label.toLowerCase()} predictions
+                    </Text>
+                  </View>
+                  <Switch
+                    value={settingValue}
+                    onValueChange={(value) => handlePredictionSettingToggle(settingKey, value)}
+                    trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
+                    thumbColor="#ffffff"
+                  />
+                </View>
+              );
+            })}
           </View>
         </View>
       )}
