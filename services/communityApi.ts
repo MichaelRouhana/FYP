@@ -43,6 +43,10 @@ export interface CommunityResponseDTO {
  * Create a new community (Admin only)
  * POST /api/v1/communities
  * Accepts multipart/form-data with community data and optional image file
+ * 
+ * Backend expects:
+ * - @RequestPart("data") String data - JSON string
+ * - @RequestPart(value = "file", required = false) MultipartFile file - optional file
  */
 export async function createCommunity(
   data: CommunityRequestDTO,
@@ -51,29 +55,52 @@ export async function createCommunity(
   try {
     const formData = new FormData();
     
-    // Append the JSON data as a string
+    // Append the JSON data as a string (backend expects @RequestPart("data") String)
     formData.append('data', JSON.stringify(data));
     
-    // Append the image file if provided
+    // Append the image file if provided (backend expects @RequestPart("file") MultipartFile)
     if (imageUri) {
-      const filename = imageUri.split('/').pop() || 'logo.jpg';
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      // Extract filename from URI
+      const filename = imageUri.split('/').pop() || 'upload.jpg';
       
+      // Extract file extension and determine MIME type
+      // Handle common image extensions
+      const match = /\.(\w+)$/.exec(filename);
+      let type = 'image/jpeg'; // Default
+      if (match) {
+        const ext = match[1].toLowerCase();
+        // Map common extensions to MIME types
+        const mimeMap: Record<string, string> = {
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'png': 'image/png',
+          'gif': 'image/gif',
+          'webp': 'image/webp',
+        };
+        type = mimeMap[ext] || `image/${ext}`;
+      }
+      
+      // React Native FormData file format (exact format as specified)
       formData.append('file', {
         uri: imageUri,
-        name: filename,
-        type,
+        name: filename || 'upload.jpg',
+        type: type,
       } as any);
     }
     
     // DO NOT set Content-Type header manually - Axios will set it automatically
     // with the correct boundary for multipart/form-data
+    // The interceptor in api.ts already handles deleting Content-Type for FormData
     const response = await api.post<CommunityResponseDTO>('/communities', formData);
     
     return response.data;
   } catch (error: any) {
     console.error('[communityApi] Error creating community:', error);
+    console.error('[communityApi] Error details:', {
+      message: error.message,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
     throw error;
   }
 }

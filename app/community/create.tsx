@@ -93,14 +93,17 @@ export default function CreateCommunityScreen() {
 
     setLoading(true);
     try {
+      // Build request data, only including non-empty fields
       const requestData: CommunityRequestDTO = {
         name: name.trim(),
         description: description.trim(),
-        shortDescription: shortDescription.trim() || undefined,
+        // Only include shortDescription if it's not empty
+        ...(shortDescription.trim() && { shortDescription: shortDescription.trim() }),
         isPrivate,
       };
 
-      await createCommunity(requestData, selectedImage);
+      // Pass imageUri only if an image was selected
+      await createCommunity(requestData, selectedImage || null);
       
       Alert.alert('Success', 'Community created successfully!', [
         {
