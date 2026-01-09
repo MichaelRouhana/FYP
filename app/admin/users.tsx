@@ -1,5 +1,5 @@
 // app/admin/users.tsx
-// All Users Page with Search
+// All Users Page with Search - Robust Implementation
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -14,87 +14,99 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Text, View as ThemedView } from '@/components/Themed';
+import { Text } from '@/components/Themed';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { fetchAllUsers, DashboardUser, PagedResponse } from '@/services/dashboardApi';
 
 export default function AdminUsersPage() {
   const colorScheme = useColorScheme() ?? 'light';
+  
+  // State
   const [users, setUsers] = useState<DashboardUser[]>([]);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [initialLoaded, setInitialLoaded] = useState(false);
 
-  // Fetch users with proper guards
-  const fetchUsers = useCallback(async (pageNum: number, searchQuery: string = '') => {
-    // Prevent double fetching
-    if (loading) return;
-    
-    // Prevent fetching if we know there's no more data (for pagination)
-    if (pageNum > 0 && !hasMore) return;
+  // 1. Fetch Function with Strict Guards
+  const fetchUsers = useCallback(async (pageNum: number, searchQuery: string, shouldReset: boolean = false) => {
+    // STRICT GUARD: Block parallel requests
+    if (loading) {
+      console.log('⚠️ Fetch blocked: Already loading');
+      return;
+    }
+
+    // STRICT GUARD: Don't fetch if we know there's no more data (for pagination)
+    if (pageNum > 0 && !hasMore) {
+      console.log('⚠️ Fetch blocked: No more data available');
+      return;
+    }
 
     setLoading(true);
 
     try {
-      // Fix: Pass undefined if search is empty so backend gets null/undefined
+      // Handle empty search - send undefined to backend
       const query = searchQuery.trim() === '' ? undefined : searchQuery.trim();
       
       const response: PagedResponse<DashboardUser> = await fetchAllUsers(pageNum, query);
       
-      if (pageNum === 0) {
-        // First page or new search - replace data
+      if (shouldReset) {
+        // New search or initial load - replace data
         setUsers(response.content);
       } else {
-        // Pagination - append data
-        setUsers(prev => [...prev, ...response.content]);
+        // Pagination - append data with duplicate filtering
+        setUsers(prev => {
+          const existingIds = new Set(prev.map(u => u.id));
+          const newUsers = response.content.filter((u: DashboardUser) => !existingIds.has(u.id));
+          return [...prev, ...newUsers];
+        });
       }
 
-      // Check if we reached the end
+      // Stop if backend says this is the last page
       setHasMore(!response.last);
-    } catch (error) {
-      console.error('Error fetching users:', error);
+      setPage(pageNum);
+
+    } catch (error: any) {
+      console.error('❌ Fetch error:', error);
+      
+      // CRITICAL: If we get a 429, STOP trying to fetch more to prevent loop
+      if (error.response?.status === 429) {
+        console.error('🚫 Rate limited (429) - Stopping fetch loop');
+        setHasMore(false);
+      }
     } finally {
       setLoading(false);
-      setInitialLoaded(true);
     }
   }, [loading, hasMore]);
 
-  // Debounce search input
+  // 2. Initial Load / Search Change with Debounce
   useEffect(() => {
-    const timer = setTimeout(() => {
-      // When search changes, reset to page 0 and fetch
-      setPage(0);
-      setHasMore(true); // Reset guard
-      fetchUsers(0, search);
-    }, search ? 600 : 0); // No delay for clearing search (empty string)
+    // Reset everything when search changes
+    setHasMore(true);
+    setPage(0);
+    
+    // Debounce: Add delay to prevent fetching on every keystroke
+    const timeoutId = setTimeout(() => {
+      fetchUsers(0, search, true);
+    }, search ? 600 : 0); // 600ms delay when typing, immediate when clearing
 
-    return () => clearTimeout(timer);
+    return () => clearTimeout(timeoutId);
   }, [search, fetchUsers]);
 
-  // Initial load on mount
-  useEffect(() => {
-    if (!initialLoaded) {
-      fetchUsers(0, '');
-    }
-  }, [initialLoaded, fetchUsers]);
-
-  // Load more handler with proper guards
+  // 3. Load More Handler with Strict Guards
   const loadMore = useCallback(() => {
-    // CRITICAL: Only load more if:
+    // STRICT GUARDS: Only load more if:
     // 1. Not currently loading
     // 2. There's more data available
-    // 3. Initial load has completed
-    if (!loading && hasMore && initialLoaded) {
-      const nextPage = page + 1;
-      setPage(nextPage);
-      fetchUsers(nextPage, search);
+    // 3. We have existing users (prevents firing on empty list)
+    if (!loading && hasMore && users.length > 0) {
+      fetchUsers(page + 1, search, false);
     }
-  }, [loading, hasMore, initialLoaded, page, search, fetchUsers]);
+  }, [loading, hasMore, users.length, page, search, fetchUsers]);
 
-  const renderUserRow = ({ item, index }: { item: DashboardUser; index: number }) => {
+  // Render User Row
+  const renderUserRow = ({ item }: { item: DashboardUser }) => {
     const avatarUrl = item.pfp || item.avatarUrl || `https://ui-avatars.com/api/?name=${item.username}&background=16a34a&color=fff&size=200`;
     
     return (
@@ -130,6 +142,7 @@ export default function AdminUsersPage() {
     );
   };
 
+  // Footer Component
   const renderFooter = () => {
     if (!loading) return null;
     return (
@@ -139,14 +152,9 @@ export default function AdminUsersPage() {
     );
   };
 
+  // Empty Component
   const renderEmpty = () => {
-    if (loading && !initialLoaded) {
-      return (
-        <View style={styles.emptyContainer}>
-          <ActivityIndicator size="large" color={Colors[colorScheme].tint} />
-        </View>
-      );
-    }
+    if (loading) return null; // Don't show empty message while loading
     return (
       <View style={styles.emptyContainer}>
         <Text style={[styles.emptyText, { color: Colors[colorScheme].muted }]}>
@@ -201,17 +209,17 @@ export default function AdminUsersPage() {
           )}
         </View>
 
-        {/* User List */}
+        {/* User List - Optimized FlashList Config */}
         <FlashList
           data={users}
           renderItem={renderUserRow}
-          estimatedItemSize={70}
+          estimatedItemSize={80}
           keyExtractor={(item) => item.id.toString()}
           onEndReached={loadMore}
-          onEndReachedThreshold={0.5}
+          onEndReachedThreshold={0.1}
           ListFooterComponent={renderFooter}
           ListEmptyComponent={renderEmpty}
-          contentContainerStyle={users.length === 0 ? styles.emptyList : undefined}
+          contentContainerStyle={users.length === 0 ? styles.emptyList : styles.listContent}
         />
       </SafeAreaView>
     </>
@@ -304,5 +312,8 @@ const styles = StyleSheet.create({
   },
   emptyList: {
     flexGrow: 1,
+  },
+  listContent: {
+    paddingBottom: 40,
   },
 });
