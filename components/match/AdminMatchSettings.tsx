@@ -45,6 +45,8 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
   const [predictionSettings, setPredictionSettings] = useState<MatchPredictionSettings | null>(null);
   const [matchUsers, setMatchUsers] = useState<MatchUserStats[]>([]);
   const [settingsLoading, setSettingsLoading] = useState(false);
+  // Track which settings are currently being updated to prevent double-clicks and rate limiting
+  const [updatingKeys, setUpdatingKeys] = useState<Set<string>>(new Set());
 
   // Fetch settings data on mount
   useEffect(() => {
@@ -70,30 +72,88 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
   };
 
   const handleMatchSettingToggle = async (field: keyof MatchSettings, value: boolean) => {
+    const key = `match_${field}`;
+    
+    // Prevent double-clicks and concurrent updates
+    if (updatingKeys.has(key)) {
+      console.log('[AdminMatchSettings] Update already in progress for:', key);
+      return;
+    }
+
     // Optimistic update
     setMatchSettings(prev => prev ? { ...prev, [field]: value } : null);
+    
+    // Mark as updating
+    setUpdatingKeys(prev => new Set(prev).add(key));
 
     try {
       await updateMatchSettings(fixtureId, { [field]: value });
-    } catch (error) {
+      console.log('[AdminMatchSettings] Successfully updated match setting:', field, '=', value);
+    } catch (error: any) {
       console.error('[AdminMatchSettings] Error updating match settings:', error);
+      
       // Revert on error
       setMatchSettings(prev => prev ? { ...prev, [field]: !value } : null);
-      Alert.alert('Error', 'Failed to update setting. Please try again.');
+      
+      // Handle rate limiting specifically
+      if (error.response?.status === 429) {
+        Alert.alert(
+          'Rate Limit Exceeded', 
+          'Too many requests. Please wait a moment before trying again.'
+        );
+      } else {
+        Alert.alert('Error', error.response?.data?.message || 'Failed to update setting. Please try again.');
+      }
+    } finally {
+      // Remove from updating set
+      setUpdatingKeys(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
   const handlePredictionSettingToggle = async (field: keyof MatchPredictionSettings, value: boolean) => {
+    const key = `prediction_${field}`;
+    
+    // Prevent double-clicks and concurrent updates
+    if (updatingKeys.has(key)) {
+      console.log('[AdminMatchSettings] Update already in progress for:', key);
+      return;
+    }
+
     // Optimistic update
     setPredictionSettings(prev => prev ? { ...prev, [field]: value } : null);
+    
+    // Mark as updating
+    setUpdatingKeys(prev => new Set(prev).add(key));
 
     try {
       await updatePredictionSettings(fixtureId, { [field]: value });
-    } catch (error) {
+      console.log('[AdminMatchSettings] Successfully updated prediction setting:', field, '=', value);
+    } catch (error: any) {
       console.error('[AdminMatchSettings] Error updating prediction settings:', error);
+      
       // Revert on error
       setPredictionSettings(prev => prev ? { ...prev, [field]: !value } : null);
-      Alert.alert('Error', 'Failed to update setting. Please try again.');
+      
+      // Handle rate limiting specifically
+      if (error.response?.status === 429) {
+        Alert.alert(
+          'Rate Limit Exceeded', 
+          'Too many requests. Please wait a moment before trying again.'
+        );
+      } else {
+        Alert.alert('Error', error.response?.data?.message || 'Failed to update setting. Please try again.');
+      }
+    } finally {
+      // Remove from updating set
+      setUpdatingKeys(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
@@ -151,6 +211,7 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
               <Switch
                 value={matchSettings?.showMatch ?? false}
                 onValueChange={(value) => handleMatchSettingToggle('showMatch', value)}
+                disabled={updatingKeys.has('match_showMatch')}
                 trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
                 thumbColor="#ffffff"
               />
@@ -169,6 +230,7 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
               <Switch
                 value={matchSettings?.allowBetting ?? false}
                 onValueChange={(value) => handleMatchSettingToggle('allowBetting', value)}
+                disabled={updatingKeys.has('match_allowBetting')}
                 trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
                 thumbColor="#ffffff"
               />
@@ -187,6 +249,7 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
               <Switch
                 value={matchSettings?.allowBettingHT ?? false}
                 onValueChange={(value) => handleMatchSettingToggle('allowBettingHT', value)}
+                disabled={updatingKeys.has('match_allowBettingHT')}
                 trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
                 thumbColor="#ffffff"
               />
@@ -223,6 +286,7 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
                   <Switch
                     value={settingValue}
                     onValueChange={(value) => handlePredictionSettingToggle(settingKey, value)}
+                    disabled={updatingKeys.has(`prediction_${settingKey}`)}
                     trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
                     thumbColor="#ffffff"
                   />
