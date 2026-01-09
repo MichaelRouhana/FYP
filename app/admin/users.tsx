@@ -1,7 +1,7 @@
 // app/admin/users.tsx
 // All Users Page with Search
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   TextInput,
@@ -22,28 +22,17 @@ import { fetchAllUsers, DashboardUser, PagedResponse } from '@/services/dashboar
 export default function AdminUsersPage() {
   const colorScheme = useColorScheme() ?? 'light';
   const [searchQuery, setSearchQuery] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState<string | undefined>(undefined);
   const [data, setData] = useState<DashboardUser[]>([]);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [totalPages, setTotalPages] = useState(0);
-
-  // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(searchQuery);
-      setPage(0); // Reset to first page on new search
-      setData([]); // Clear existing data
-      setHasMore(true);
-    }, 600);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  const hasInitialized = useRef(false);
 
   // Fetch users
-  const fetchUsers = useCallback(async (pageNum: number, search: string, append: boolean = false) => {
+  const fetchUsers = useCallback(async (pageNum: number, search: string | undefined, append: boolean = false) => {
     if (loading || loadingMore) return;
 
     if (append) {
@@ -53,7 +42,8 @@ export default function AdminUsersPage() {
     }
 
     try {
-      const response: PagedResponse<DashboardUser> = await fetchAllUsers(pageNum, search || undefined);
+      // Pass undefined if search is empty/undefined to get all users
+      const response: PagedResponse<DashboardUser> = await fetchAllUsers(pageNum, search);
       
       if (append) {
         setData(prev => [...prev, ...response.content]);
@@ -71,10 +61,38 @@ export default function AdminUsersPage() {
     }
   }, [loading, loadingMore]);
 
-  // Initial load and when search changes
+  // Initial load on mount
   useEffect(() => {
+    if (!hasInitialized.current) {
+      hasInitialized.current = true;
+      // Load all users immediately on mount
+      fetchUsers(0, undefined, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Debounce search input and trigger fetch
+  useEffect(() => {
+    if (!hasInitialized.current) return; // Skip until initial load is done
+    
+    const timer = setTimeout(() => {
+      // Convert empty string to undefined so API returns all users
+      const searchValue = searchQuery.trim() || undefined;
+      setDebouncedSearch(searchValue);
+      setPage(0); // Reset to first page on new search
+      setData([]); // Clear existing data
+      setHasMore(true);
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch when debounced search changes (after initial load)
+  useEffect(() => {
+    if (!hasInitialized.current) return; // Skip initial mount
+    
     fetchUsers(0, debouncedSearch, false);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, fetchUsers]);
 
   // Load more when page changes
   const loadMore = useCallback(() => {
@@ -141,7 +159,7 @@ export default function AdminUsersPage() {
     return (
       <View style={styles.emptyContainer}>
         <Text style={[styles.emptyText, { color: Colors[colorScheme].muted }]}>
-          {debouncedSearch ? 'No users found' : 'No users available'}
+          {debouncedSearch && debouncedSearch.trim() ? 'No users found' : 'No users available'}
         </Text>
       </View>
     );

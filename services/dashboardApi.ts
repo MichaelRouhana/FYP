@@ -207,7 +207,9 @@ export async function fetchAllUsers(
       size: 20, // Default page size
     };
     
-    if (search && search.trim()) {
+    // Only add search param if it's a non-empty string
+    // Empty strings or undefined should not be sent to the API
+    if (search && typeof search === 'string' && search.trim().length > 0) {
       params.search = search.trim();
     }
     

@@ -71,7 +71,8 @@ export default function AdminBettersPage() {
   }, [page, hasMore, loadingMore, loading, fetchData]);
 
   const renderUserRow = ({ item, index }: { item: DashboardUser; index: number }) => {
-    const rank = page * 20 + index + 1; // Calculate rank based on page and index
+    // Calculate rank based on position in the full data array (not just current page)
+    const rank = index + 1;
     const avatarUrl = item.pfp || item.avatarUrl || `https://ui-avatars.com/api/?name=${item.username}&background=16a34a&color=fff&size=200`;
     const wins = item.totalWins || item.wonBets || 0;
     const winRate = item.winRate || 0;

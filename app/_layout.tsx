@@ -136,9 +136,10 @@ function RootLayoutNav() {
           <Stack.Screen name="community/scan" options={{ headerShown: false }} />
           <Stack.Screen name="community/create" options={{ presentation: 'modal', headerShown: false }} />
           <Stack.Screen name="admin/index" options={{ title: 'Admin Dashboard' }} />
-          <Stack.Screen name="admin/users" options={{ title: 'Users' }} />
+          <Stack.Screen name="admin/users" options={{ headerShown: false }} />
           <Stack.Screen name="admin/matches" options={{ title: 'Matches & Events' }} />
-          <Stack.Screen name="admin/points" options={{ title: 'Points & Rewards' }} />
+          <Stack.Screen name="admin/points" options={{ headerShown: false }} />
+          <Stack.Screen name="admin/betters" options={{ headerShown: false }} />
           <Stack.Screen name="admin/analytics" options={{ title: 'Analytics' }} />
           <Stack.Screen name="settings/language" options={{ title: 'Language' }} />
           <Stack.Screen name="settings/change-password" options={{ headerShown: false }} />
