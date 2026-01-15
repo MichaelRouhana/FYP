@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { View, StyleSheet } from 'react-native';
-import { Text, View as ThemedView } from '@/components/Themed';
+import { StyleSheet } from 'react-native';
+import { Text as ThemedText, View as ThemedView } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 
@@ -12,8 +12,8 @@ export default function TeamDetails() {
   return (
     <ThemedView style={styles.container}>
       <Stack.Screen options={{ title: 'Team Details', headerBackTitle: 'Search' }} />
-      <Text style={[styles.title, { color: colors.text }]}>Team ID: {id}</Text>
-      <Text style={[styles.subtitle, { color: colors.text }]}>Team details coming soon...</Text>
+      <ThemedText style={[styles.title, { color: colors.text }]}>Team ID: {id}</ThemedText>
+      <ThemedText style={[styles.subtitle, { color: colors.text }]}>Team details coming soon...</ThemedText>
     </ThemedView>
   );
 }
