@@ -11,6 +11,7 @@ import {
 import { Text, View } from '@/components/Themed';
 import { useTheme } from '@/context/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 type TabType = 'DETAILS' | 'STANDINGS' | 'SQUAD' | 'STATS';
 
@@ -26,6 +27,7 @@ interface TeamData {
   countryFlag?: string;
   coach: string;
   founded: string;
+  stadium?: string;
   uefaRank: number | null;
   tournaments: string[];
   trophies: Trophy[];
@@ -50,6 +52,7 @@ export default function TeamDetails() {
         countryFlag: '🇪🇸',
         coach: 'Carlo Ancelotti',
         founded: '1902',
+        stadium: 'Santiago Bernabéu',
         uefaRank: 1,
         tournaments: ['La Liga', 'Champions League', 'Copa del Rey'],
         trophies: [
@@ -65,6 +68,14 @@ export default function TeamDetails() {
   }, [id]);
 
   const tabs: TabType[] = ['DETAILS', 'STANDINGS', 'SQUAD', 'STATS'];
+
+  // Get gradient colors based on theme
+  const getGradientColors = () => {
+    if (isDark) {
+      return ['#1a1f2e', '#111828', '#080C17'];
+    }
+    return ['#f8fafc', '#ffffff', '#f3f4f6'];
+  };
 
   if (loading) {
     return (
@@ -93,15 +104,29 @@ export default function TeamDetails() {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <Stack.Screen options={{ title: teamData.name, headerBackTitle: 'Search' }} />
 
-      {/* Header with Gradient */}
+      {/* Hero Header with Premium Gradient */}
       <LinearGradient
-        colors={isDark ? ['#111828', '#080C17'] : ['#FFFFFF', '#F3F4F6']}
-        style={styles.headerGradient}
+        colors={getGradientColors()}
+        style={styles.heroHeader}
       >
-        <View style={styles.headerSection}>
-          <View style={styles.logoContainer}>
+        <View style={styles.heroContent}>
+          {/* Logo with Shadow */}
+          <View style={[
+            styles.logoWrapper,
+            Platform.select({
+              ios: {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.3,
+                shadowRadius: 8,
+              },
+              android: {
+                elevation: 5,
+              },
+            }),
+          ]}>
             {teamData.logo ? (
-              <Image source={{ uri: teamData.logo }} style={styles.logo} resizeMode="contain" />
+              <Image source={{ uri: teamData.logo }} style={styles.heroLogo} resizeMode="contain" />
             ) : (
               <View style={[styles.logoPlaceholder, { backgroundColor: theme.colors.border }]}>
                 <Text style={[styles.logoPlaceholderText, { color: theme.colors.text }]}>
@@ -110,30 +135,50 @@ export default function TeamDetails() {
               </View>
             )}
           </View>
-          <Text style={[styles.teamName, { color: theme.colors.text }]}>{teamData.name}</Text>
-          {teamData.countryFlag && (
-            <Text style={styles.countryFlag}>{teamData.countryFlag}</Text>
-          )}
+
+          {/* Team Name */}
+          <Text style={[styles.heroTitle, { color: theme.colors.text }]}>{teamData.name}</Text>
+
+          {/* Meta Info: Country Flag • Founded Year */}
+          <View style={styles.heroMeta}>
+            {teamData.countryFlag && (
+              <>
+                <Text style={styles.metaFlag}>{teamData.countryFlag}</Text>
+                <Text style={[styles.metaSeparator, { color: theme.colors.textSecondary }]}>•</Text>
+              </>
+            )}
+            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+              Founded {teamData.founded}
+            </Text>
+          </View>
         </View>
       </LinearGradient>
 
-      {/* Tab Navigation */}
-      <View style={[styles.tabContainer, { 
-        borderBottomColor: theme.colors.separator, 
-        backgroundColor: isDark ? 'transparent' : theme.colors.headerBackground 
-      }]}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScrollContent}>
+      {/* Custom Segmented Control Tabs */}
+      <View style={[styles.tabBar, { backgroundColor: 'transparent' }]}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.tabScrollContent}
+        >
           {tabs.map((tab) => (
             <TouchableOpacity
               key={tab}
-              style={styles.tabItem}
+              style={styles.tabButton}
               onPress={() => setActiveTab(tab)}
+              activeOpacity={0.7}
             >
               <Text
                 style={[
-                  styles.tabText,
-                  { color: theme.colors.textSecondary },
-                  activeTab === tab && [styles.tabTextSelected, { color: theme.colors.text }],
+                  styles.tabLabel,
+                  { 
+                    color: activeTab === tab 
+                      ? theme.colors.text 
+                      : theme.colors.textSecondary + '99',
+                    fontFamily: activeTab === tab 
+                      ? 'Montserrat_700Bold' 
+                      : 'Montserrat_500Medium',
+                  },
                 ]}
               >
                 {tab}
@@ -153,7 +198,7 @@ export default function TeamDetails() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.contentContainer}
         >
-          {/* Section 1: Team Info Grid */}
+          {/* Section 1: Info Grid Card */}
           <View style={[styles.card, { 
             backgroundColor: theme.colors.cardBackground,
             ...Platform.select({
@@ -168,22 +213,43 @@ export default function TeamDetails() {
               },
             }),
           }]}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Team Information</Text>
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Team Information</Text>
             <View style={styles.infoGrid}>
-              <View style={styles.infoItem}>
-                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Coach</Text>
+              {/* Coach */}
+              <View style={styles.infoGridItem}>
+                <View style={styles.infoIconWrapper}>
+                  <Ionicons name="person" size={20} color={theme.colors.primary} />
+                </View>
+                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>COACH</Text>
                 <Text style={[styles.infoValue, { color: theme.colors.text }]}>{teamData.coach}</Text>
               </View>
-              <View style={styles.infoItem}>
-                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Founded</Text>
+
+              {/* Stadium */}
+              <View style={styles.infoGridItem}>
+                <View style={styles.infoIconWrapper}>
+                  <MaterialCommunityIcons name="stadium" size={20} color={theme.colors.primary} />
+                </View>
+                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>STADIUM</Text>
+                <Text style={[styles.infoValue, { color: theme.colors.text }]} numberOfLines={1}>
+                  {teamData.stadium || 'N/A'}
+                </Text>
+              </View>
+
+              {/* Founded */}
+              <View style={styles.infoGridItem}>
+                <View style={styles.infoIconWrapper}>
+                  <Ionicons name="calendar" size={20} color={theme.colors.primary} />
+                </View>
+                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>FOUNDED</Text>
                 <Text style={[styles.infoValue, { color: theme.colors.text }]}>{teamData.founded}</Text>
               </View>
-              <View style={styles.infoItem}>
-                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>Country</Text>
-                <Text style={[styles.infoValue, { color: theme.colors.text }]}>{teamData.country}</Text>
-              </View>
-              <View style={styles.infoItem}>
-                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>UEFA Rank</Text>
+
+              {/* UEFA Rank */}
+              <View style={styles.infoGridItem}>
+                <View style={styles.infoIconWrapper}>
+                  <MaterialCommunityIcons name="trophy" size={20} color={theme.colors.primary} />
+                </View>
+                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>UEFA RANK</Text>
                 <Text style={[styles.infoValue, { color: theme.colors.text }]}>
                   {teamData.uefaRank ? `#${teamData.uefaRank}` : 'N/A'}
                 </Text>
@@ -191,7 +257,7 @@ export default function TeamDetails() {
             </View>
           </View>
 
-          {/* Section 2: Tournaments */}
+          {/* Section 2: Trophy Cabinet */}
           <View style={[styles.card, { 
             backgroundColor: theme.colors.cardBackground,
             ...Platform.select({
@@ -206,25 +272,48 @@ export default function TeamDetails() {
               },
             }),
           }]}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Tournaments</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tournamentsContainer}>
-              {teamData.tournaments.map((tournament, index) => (
-                <View
-                  key={index}
-                  style={[styles.tournamentChip, { 
-                    backgroundColor: theme.colors.primary + '20', 
-                    borderColor: theme.colors.primary 
-                  }]}
-                >
-                  <Text style={[styles.tournamentText, { color: theme.colors.primary }]}>
-                    {tournament}
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Trophy Cabinet</Text>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              contentContainerStyle={styles.trophyCabinet}
+            >
+              {teamData.trophies.map((trophy, index) => (
+                <View key={index} style={styles.trophyItem}>
+                  {/* Circular Trophy Icon */}
+                  <View style={[
+                    styles.trophyIconCircle,
+                    { 
+                      backgroundColor: index === 0 
+                        ? '#FFD700' // Gold for first trophy
+                        : index === 1 
+                        ? '#C0C0C0' // Silver for second
+                        : '#CD7F32', // Bronze for others
+                      opacity: isDark ? 0.9 : 0.8,
+                    }
+                  ]}>
+                    <MaterialCommunityIcons 
+                      name="trophy" 
+                      size={32} 
+                      color={isDark ? '#000' : '#fff'} 
+                    />
+                  </View>
+                  
+                  {/* Count Badge */}
+                  <View style={[styles.trophyCountBadge, { backgroundColor: theme.colors.primary }]}>
+                    <Text style={styles.trophyCountText}>{trophy.count}</Text>
+                  </View>
+                  
+                  {/* Trophy Name */}
+                  <Text style={[styles.trophyName, { color: theme.colors.text }]} numberOfLines={2}>
+                    {trophy.name}
                   </Text>
                 </View>
               ))}
             </ScrollView>
           </View>
 
-          {/* Section 3: Trophies */}
+          {/* Section 3: Active Leagues */}
           <View style={[styles.card, { 
             backgroundColor: theme.colors.cardBackground,
             ...Platform.select({
@@ -239,38 +328,23 @@ export default function TeamDetails() {
               },
             }),
           }]}>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Trophies</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.trophiesContainer}>
-              {teamData.trophies.map((trophy, index) => (
+            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Active Leagues</Text>
+            <View style={styles.leaguesContainer}>
+              {teamData.tournaments.map((tournament, index) => (
                 <View
                   key={index}
-                  style={[styles.trophyCard, { 
-                    backgroundColor: isDark ? '#1a1a1a' : '#f8f9fa',
-                    borderColor: theme.colors.border,
-                    ...Platform.select({
-                      ios: {
-                        shadowColor: '#000',
-                        shadowOffset: { width: 0, height: 1 },
-                        shadowOpacity: 0.05,
-                        shadowRadius: 4,
-                      },
-                      android: {
-                        elevation: 2,
-                      },
-                    }),
+                  style={[styles.leaguePill, { 
+                    backgroundColor: 'transparent',
+                    borderColor: theme.colors.primary,
+                    borderWidth: 1.5,
                   }]}
                 >
-                  <View style={styles.trophyContent}>
-                    <Text style={[styles.trophyName, { color: theme.colors.text }]} numberOfLines={2}>
-                      {trophy.name}
-                    </Text>
-                    <View style={[styles.trophyCountBadge, { backgroundColor: theme.colors.primary }]}>
-                      <Text style={styles.trophyCountText}>{trophy.count}</Text>
-                    </View>
-                  </View>
+                  <Text style={[styles.leaguePillText, { color: theme.colors.primary }]}>
+                    {tournament}
+                  </Text>
                 </View>
               ))}
-            </ScrollView>
+            </View>
           </View>
         </ScrollView>
       ) : (
@@ -305,26 +379,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Montserrat_500Medium',
   },
-  headerGradient: {
-    paddingTop: 20,
-    paddingBottom: 32,
+  // Hero Header
+  heroHeader: {
+    paddingTop: 24,
+    paddingBottom: 40,
   },
-  headerSection: {
+  heroContent: {
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  logoContainer: {
+  logoWrapper: {
+    marginBottom: 20,
+    borderRadius: 50,
+    backgroundColor: 'transparent',
+  },
+  heroLogo: {
     width: 100,
     height: 100,
-    marginBottom: 16,
-  },
-  logo: {
-    width: '100%',
-    height: '100%',
   },
   logoPlaceholder: {
-    width: '100%',
-    height: '100%',
+    width: 100,
+    height: 100,
     borderRadius: 50,
     justifyContent: 'center',
     alignItems: 'center',
@@ -333,41 +408,53 @@ const styles = StyleSheet.create({
     fontSize: 40,
     fontFamily: 'Montserrat_800ExtraBold',
   },
-  teamName: {
+  heroTitle: {
     fontSize: 28,
     fontFamily: 'Montserrat_800ExtraBold',
-    marginBottom: 8,
+    marginBottom: 12,
     textAlign: 'center',
   },
-  countryFlag: {
-    fontSize: 32,
+  heroMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  tabContainer: {
+  metaFlag: {
+    fontSize: 20,
+  },
+  metaSeparator: {
+    fontSize: 16,
+    marginHorizontal: 4,
+  },
+  metaText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_500Medium',
+  },
+  // Tab Bar
+  tabBar: {
     borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   tabScrollContent: {
     paddingHorizontal: 16,
   },
-  tabItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  tabButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     position: 'relative',
   },
-  tabText: {
+  tabLabel: {
     fontSize: 15,
-    fontFamily: 'Montserrat_500Medium',
-  },
-  tabTextSelected: {
-    fontFamily: 'Montserrat_800ExtraBold',
   },
   tabIndicator: {
     position: 'absolute',
     bottom: 0,
-    left: 16,
-    right: 16,
-    height: 3,
-    borderRadius: 2,
+    left: 20,
+    right: 20,
+    height: 2,
+    borderRadius: 1,
   },
+  // Content
   content: {
     flex: 1,
   },
@@ -378,79 +465,120 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
     padding: 16,
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontFamily: 'Montserrat_700Bold',
     marginBottom: 16,
   },
+  cardTitle: {
+    fontSize: 18,
+    fontFamily: 'Montserrat_700Bold',
+    marginBottom: 20,
+  },
+  // Info Grid
   infoGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 20,
   },
-  infoItem: {
+  infoGridItem: {
     width: '47%',
+    alignItems: 'center',
+  },
+  infoIconWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   infoLabel: {
     fontSize: 12,
     fontFamily: 'Montserrat_500Medium',
-    marginBottom: 4,
+    marginBottom: 6,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   infoValue: {
     fontSize: 16,
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: 'Montserrat_700Bold',
+    textAlign: 'center',
   },
-  tournamentsContainer: {
+  // Trophy Cabinet
+  trophyCabinet: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 16,
     paddingRight: 16,
   },
-  tournamentChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
+  trophyItem: {
+    width: 120,
+    alignItems: 'center',
   },
-  tournamentText: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_600SemiBold',
-  },
-  trophiesContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingRight: 16,
-  },
-  trophyCard: {
-    width: 140,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  trophyContent: {
-    gap: 12,
-  },
-  trophyName: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_600SemiBold',
-    minHeight: 40,
-  },
-  trophyCountBadge: {
-    alignSelf: 'flex-start',
-    minWidth: 40,
-    height: 32,
-    borderRadius: 16,
+  trophyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    marginBottom: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  trophyCountBadge: {
+    position: 'absolute',
+    top: -4,
+    right: 8,
+    minWidth: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   trophyCountText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: 'Montserrat_700Bold',
+  },
+  trophyName: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_600SemiBold',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  // Active Leagues
+  leaguesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  leaguePill: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  leaguePillText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_600SemiBold',
   },
   comingSoonContainer: {
     flex: 1,
