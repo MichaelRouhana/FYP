@@ -204,7 +204,7 @@ export default function SearchScreen() {
     if (item.type === 'player') {
       router.push(`/player/${item.id}`);
     } else if (item.type === 'team') {
-      console.log('Navigate to team:', item.id);
+      router.push(`/team/${item.id}`);
     } else if (item.type === 'league') {
       // Handle league navigation if needed
       console.log('Navigate to league:', item.id);
