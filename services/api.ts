@@ -32,11 +32,21 @@ const api = axios.create({
 // ----------------------------------------------------------------------
 // Before every request is sent, this code runs automatically.
 // It checks if we have a saved token and attaches it to the header.
+// Public endpoints (login, signup, register) should NOT have tokens attached.
 api.interceptors.request.use(
   async (config) => {
     try {
+      // Define public endpoints that should not have tokens attached
+      const isPublicEndpoint = 
+        config.url?.includes('/users/login') || 
+        config.url?.includes('/users/signup') || 
+        config.url?.includes('/users/register') ||
+        config.url?.includes('/users/verify') ||
+        config.url?.includes('/users/login/google');
+
+      // Only attach token if it exists AND the endpoint is not public
       const token = await getItem('jwt_token');
-      if (token) {
+      if (token && !isPublicEndpoint) {
         config.headers.Authorization = `Bearer ${token}`;
       }
       

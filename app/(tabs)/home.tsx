@@ -711,8 +711,11 @@ export default function HomeScreen() {
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
-        <TouchableOpacity style={styles.menuButton}>
-          <Feather name="menu" size={24} color={theme.colors.icon} />
+        <TouchableOpacity 
+          style={styles.menuButton}
+          onPress={() => router.push('/favorites')}
+        >
+          <Feather name="star" size={24} color={theme.colors.icon} />
         </TouchableOpacity>
         <View style={styles.logoContainer}>
           <Text style={[styles.logoFyp, { color: theme.colors.primary }]}>FYP</Text>
