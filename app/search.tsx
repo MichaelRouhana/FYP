@@ -53,7 +53,12 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [favorites, setFavorites] = useState<Set<string | number>>(new Set());
 
-  // --- 1. Debounced Search Effect ---
+  // --- 1. Fuzzy Search Helper Functions (defined early) ---
+  const normalize = useCallback((text: string): string => {
+    return text.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+  }, []);
+
+  // --- 2. Debounced Search Effect ---
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       if (searchQuery.length > 2) {
@@ -66,18 +71,21 @@ export default function SearchScreen() {
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]); // Only re-run if query changes (not filter)
 
-  // --- 2. Fetch Logic (Fetches ALL types at once) ---
+  // --- 3. Fetch Logic (Fetches ALL types at once) ---
   const performGlobalSearch = async () => {
     setLoading(true);
     try {
+      // Send full query to backend - it might handle it, and we'll filter client-side anyway
+      const encodedQuery = encodeURIComponent(searchQuery);
+      
       // We run 3 requests in parallel to populate the "ALL" view
       const [teamsRes, leaguesRes, playersRes] = await Promise.allSettled([
-        api.get(`/football/teams?search=${searchQuery}`),
-        api.get(`/football/leagues?search=${searchQuery}`),
+        api.get(`/football/teams?search=${encodedQuery}`),
+        api.get(`/football/leagues?search=${encodedQuery}`),
         // Note: Players search usually requires league/season context in API-Sports. 
         // We default to PL 2023 to ensure *some* results appear. 
         // If your plan allows global player search, remove the extra params.
-        api.get(`/football/players?search=${searchQuery}&league=39&season=2023`) 
+        api.get(`/football/players?search=${encodedQuery}&league=39&season=2023`) 
       ]);
 
       const newResults: SearchResultItem[] = [];
@@ -133,17 +141,42 @@ export default function SearchScreen() {
     }
   };
 
-  // --- 3. Filter Logic (Client Side) ---
-  const filteredResults = useMemo(() => {
-    if (activeFilter === 'all') return allResults;
+  // --- 4. Fuzzy Match Function ---
+  const fuzzyMatch = useCallback((item: SearchResultItem, query: string): boolean => {
+    if (!query || query.trim().length === 0) return true;
+    
+    const normalizedQuery = normalize(query);
+    const searchTerms = normalizedQuery.split(' ').filter(t => t.length > 0);
+    
+    if (searchTerms.length === 0) return true;
+    
+    // Search in both title and subtitle
+    const itemName = normalize(item.title);
+    const itemSubtitle = normalize(item.subtitle);
+    const combinedText = `${itemName} ${itemSubtitle}`;
+    
+    // Check if EVERY search term appears somewhere in the item name or subtitle
+    return searchTerms.every(term => combinedText.includes(term));
+  }, [normalize]);
 
-    // Filter the already-fetched data
-    if (activeFilter === 'teams') return allResults.filter(r => r.type === 'team');
-    if (activeFilter === 'players') return allResults.filter(r => r.type === 'player');
-    if (activeFilter === 'competition') return allResults.filter(r => r.type === 'league');
+  // --- 5. Filter Logic (Client Side) ---
+  const filteredResults = useMemo(() => {
+    let results = allResults;
+
+    // First, apply fuzzy text filtering if there's a search query
+    if (searchQuery && searchQuery.trim().length > 0) {
+      results = results.filter(item => fuzzyMatch(item, searchQuery));
+    }
+
+    // Then, apply type filter
+    if (activeFilter === 'all') return results;
+
+    if (activeFilter === 'teams') return results.filter(r => r.type === 'team');
+    if (activeFilter === 'players') return results.filter(r => r.type === 'player');
+    if (activeFilter === 'competition') return results.filter(r => r.type === 'league');
     
     return [];
-  }, [allResults, activeFilter]);
+  }, [allResults, activeFilter, searchQuery, fuzzyMatch]);
 
   // --- Helper Functions ---
   const toggleFavorite = useCallback((id: string | number) => {
