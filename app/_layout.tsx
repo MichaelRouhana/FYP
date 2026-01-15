@@ -27,6 +27,7 @@ import { MD3DarkTheme, MD3LightTheme, Provider as PaperProvider } from 'react-na
 import 'react-native-reanimated';
 
 import { ThemeProvider as AppThemeProvider, useTheme } from '@/context/ThemeContext';
+import { FavoritesProvider } from '@/context/FavoritesContext';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -106,7 +107,9 @@ export default function RootLayout() {
 
   return (
     <AppThemeProvider>
-      <RootLayoutNav />
+      <FavoritesProvider>
+        <RootLayoutNav />
+      </FavoritesProvider>
     </AppThemeProvider>
   );
 }

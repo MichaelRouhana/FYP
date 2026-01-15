@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useProfile } from '@/hooks/useProfile';
+import { useFavorites } from '@/hooks/useFavorites';
 import {
   ActivityIndicator,
   Alert,
@@ -34,7 +35,7 @@ export default function HomeScreen() {
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('all');
   const [showTopLeaguesOnly, setShowTopLeaguesOnly] = useState(false); // Toggle for top 5 leagues
   const [expandedLeagues, setExpandedLeagues] = useState<Set<string>>(new Set());
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const { isFavorite, toggleFavorite } = useFavorites();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [leagues, setLeagues] = useState<UILeague[]>([]);
@@ -500,18 +501,20 @@ export default function HomeScreen() {
     });
   }, []);
 
-  const toggleFavorite = useCallback((matchId: number) => {
-    const matchIdStr = String(matchId);
-    setFavorites((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(matchIdStr)) {
-        newSet.delete(matchIdStr);
-      } else {
-        newSet.add(matchIdStr);
-      }
-      return newSet;
-    });
-  }, []);
+  const handleToggleFavorite = useCallback(async (match: UIMatch) => {
+    // Create a favorite item from the match
+    const favoriteItem = {
+      id: match.id,
+      homeTeam: match.homeTeam,
+      awayTeam: match.awayTeam,
+      date: match.date,
+      league: match.league,
+      goals: match.goals,
+      status: match.status,
+      statusShort: match.statusShort,
+    };
+    await toggleFavorite('match', favoriteItem);
+  }, [toggleFavorite]);
 
   const renderDateItem = (item: DateOption) => {
     const isSelected = item.id === selectedDate;
@@ -541,7 +544,7 @@ export default function HomeScreen() {
 
   const renderMatchItem = (match: UIMatch) => {
     const isHot = match.betsCount >= 100;
-    const isFavorite = favorites.has(String(match.id));
+    const isFav = isFavorite('match', match.id);
     const isHidden = isAdmin && match.matchSettings && match.matchSettings.showMatch === false;
 
     return (
@@ -647,12 +650,12 @@ export default function HomeScreen() {
         {/* Favorite */}
         <TouchableOpacity
           style={styles.favoriteButton}
-          onPress={() => toggleFavorite(match.id)}
+          onPress={() => handleToggleFavorite(match)}
         >
           <MaterialCommunityIcons
-            name={isFavorite ? 'star' : 'star-outline'}
+            name={isFav ? 'star' : 'star-outline'}
             size={24}
-            color={isFavorite ? theme.colors.primary : theme.colors.iconMuted}
+            color={isFav ? theme.colors.primary : theme.colors.iconMuted}
           />
         </TouchableOpacity>
       </TouchableOpacity>

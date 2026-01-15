@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, View } from 'react-native';
+import { Image, View, TouchableOpacity } from 'react-native';
 import { Card, Text } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { SvgUri } from 'react-native-svg';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { GlowBadge } from '@/components/GlowBadge';
+import { useFavorites } from '@/hooks/useFavorites';
 
 export type MatchEvent = {
   minute: number;
@@ -35,6 +36,9 @@ export function MatchCard({ match }: { match: Match }) {
   const isLive = match.status === 'live';
   const isUpcoming = match.status === 'upcoming';
   const [now, setNow] = useState(() => Date.now());
+  const { isFavorite, toggleFavorite } = useFavorites();
+  
+  const favorite = isFavorite('match', match.id);
 
   useEffect(() => {
     if (!isLive && !isUpcoming) return;
@@ -92,6 +96,23 @@ export function MatchCard({ match }: { match: Match }) {
           <View style={{ flex: 1 }} />
           {isLive && <GlowBadge color={Colors[colorScheme].success}>LIVE</GlowBadge>}
           {isUpcoming && <GlowBadge color={Colors[colorScheme].warning}>UPCOMING</GlowBadge>}
+          <TouchableOpacity
+            onPress={() => toggleFavorite('match', {
+              id: match.id,
+              homeTeam: match.homeTeam,
+              awayTeam: match.awayTeam,
+              startTime: match.startTime,
+              tournament: match.tournament,
+              status: match.status,
+            })}
+            style={{ marginLeft: 8, padding: 4 }}
+          >
+            <Ionicons
+              name={favorite ? 'star' : 'star-outline'}
+              size={20}
+              color={favorite ? Colors[colorScheme].tint : Colors[colorScheme].muted}
+            />
+          </TouchableOpacity>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>

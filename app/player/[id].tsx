@@ -1,5 +1,6 @@
 import { InfoCard, StatRow, StatSection } from '@/components/player';
 import { useTheme } from '@/context/ThemeContext';
+import { useFavorites } from '@/hooks/useFavorites';
 import api from '@/services/api';
 import { PlayerStats } from '@/types/player';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -20,8 +21,8 @@ export default function PlayerDetailsScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { theme, isDark } = useTheme();
+  const { isFavorite, toggleFavorite } = useFavorites();
   const playerId = typeof id === 'string' ? id : 'default';
-  const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
   const [playerData, setPlayerData] = useState<PlayerStats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -211,6 +212,28 @@ export default function PlayerDetailsScreen() {
 
   const { player, statistics } = playerData;
   const stats = statistics?.[0]; // Get first season stats
+  
+  // Check if player is favorited
+  const playerIsFavorite = isFavorite('player', player.id);
+  
+  // Handle favorite toggle
+  const handleToggleFavorite = async () => {
+    const favoriteItem = {
+      id: player.id,
+      name: player.name,
+      firstname: player.firstname,
+      lastname: player.lastname,
+      photo: player.photo,
+      position: player.position,
+      nationality: player.nationality,
+      team: stats?.team ? {
+        id: stats.team.id,
+        name: stats.team.name,
+        logo: stats.team.logo,
+      } : undefined,
+    };
+    await toggleFavorite('player', favoriteItem);
+  };
 
   // Safety check: if no stats available, show message
   if (!stats) {
@@ -241,12 +264,12 @@ export default function PlayerDetailsScreen() {
         <View style={styles.headerSpacer} />
         <TouchableOpacity 
           style={styles.headerButton}
-          onPress={() => setIsFavorite(!isFavorite)}
+          onPress={handleToggleFavorite}
         >
           <MaterialCommunityIcons 
-            name={isFavorite ? "star" : "star-outline"} 
+            name={playerIsFavorite ? "star" : "star-outline"} 
             size={24} 
-            color={isFavorite ? theme.colors.primary : theme.colors.icon} 
+            color={playerIsFavorite ? theme.colors.primary : theme.colors.icon} 
           />
         </TouchableOpacity>
       </View>

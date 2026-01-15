@@ -10,12 +10,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/context/ThemeContext';
-import { useFavorites, FavoriteType } from '@/hooks/useFavorites';
+import { useFavorites } from '@/hooks/useFavorites';
 import { router } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
+import { useProfile } from '@/hooks/useProfile';
 
 type TabType = 'matches' | 'players' | 'teams' | 'competitions';
+type FavoriteType = 'match' | 'player' | 'team' | 'competition';
 
 const TAB_LABELS: Record<TabType, string> = {
   matches: 'MATCHES',
@@ -24,13 +26,24 @@ const TAB_LABELS: Record<TabType, string> = {
   competitions: 'COMPETITIONS',
 };
 
+// Map tab type to favorite type
+const TAB_TO_FAVORITE_TYPE: Record<TabType, FavoriteType> = {
+  matches: 'match',
+  players: 'player',
+  teams: 'team',
+  competitions: 'competition',
+};
+
 export default function FavoritesScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('matches');
-  const { favorites, loading, getFavorites } = useFavorites();
+  const { loading, getFavorites, isFavorite, toggleFavorite } = useFavorites();
+  const { user } = useProfile();
+  const isAdmin = user?.roles?.includes('ADMIN') || user?.roles?.includes('admin') || false;
 
-  const currentFavorites = getFavorites(activeTab);
+  const favoriteType = TAB_TO_FAVORITE_TYPE[activeTab];
+  const currentFavorites = getFavorites(favoriteType);
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
@@ -45,64 +58,132 @@ export default function FavoritesScreen() {
     </View>
   );
 
-  const renderMatchItem = (item: any) => (
-    <TouchableOpacity
-      key={item.id}
-      style={[styles.itemCard, { backgroundColor: theme.colors.cardBackground }]}
-      onPress={() => router.push(`/match/${item.id}`)}
-    >
-      <View style={styles.itemContent}>
-        <View style={styles.matchInfo}>
-          <Text style={[styles.matchTime, { color: theme.colors.textSecondary }]}>
-            {item.date ? new Date(item.date).toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-            }) : 'TBD'}
-          </Text>
-          <View style={styles.teamsContainer}>
-            <View style={styles.teamRow}>
-              {item.homeTeam?.logo && (
-                <Image
-                  source={{ uri: item.homeTeam.logo }}
-                  style={styles.teamLogo}
-                />
-              )}
-              <Text style={[styles.teamName, { color: theme.colors.text }]} numberOfLines={1}>
-                {item.homeTeam?.name || 'Home Team'}
-              </Text>
-              {item.goals?.home !== undefined && (
-                <Text style={[styles.score, { color: theme.colors.text }]}>
-                  {item.goals.home}
+  const renderMatchItem = (item: any) => {
+    // Parse the stored match data
+    const match = item;
+    const isFav = isFavorite('match', match.id);
+    const isHot = match.betsCount >= 100;
+    const status = match.status || 'upcoming';
+    const statusShort = match.statusShort || '';
+    
+    // Format time
+    let timeDisplay = 'TBD';
+    let scheduledTime = '';
+    if (match.date) {
+      const date = new Date(match.date);
+      timeDisplay = date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      scheduledTime = date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+
+    return (
+      <TouchableOpacity
+        key={match.id}
+        style={[styles.matchItem, { borderBottomColor: theme.colors.separator }]}
+        onPress={() => router.push({ pathname: '/match/[id]', params: { id: String(match.id) } })}
+        activeOpacity={0.7}
+      >
+        {/* Time / Live indicator */}
+        <View style={styles.matchTimeContainer}>
+          {status === 'live' ? (
+            <View style={{ alignItems: 'center' }}>
+              <View style={[styles.liveIndicator, { backgroundColor: isDark ? '#1f2937' : '#18223A' }]}>
+                <Text style={[styles.liveText, { color: '#ffffff' }]}>LIVE</Text>
+              </View>
+            </View>
+          ) : status === 'finished' ? (
+            <View style={{ alignItems: 'center' }}>
+              <Text style={[styles.matchTime, { color: theme.colors.textSecondary, fontWeight: '600' }]}>FT</Text>
+              {scheduledTime && (
+                <Text style={[styles.scheduledTime, { color: theme.colors.textMuted, fontSize: 11, marginTop: 2 }]}>
+                  {scheduledTime}
                 </Text>
               )}
             </View>
-            <View style={styles.teamRow}>
-              {item.awayTeam?.logo && (
-                <Image
-                  source={{ uri: item.awayTeam.logo }}
-                  style={styles.teamLogo}
-                />
-              )}
-              <Text style={[styles.teamName, { color: theme.colors.text }]} numberOfLines={1}>
-                {item.awayTeam?.name || 'Away Team'}
-              </Text>
-              {item.goals?.away !== undefined && (
-                <Text style={[styles.score, { color: theme.colors.text }]}>
-                  {item.goals.away}
-                </Text>
+          ) : (
+            <View style={{ alignItems: 'center' }}>
+              <Text style={[styles.matchTime, { color: theme.colors.textSecondary }]}>{timeDisplay}</Text>
+              {statusShort === 'PST' && (
+                <Text style={{ color: '#ef4444', fontSize: 10, marginTop: 2 }}>Postponed</Text>
               )}
             </View>
-          </View>
-          {item.league && (
-            <Text style={[styles.leagueName, { color: theme.colors.textSecondary }]}>
-              {item.league.name}
-            </Text>
           )}
         </View>
-        <Ionicons name="star" size={24} color="#16a34a" />
-      </View>
-    </TouchableOpacity>
-  );
+
+        {/* Teams */}
+        <View style={styles.teamsContainer}>
+          <View style={styles.teamRow}>
+            {match.homeTeam?.logo ? (
+              <Image source={{ uri: match.homeTeam.logo }} style={styles.teamLogo} />
+            ) : (
+              <View style={[styles.teamLogo, { backgroundColor: theme.colors.textMuted }]} />
+            )}
+            <Text style={[styles.teamName, { color: theme.colors.text }]} numberOfLines={1}>
+              {match.homeTeam?.name || 'Home Team'}
+            </Text>
+            {(status === 'live' || status === 'finished') && match.goals?.home !== undefined && (
+              <Text style={[styles.scoreText, { color: theme.colors.text }]}>{match.goals.home}</Text>
+            )}
+          </View>
+          <View style={styles.teamRow}>
+            {match.awayTeam?.logo ? (
+              <Image source={{ uri: match.awayTeam.logo }} style={styles.teamLogo} />
+            ) : (
+              <View style={[styles.teamLogo, { backgroundColor: theme.colors.textMuted }]} />
+            )}
+            <Text style={[styles.teamName, { color: theme.colors.text }]} numberOfLines={1}>
+              {match.awayTeam?.name || 'Away Team'}
+            </Text>
+            {(status === 'live' || status === 'finished') && match.goals?.away !== undefined && (
+              <Text style={[styles.scoreText, { color: theme.colors.text }]}>{match.goals.away}</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Bets */}
+        {match.betsCount !== undefined && (
+          <View style={[
+            styles.betsContainer, 
+            isHot && [
+              styles.betsContainerHot, 
+              { 
+                backgroundColor: isDark ? '#111828' : '#FFF04E',
+                borderColor: isDark ? '#FFF04E' : '#FFF04E'
+              }
+            ]
+          ]}>
+            {isHot && (
+              <MaterialCommunityIcons name="fire" size={16} color={isDark ? '#FFF04E' : '#18223A'} />
+            )}
+            <Text style={[
+              styles.betsText, 
+              { color: theme.colors.textSecondary }, 
+              isHot && [styles.betsTextHot, { color: isDark ? '#FFF04E' : '#18223A' }]
+            ]}>
+              {match.betsCount || 0} BETS
+            </Text>
+          </View>
+        )}
+
+        {/* Favorite */}
+        <TouchableOpacity
+          style={styles.favoriteButton}
+          onPress={() => toggleFavorite('match', match)}
+        >
+          <MaterialCommunityIcons
+            name={isFav ? 'star' : 'star-outline'}
+            size={24}
+            color={isFav ? theme.colors.primary : theme.colors.iconMuted}
+          />
+        </TouchableOpacity>
+      </TouchableOpacity>
+    );
+  };
 
   const renderPlayerItem = (item: any) => (
     <TouchableOpacity
@@ -130,7 +211,7 @@ export default function FavoritesScreen() {
             </Text>
             {item.team && (
               <Text style={[styles.playerTeam, { color: theme.colors.textSecondary }]}>
-                {item.team}
+                {typeof item.team === 'string' ? item.team : item.team.name || 'Unknown Team'}
               </Text>
             )}
           </View>
@@ -282,7 +363,7 @@ export default function FavoritesScreen() {
         {/* Content */}
         <ScrollView
           style={styles.content}
-          contentContainerStyle={styles.contentContainer}
+          contentContainerStyle={activeTab === 'matches' ? styles.matchesContentContainer : styles.contentContainer}
           showsVerticalScrollIndicator={false}
         >
           {renderContent()}
@@ -347,6 +428,9 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 16,
   },
+  matchesContentContainer: {
+    // No padding for matches to match home page
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -365,6 +449,100 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: 'center',
   },
+  // Match Item Styles (matching home page)
+  matchItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1f2937',
+  },
+  matchTimeContainer: {
+    width: 50,
+    alignItems: 'center',
+  },
+  matchTime: {
+    fontSize: 13,
+    fontFamily: 'Montserrat_400Regular',
+    color: '#ACB1BD',
+    textAlign: 'center',
+  },
+  scheduledTime: {
+    fontSize: 11,
+    fontFamily: 'Montserrat_400Regular',
+    color: '#ACB1BD',
+    textAlign: 'center',
+  },
+  liveIndicator: {
+    backgroundColor: '#1f2937',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  liveText: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_700Bold',
+    color: '#ffffff',
+  },
+  teamsContainer: {
+    flex: 1,
+    marginLeft: 16,
+    gap: 4,
+  },
+  teamRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  teamLogo: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#374151',
+  },
+  teamName: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Montserrat_400Regular',
+    color: '#ffffff',
+  },
+  scoreText: {
+    fontSize: 13,
+    fontFamily: 'Montserrat_700Bold',
+    color: '#ffffff',
+    marginLeft: 8,
+  },
+  betsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 20,
+    gap: 2,
+    marginLeft: 12,
+  },
+  betsContainerHot: {
+    backgroundColor: '#111828',
+    borderWidth: 1,
+    borderColor: '#FFF04E',
+    borderRadius: 3,
+  },
+  betsText: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_600SemiBold',
+    color: '#9ca3af',
+  },
+  betsTextHot: {
+    color: '#FFF04E',
+    fontSize: 11,
+    fontFamily: 'Montserrat_800ExtraBold',
+  },
+  favoriteButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  // Legacy styles for other item types
   itemCard: {
     borderRadius: 12,
     padding: 16,
@@ -379,45 +557,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  matchInfo: {
-    flex: 1,
-  },
-  matchTime: {
-    fontSize: 12,
-    fontFamily: 'Montserrat_500Medium',
-    marginBottom: 8,
-  },
-  teamsContainer: {
-    marginBottom: 8,
-  },
-  teamRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  teamLogo: {
-    width: 24,
-    height: 24,
-    marginRight: 8,
-    borderRadius: 12,
-  },
-  teamName: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: 'Montserrat_600SemiBold',
-    marginRight: 8,
-  },
-  score: {
-    fontSize: 16,
-    fontFamily: 'Montserrat_700Bold',
-    minWidth: 24,
-    textAlign: 'right',
-  },
-  leagueName: {
-    fontSize: 12,
-    fontFamily: 'Montserrat_400Regular',
-    marginTop: 4,
   },
   playerInfo: {
     flexDirection: 'row',
