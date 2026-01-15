@@ -75,8 +75,15 @@ export default function SearchScreen() {
   const performGlobalSearch = async () => {
     setLoading(true);
     try {
-      // Send full query to backend - it might handle it, and we'll filter client-side anyway
-      const encodedQuery = encodeURIComponent(searchQuery);
+      // Strategy: Use first word for API call to get broader results
+      // The external API may not handle multi-word queries well
+      // We'll filter client-side with fuzzy matching to narrow down results
+      const normalizedQuery = normalize(searchQuery);
+      const searchTerms = normalizedQuery.split(' ').filter(t => t.length > 0);
+      const apiSearchTerm = searchTerms.length > 0 ? searchTerms[0] : searchQuery.trim();
+      const encodedQuery = encodeURIComponent(apiSearchTerm);
+      
+      console.log(`[Search] API query: "${apiSearchTerm}" (from "${searchQuery}")`);
       
       // We run 3 requests in parallel to populate the "ALL" view
       const [teamsRes, leaguesRes, playersRes] = await Promise.allSettled([
@@ -164,8 +171,10 @@ export default function SearchScreen() {
     let results = allResults;
 
     // First, apply fuzzy text filtering if there's a search query
+    // This ensures multi-word queries like "Real Madrid" work correctly
     if (searchQuery && searchQuery.trim().length > 0) {
       results = results.filter(item => fuzzyMatch(item, searchQuery));
+      console.log(`[Search] Filtered ${allResults.length} results to ${results.length} using query: "${searchQuery}"`);
     }
 
     // Then, apply type filter
