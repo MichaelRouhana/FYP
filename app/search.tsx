@@ -1,6 +1,7 @@
 import { useTheme } from '@/context/ThemeContext';
+import { useSearchHistory } from '@/hooks/useSearchHistory';
 import api from '@/services/api';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -41,6 +42,7 @@ const FILTERS: { id: FilterType; label: string }[] = [
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
+  const { history, addToHistory, clearHistory, removeFromHistory } = useSearchHistory();
   
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -153,12 +155,23 @@ export default function SearchScreen() {
     });
   }, []);
 
-  const handleItemPress = (item: SearchResultItem) => {
+  const handleItemPress = async (item: SearchResultItem) => {
+    // Add to search history before navigating
+    await addToHistory(item.title);
+    
     if (item.type === 'player') {
       router.push(`/player/${item.id}`);
     } else if (item.type === 'team') {
       console.log('Navigate to team:', item.id);
+    } else if (item.type === 'league') {
+      // Handle league navigation if needed
+      console.log('Navigate to league:', item.id);
     }
+  };
+
+  const handleRecentSearchPress = (term: string) => {
+    setSearchQuery(term);
+    // This will trigger the search via useEffect
   };
 
   // --- Render Item ---
@@ -255,20 +268,88 @@ export default function SearchScreen() {
         </ScrollView>
       </View>
 
-      {/* Results */}
-      <FlatList
-        data={filteredResults}
-        keyExtractor={(item) => `${item.type}-${item.id}`} // Ensure unique key across types
-        renderItem={renderResultItem}
-        contentContainerStyle={styles.resultsList}
-        ListEmptyComponent={
-          !loading && searchQuery.length > 2 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No results found</Text>
+      {/* Results or Recent Searches */}
+      {searchQuery.length === 0 ? (
+        // Show Recent Searches when search is empty
+        <View style={styles.recentSearchesContainer}>
+          {history.length > 0 && (
+            <View style={styles.recentSearchesHeader}>
+              <Text style={[styles.recentSearchesTitle, { color: theme.colors.text }]}>
+                Recent Searches
+              </Text>
+              <TouchableOpacity onPress={clearHistory}>
+                <Text style={[styles.clearHistoryText, { color: theme.colors.primary }]}>
+                  Clear
+                </Text>
+              </TouchableOpacity>
             </View>
-          ) : null
-        }
-      />
+          )}
+          <FlatList
+            data={history}
+            keyExtractor={(item, index) => `history-${index}-${item}`}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.recentSearchItem, {
+                  backgroundColor: isDark ? '#111828' : '#FFFFFF',
+                  borderColor: theme.colors.border,
+                }]}
+                onPress={() => handleRecentSearchPress(item)}
+              >
+                <Ionicons
+                  name="time-outline"
+                  size={20}
+                  color={theme.colors.textSecondary}
+                  style={styles.recentSearchIcon}
+                />
+                <Text style={[styles.recentSearchText, { color: theme.colors.text }]} numberOfLines={1}>
+                  {item}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => removeFromHistory(item)}
+                  style={styles.recentSearchDelete}
+                >
+                  <Ionicons
+                    name="close-circle-outline"
+                    size={20}
+                    color={theme.colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={styles.recentSearchesList}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons
+                  name="search-outline"
+                  size={48}
+                  color={theme.colors.textSecondary}
+                />
+                <Text style={[styles.emptyText, { color: theme.colors.textSecondary, marginTop: 16 }]}>
+                  No recent searches
+                </Text>
+                <Text style={[styles.emptySubtext, { color: theme.colors.textMuted, marginTop: 8 }]}>
+                  Start searching to see your history here
+                </Text>
+              </View>
+            }
+          />
+        </View>
+      ) : (
+        // Show Search Results when query exists
+        <FlatList
+          data={filteredResults}
+          keyExtractor={(item) => `${item.type}-${item.id}`} // Ensure unique key across types
+          renderItem={renderResultItem}
+          contentContainerStyle={styles.resultsList}
+          ListEmptyComponent={
+            !loading && searchQuery.length > 2 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No results found</Text>
+              </View>
+            ) : null
+          }
+        />
+      )}
     </View>
   );
 }
@@ -294,4 +375,43 @@ const styles = StyleSheet.create({
   favoriteButton: { padding: 4 },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 15, fontFamily: 'Montserrat_500Medium' },
+  emptySubtext: { fontSize: 13, fontFamily: 'Montserrat_400Regular', textAlign: 'center' },
+  // Recent Searches
+  recentSearchesContainer: { flex: 1, paddingHorizontal: 16 },
+  recentSearchesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  recentSearchesTitle: {
+    fontSize: 16,
+    fontFamily: 'Montserrat_700Bold',
+  },
+  clearHistoryText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  recentSearchesList: { paddingBottom: 20 },
+  recentSearchItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  recentSearchIcon: {
+    marginRight: 12,
+  },
+  recentSearchText: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: 'Montserrat_500Medium',
+  },
+  recentSearchDelete: {
+    padding: 4,
+    marginLeft: 8,
+  },
 });
