@@ -59,7 +59,7 @@ export interface StandingRow {
  */
 export const getTeamHeader = async (teamId: number): Promise<TeamHeaderDTO> => {
   try {
-    const url = `/teams/${teamId}/header`;
+    const url = `/team/${teamId}/header`;
     console.log('Fetching URL:', url);
     const response = await api.get(url);
     return response.data;
@@ -76,7 +76,7 @@ export const getTeamHeader = async (teamId: number): Promise<TeamHeaderDTO> => {
  */
 export const getTeamSquad = async (teamId: number): Promise<SquadMemberDTO[]> => {
   try {
-    const response = await api.get(`/teams/${teamId}/squad`);
+    const response = await api.get(`/team/${teamId}/squad`);
     return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.error('Error fetching team squad:', error);
@@ -92,7 +92,7 @@ export const getTeamSquad = async (teamId: number): Promise<SquadMemberDTO[]> =>
  */
 export const getTeamStatistics = async (teamId: number, leagueId: number): Promise<TeamStatsDTO | null> => {
   try {
-    const response = await api.get(`/teams/${teamId}/statistics`, {
+    const response = await api.get(`/team/${teamId}/statistics`, {
       params: { leagueId },
     });
     return response.data;
@@ -109,7 +109,7 @@ export const getTeamStatistics = async (teamId: number, leagueId: number): Promi
  */
 export const getTeamTrophies = async (teamId: number): Promise<TrophyDTO[]> => {
   try {
-    const response = await api.get(`/teams/${teamId}/trophies`);
+    const response = await api.get(`/team/${teamId}/trophies`);
     return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.error('Error fetching team trophies:', error);
@@ -127,7 +127,7 @@ export const getTeamTrophies = async (teamId: number): Promise<TrophyDTO[]> => {
  */
 export const getTeamStandings = async (teamId: number, season: number = 2023): Promise<StandingRow[]> => {
   try {
-    const url = `/teams/${teamId}/standings`;
+    const url = `/team/${teamId}/standings`;
     console.log('Fetching URL:', url, 'with season:', season);
     const response = await api.get(url, {
       params: { season },
