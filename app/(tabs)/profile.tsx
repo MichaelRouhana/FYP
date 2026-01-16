@@ -278,13 +278,13 @@ export default function ProfileScreen() {
           {/* Avatar with Edit Icon */}
           <TouchableOpacity onPress={handleAvatarPress} activeOpacity={0.8}>
             <View style={styles.avatarWrapper}>
-              <View style={[styles.avatarContainer, { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.border }]}>
-                <Image
+          <View style={[styles.avatarContainer, { backgroundColor: theme.colors.cardBackground, borderWidth: 1, borderColor: theme.colors.border }]}>
+            <Image
                   source={{ uri: displayAvatar }}
-                  style={styles.avatar}
-                  defaultSource={require('@/assets/images/icon.png')}
-                />
-              </View>
+              style={styles.avatar}
+              defaultSource={require('@/assets/images/icon.png')}
+            />
+          </View>
               <View style={styles.editAvatarIcon}>
                 <Ionicons name="pencil" size={14} color="#000" />
               </View>
@@ -299,13 +299,13 @@ export default function ProfileScreen() {
             <Text style={[styles.username, { color: theme.colors.textSecondary }]}>{user.username || ''}</Text>
             <Text style={[styles.userPoints, { color: theme.colors.hot }]}>{user.points.toLocaleString()} points</Text>
             {user.country && (
-              <View style={styles.locationContainer}>
+            <View style={styles.locationContainer}>
                 <Ionicons name="location-sharp" size={14} color={theme.colors.primary} />
                 <Text style={[styles.locationText, { color: theme.colors.primary }]}>{user.country}</Text>
               </View>
             )}
+            </View>
           </View>
-        </View>
 
         {/* About Section */}
         <View style={styles.section}>

@@ -437,7 +437,7 @@ export function useChatMessages(communityId: string) {
 
                   // Map backend CommunityMessageDTO to frontend Message format
                   // Use message ID to prevent duplicates
-                  const newMessage: Message = {
+    const newMessage: Message = {
                     _id: data.id ? `msg-${data.id}` : `msg-${Date.now()}-${Math.random()}`,
                     text: data.content || '',
                     createdAt: data.sentAt ? new Date(data.sentAt) : new Date(),
@@ -853,7 +853,7 @@ export function useCommunityInfo(communityId: string) {
         moderators: dto.moderators && dto.moderators.length > 0
           ? dto.moderators.map((mod: any) => {
               const isOwner = mod.roles?.includes('OWNER') || false;
-              return {
+    return {
                 id: mod.id?.toString() || mod.email || 'unknown',
                 name: mod.username || 'Unknown',
                 avatar: mod.pfp || `https://ui-avatars.com/api/?name=${encodeURIComponent(mod.username || 'User')}&background=3b82f6&color=fff`,

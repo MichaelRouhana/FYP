@@ -1,6 +1,5 @@
 import { useTheme } from '@/context/ThemeContext';
 import { useSearchHistory } from '@/hooks/useSearchHistory';
-import { useFavorites } from '@/hooks/useFavorites';
 import api from '@/services/api';
 import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -44,7 +43,6 @@ export default function SearchScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
   const { history, addToHistory, clearHistory, removeFromHistory } = useSearchHistory();
-  const { isFavorite, toggleFavorite: toggleGlobalFavorite } = useFavorites();
   
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,6 +51,7 @@ export default function SearchScreen() {
   // Data State
   const [allResults, setAllResults] = useState<SearchResultItem[]>([]); // Stores everything fetched
   const [loading, setLoading] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string | number>>(new Set());
 
   // --- 1. Fuzzy Search Helper Functions (defined early) ---
   const normalize = useCallback((text: string): string => {
@@ -189,24 +188,14 @@ export default function SearchScreen() {
   }, [allResults, activeFilter, searchQuery, fuzzyMatch]);
 
   // --- Helper Functions ---
-  const handleToggleFavorite = useCallback((item: SearchResultItem) => {
-    // Map search result item to favorite item structure
-    const favoriteItem = {
-      id: item.id,
-      name: item.title,
-      imageUrl: item.imageUrl,
-      logo: item.imageUrl, // Also include logo for teams
-      type: item.type,
-    };
-    
-    // Determine favorite type based on item type
-    let favoriteType: 'match' | 'player' | 'team' | 'competition' = 'team';
-    if (item.type === 'player') favoriteType = 'player';
-    else if (item.type === 'team') favoriteType = 'team';
-    else if (item.type === 'league') favoriteType = 'competition';
-    
-    toggleGlobalFavorite(favoriteType, favoriteItem);
-  }, [toggleGlobalFavorite]);
+  const toggleFavorite = useCallback((id: string | number) => {
+    setFavorites((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  }, []);
 
   const handleItemPress = async (item: SearchResultItem) => {
     // Add to search history before navigating
@@ -230,14 +219,7 @@ export default function SearchScreen() {
   // --- Render Item ---
   const renderResultItem = ({ item }: { item: SearchResultItem }) => {
     const isCircular = item.type === 'team' || item.type === 'player';
-    
-    // Determine favorite type and check if favorited
-    let favoriteType: 'match' | 'player' | 'team' | 'competition' = 'team';
-    if (item.type === 'player') favoriteType = 'player';
-    else if (item.type === 'team') favoriteType = 'team';
-    else if (item.type === 'league') favoriteType = 'competition';
-    
-    const favorited = isFavorite(favoriteType, item.id);
+    const favorited = favorites.has(item.id);
 
     return (
       <TouchableOpacity
@@ -265,13 +247,7 @@ export default function SearchScreen() {
           <Text style={[styles.resultSubtitle, { color: theme.colors.textSecondary }]}>{item.subtitle}</Text>
         </View>
 
-        <TouchableOpacity 
-          onPress={(e) => {
-            e.stopPropagation();
-            handleToggleFavorite(item);
-          }} 
-          style={styles.favoriteButton}
-        >
+        <TouchableOpacity onPress={() => toggleFavorite(item.id)} style={styles.favoriteButton}>
           <MaterialCommunityIcons
             name={favorited ? 'star' : 'star-outline'}
             size={24}
