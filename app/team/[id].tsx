@@ -159,14 +159,21 @@ export default function TeamDetails() {
     ],
   };
 
-  // Get base standings and apply filter
-  const baseStandings = mockStandings[selectedLeagueId] || [];
+  // Get base standings and apply filter - Safe access with fallback
+  const rawStandings = mockStandings[selectedLeagueId as keyof typeof mockStandings];
+  const baseStandings: StandingRow[] = Array.isArray(rawStandings) ? rawStandings : [];
   
   // Apply filter type (for now, just shuffle slightly to demonstrate UI)
   const currentStandings = useMemo(() => {
-    if (filterType === 'ALL') {
-      return baseStandings;
+    // Ensure we always have an array
+    if (!Array.isArray(baseStandings) || baseStandings.length === 0) {
+      return [];
     }
+
+    if (filterType === 'ALL') {
+      return [...baseStandings]; // Create a copy to avoid mutation
+    }
+    
     // For HOME/AWAY, we'll slightly modify the data to show different stats
     // In a real implementation, this would filter by home/away specific stats
     return baseStandings.map((team, index) => {
