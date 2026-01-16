@@ -221,31 +221,57 @@ export default function FavoritesScreen() {
     </TouchableOpacity>
   );
 
-  const renderTeamItem = (item: any) => (
-    <TouchableOpacity
-      key={item.id}
-      style={[styles.itemCard, { backgroundColor: theme.colors.cardBackground }]}
-    >
-      <View style={styles.itemContent}>
-        <View style={styles.teamInfo}>
-          {item.logo && (
-            <Image source={{ uri: item.logo }} style={styles.teamLogoLarge} />
+  const renderTeamItem = (item: any) => {
+    const isFav = isFavorite('team', item.id);
+    
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={[styles.resultCard, {
+          backgroundColor: isDark ? '#111828' : '#FFFFFF',
+          borderWidth: isDark ? 0 : 1,
+          borderColor: theme.colors.border
+        }]}
+        onPress={() => router.push(`/team/${item.id}`)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.resultImage, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }, styles.resultImageCircular]}>
+          {item.imageUrl || item.logo ? (
+            <Image
+              source={{ uri: item.imageUrl || item.logo }}
+              style={[styles.resultImageInner, styles.resultImageCircular]}
+              resizeMode="contain"
+            />
+          ) : (
+            <Text style={{ color: theme.colors.text }}>?</Text>
           )}
-          <View style={styles.teamDetails}>
-            <Text style={[styles.teamNameLarge, { color: theme.colors.text }]}>
-              {item.name || 'Unknown Team'}
-            </Text>
-            {item.country && (
-              <Text style={[styles.teamCountry, { color: theme.colors.textSecondary }]}>
-                {item.country}
-              </Text>
-            )}
-          </View>
         </View>
-        <Ionicons name="star" size={24} color="#16a34a" />
-      </View>
-    </TouchableOpacity>
-  );
+
+        <View style={styles.resultInfo}>
+          <Text style={[styles.resultTitle, { color: theme.colors.text }]}>
+            {item.name || 'Unknown Team'}
+          </Text>
+          <Text style={[styles.resultSubtitle, { color: theme.colors.textSecondary }]}>
+            Team
+          </Text>
+        </View>
+
+        <TouchableOpacity 
+          onPress={(e) => {
+            e.stopPropagation();
+            toggleFavorite('team', item);
+          }} 
+          style={styles.favoriteButton}
+        >
+          <MaterialCommunityIcons
+            name={isFav ? 'star' : 'star-outline'}
+            size={24}
+            color={isFav ? theme.colors.primary : theme.colors.iconMuted}
+          />
+        </TouchableOpacity>
+      </TouchableOpacity>
+    );
+  };
 
   const renderCompetitionItem = (item: any) => (
     <TouchableOpacity
@@ -427,6 +453,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
+    gap: 12,
   },
   matchesContentContainer: {
     // No padding for matches to match home page
@@ -642,6 +669,42 @@ const styles = StyleSheet.create({
   competitionCountry: {
     fontSize: 14,
     fontFamily: 'Montserrat_400Regular',
+  },
+  // Search-style result card (for teams)
+  resultCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 5,
+    padding: 12,
+    marginBottom: 12,
+    gap: 12,
+  },
+  resultImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  resultImageCircular: {
+    borderRadius: 24,
+  },
+  resultImageInner: {
+    width: '100%',
+    height: '100%',
+  },
+  resultInfo: {
+    flex: 1,
+  },
+  resultTitle: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_700Bold',
+  },
+  resultSubtitle: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+    marginTop: 2,
   },
 });
 

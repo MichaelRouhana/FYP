@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   Image,
@@ -11,8 +11,8 @@ import {
 import { Text, View } from '@/components/Themed';
 import { useTheme } from '@/context/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type TabType = 'DETAILS' | 'STANDINGS' | 'SQUAD' | 'STATS';
 type TrophyFilter = 'MAJOR' | 'ALL';
@@ -29,6 +29,7 @@ interface TeamData {
   country: string;
   countryFlag?: string;
   coach: string;
+  coachImageUrl?: string;
   founded: string;
   stadium?: string;
   uefaRank: number | null;
@@ -56,6 +57,7 @@ export default function TeamDetails() {
         country: 'Spain',
         countryFlag: '🇪🇸',
         coach: 'Carlo Ancelotti',
+        coachImageUrl: 'https://media.api-sports.io/football/coachs/1.png', // Example URL - replace with actual coach image
         founded: '1902',
         stadium: 'Santiago Bernabéu',
         uefaRank: 1,
@@ -109,10 +111,12 @@ export default function TeamDetails() {
     }
   };
 
+  const insets = useSafeAreaInsets();
+
   if (loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <Stack.Screen options={{ title: 'Team Details', headerBackTitle: 'Search' }} />
+        <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
           <Text style={[styles.loadingText, { color: theme.colors.text }]}>Loading team data...</Text>
@@ -124,7 +128,7 @@ export default function TeamDetails() {
   if (!teamData) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <Stack.Screen options={{ title: 'Team Details', headerBackTitle: 'Search' }} />
+        <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.errorContainer}>
           <Text style={[styles.errorText, { color: theme.colors.text }]}>Team not found</Text>
         </View>
@@ -134,71 +138,68 @@ export default function TeamDetails() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Stack.Screen 
-        options={{ 
-          title: teamData.name, 
-          headerBackTitle: 'Search',
-          headerRight: () => (
-            <TouchableOpacity onPress={handleToggleFavorite} style={styles.headerStarButton}>
-              <Ionicons
-                name={isTeamFavorite ? 'star' : 'star-outline'}
-                size={24}
-                color={isTeamFavorite ? theme.colors.primary : theme.colors.icon}
-              />
-            </TouchableOpacity>
-          ),
-        }} 
-      />
+      <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Hero Header with Premium Gradient */}
-      <LinearGradient
-        colors={getGradientColors()}
-        style={styles.heroHeader}
-      >
-        <View style={styles.heroContent}>
-          {/* Logo with Shadow */}
-          <View style={[
-            styles.logoWrapper,
-            Platform.select({
-              ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.3,
-                shadowRadius: 8,
-              },
-              android: {
-                elevation: 5,
-              },
-            }),
-          ]}>
-            {teamData.logo ? (
-              <Image source={{ uri: teamData.logo }} style={styles.heroLogo} resizeMode="contain" />
-            ) : (
-              <View style={[styles.logoPlaceholder, { backgroundColor: theme.colors.border }]}>
-                <Text style={[styles.logoPlaceholderText, { color: theme.colors.text }]}>
-                  {teamData.name.charAt(0)}
-                </Text>
-              </View>
-            )}
-          </View>
+      {/* Custom Header - Horizontal Layout */}
+      <View style={[
+        styles.customHeader,
+        { 
+          backgroundColor: theme.colors.headerBackground,
+          paddingTop: insets.top,
+        }
+      ]}>
+        {/* Back Button */}
+        <TouchableOpacity 
+          style={[styles.headerBackButton, { backgroundColor: 'transparent' }]}
+          onPress={() => router.back()}
+        >
+          <Ionicons name="arrow-back" size={24} color={theme.colors.icon} />
+        </TouchableOpacity>
 
-          {/* Team Name */}
-          <Text style={[styles.heroTitle, { color: theme.colors.text }]}>{teamData.name}</Text>
+        {/* Team Logo */}
+        <View style={[styles.headerLogoContainer, { backgroundColor: 'transparent' }]}>
+          {teamData.logo ? (
+            <Image 
+              source={{ uri: teamData.logo }} 
+              style={styles.headerLogo} 
+              resizeMode="contain" 
+            />
+          ) : (
+            <View style={[styles.headerLogoPlaceholder, { backgroundColor: theme.colors.border }]}>
+              <Text style={[styles.headerLogoPlaceholderText, { color: theme.colors.text }]}>
+                {teamData.name.charAt(0)}
+              </Text>
+            </View>
+          )}
+        </View>
 
-          {/* Meta Info: Country Flag • Country */}
-          <View style={styles.heroMeta}>
+        {/* Team Name and Country */}
+        <View style={[styles.headerInfo, { backgroundColor: 'transparent' }]}>
+          <Text style={[styles.headerTeamName, { color: theme.colors.text }]} numberOfLines={1}>
+            {teamData.name}
+          </Text>
+          <View style={[styles.headerCountryRow, { backgroundColor: 'transparent' }]}>
             {teamData.countryFlag && (
-              <>
-                <Text style={styles.metaFlag}>{teamData.countryFlag}</Text>
-                <Text style={[styles.metaSeparator, { color: theme.colors.textSecondary }]}>•</Text>
-              </>
+              <Text style={styles.headerCountryFlag}>{teamData.countryFlag}</Text>
             )}
-            <Text style={[styles.metaText, { color: theme.colors.textSecondary }]}>
+            <Text style={[styles.headerCountryName, { color: theme.colors.textSecondary }]}>
               {teamData.country}
             </Text>
           </View>
         </View>
-      </LinearGradient>
+
+        {/* Star Button */}
+        <TouchableOpacity 
+          style={[styles.headerStarButton, { backgroundColor: 'transparent' }]}
+          onPress={handleToggleFavorite}
+        >
+          <Ionicons
+            name={isTeamFavorite ? 'star' : 'star-outline'}
+            size={24}
+            color={isTeamFavorite ? theme.colors.primary : theme.colors.icon}
+          />
+        </TouchableOpacity>
+      </View>
 
       {/* Custom Segmented Control Tabs */}
       <View style={[styles.tabBar, { 
@@ -247,7 +248,7 @@ export default function TeamDetails() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.contentContainer}
         >
-          {/* Section 1: Info Grid Card */}
+          {/* Section 1: Team Information Card */}
           <View style={[styles.card, { 
             backgroundColor: theme.colors.cardBackground,
             ...Platform.select({
@@ -263,45 +264,63 @@ export default function TeamDetails() {
             }),
           }]}>
             <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Team Information</Text>
-            <View style={styles.infoGrid}>
+            <View style={styles.infoList}>
               {/* Coach */}
-              <View style={styles.infoGridItem}>
-                <View style={[styles.infoIconWrapper, { backgroundColor: theme.colors.primary + '20' }]}>
-                  <Ionicons name="person" size={20} color={theme.colors.primary} />
+              <View style={styles.infoRow}>
+                <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border, overflow: 'hidden' }]}>
+                  {teamData.coachImageUrl ? (
+                    <Image 
+                      source={{ uri: teamData.coachImageUrl }} 
+                      style={styles.coachImage} 
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <Ionicons name="person" size={24} color={theme.colors.primary} />
+                  )}
                 </View>
-                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>COACH</Text>
-                <Text style={[styles.infoValue, { color: theme.colors.text }]}>{teamData.coach}</Text>
+                <View style={styles.infoTextContainer}>
+                  <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>COACH</Text>
+                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>{teamData.coach}</Text>
+                </View>
               </View>
 
-              {/* Stadium */}
-              <View style={styles.infoGridItem}>
-                <View style={[styles.infoIconWrapper, { backgroundColor: theme.colors.primary + '20' }]}>
-                  <MaterialCommunityIcons name="stadium" size={20} color={theme.colors.primary} />
+              {/* Country */}
+              <View style={styles.infoRow}>
+                <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
+                  {teamData.countryFlag ? (
+                    <Text style={styles.infoFlagIcon}>{teamData.countryFlag}</Text>
+                  ) : (
+                    <Ionicons name="flag" size={24} color={theme.colors.primary} />
+                  )}
                 </View>
-                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>STADIUM</Text>
-                <Text style={[styles.infoValue, { color: theme.colors.text }]} numberOfLines={1}>
-                  {teamData.stadium || 'N/A'}
-                </Text>
+                <View style={styles.infoTextContainer}>
+                  <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>COUNTRY</Text>
+                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>{teamData.country}</Text>
+                </View>
               </View>
 
               {/* Founded */}
-              <View style={styles.infoGridItem}>
-                <View style={[styles.infoIconWrapper, { backgroundColor: theme.colors.primary + '20' }]}>
-                  <Ionicons name="calendar" size={20} color={theme.colors.primary} />
+              <View style={styles.infoRow}>
+                <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
+                  <Ionicons name="calendar" size={24} color={theme.colors.primary} />
                 </View>
-                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>FOUNDED</Text>
-                <Text style={[styles.infoValue, { color: theme.colors.text }]}>{teamData.founded}</Text>
+                <View style={styles.infoTextContainer}>
+                  <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>FOUNDED</Text>
+                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>{teamData.founded}</Text>
+                </View>
               </View>
 
-              {/* UEFA Rank */}
-              <View style={styles.infoGridItem}>
-                <View style={[styles.infoIconWrapper, { backgroundColor: theme.colors.primary + '20' }]}>
-                  <MaterialCommunityIcons name="trophy" size={20} color={theme.colors.primary} />
+              {/* UEFA Ranking */}
+              <View style={styles.infoRow}>
+                <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
+                  <MaterialCommunityIcons name="trophy" size={24} color={theme.colors.primary} />
                 </View>
-                <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>UEFA RANK</Text>
-                <Text style={[styles.infoValue, { color: theme.colors.text }]}>
-                  {teamData.uefaRank ? `#${teamData.uefaRank}` : 'N/A'}
-                </Text>
+                <View style={styles.infoTextContainer}>
+                  <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>UEFA RANKING</Text>
+                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                    {teamData.uefaRank ? `${teamData.uefaRank}st` : 'N/A'}
+                  </Text>
+                </View>
               </View>
             </View>
           </View>
@@ -478,55 +497,62 @@ const styles = StyleSheet.create({
   headerStarButton: {
     padding: 8,
     marginRight: 8,
-  },
-  // Hero Header
-  heroHeader: {
-    paddingTop: 24,
-    paddingBottom: 40,
-  },
-  heroContent: {
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  logoWrapper: {
-    marginBottom: 20,
-    borderRadius: 50,
     backgroundColor: 'transparent',
   },
-  heroLogo: {
-    width: 100,
-    height: 100,
+  // Custom Header
+  customHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
-  logoPlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+  headerBackButton: {
+    padding: 8,
+    marginRight: 8,
+    backgroundColor: 'transparent',
+  },
+  headerLogoContainer: {
+    width: 48,
+    height: 48,
+    marginRight: 12,
+    backgroundColor: 'transparent',
+  },
+  headerLogo: {
+    width: '100%',
+    height: '100%',
+  },
+  headerLogoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  logoPlaceholderText: {
-    fontSize: 40,
+  headerLogoPlaceholderText: {
+    fontSize: 20,
     fontFamily: 'Montserrat_800ExtraBold',
   },
-  heroTitle: {
-    fontSize: 24,
-    fontFamily: 'Montserrat_800ExtraBold',
-    marginBottom: 12,
-    textAlign: 'center',
+  headerInfo: {
+    flex: 1,
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
-  heroMeta: {
+  headerTeamName: {
+    fontSize: 18,
+    fontFamily: 'Montserrat_700Bold',
+    marginBottom: 4,
+  },
+  headerCountryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
-  metaFlag: {
-    fontSize: 18,
+  headerCountryFlag: {
+    fontSize: 16,
   },
-  metaSeparator: {
-    fontSize: 14,
-    marginHorizontal: 4,
-  },
-  metaText: {
+  headerCountryName: {
     fontSize: 14,
     fontFamily: 'Montserrat_500Medium',
   },
@@ -571,35 +597,46 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_700Bold',
     marginBottom: 20,
   },
-  // Info Grid
-  infoGrid: {
+  // Info List (Horizontal Rows)
+  infoList: {
+    gap: 0,
+  },
+  infoRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 20,
-  },
-  infoGridItem: {
-    width: '47%',
     alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
-  infoIconWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  infoIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginRight: 16,
+  },
+  coachImage: {
+    width: '100%',
+    height: '100%',
+  },
+  infoFlagIcon: {
+    fontSize: 28,
+  },
+  infoTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
   },
   infoLabel: {
     fontSize: 12,
     fontFamily: 'Montserrat_500Medium',
-    marginBottom: 6,
+    marginBottom: 4,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   infoValue: {
     fontSize: 16,
     fontFamily: 'Montserrat_700Bold',
-    textAlign: 'center',
   },
   // Trophy Filter Tabs
   trophyFilterContainer: {
