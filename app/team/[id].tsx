@@ -159,18 +159,23 @@ export default function TeamDetails() {
     ],
   };
 
-  // Get base standings and apply filter - Simplified with safe fallback
+  // Get base standings and apply filter - Defensive fix with safe fallback
   const currentStandings = useMemo(() => {
-    // CRITICAL: Safe access with fallback - ensure we always get an array
-    const rawStandings = mockStandings[selectedLeagueId as keyof typeof mockStandings] || [];
+    // Debug logging to verify key mismatch
+    console.log('Selected League:', selectedLeagueId, 'Available Keys:', Object.keys(mockStandings));
     
-    // Ensure rawStandings is actually an array (double-check)
-    if (!Array.isArray(rawStandings)) {
+    // CRITICAL: Safe access with fallback - ensure we always get an array
+    const leagueKey = selectedLeagueId as keyof typeof mockStandings;
+    const rawData = mockStandings[leagueKey] || []; // Fallback to empty array if key is wrong
+    
+    // Ensure rawData is actually an array (double-check)
+    if (!Array.isArray(rawData)) {
+      console.warn(`Standings data for ${selectedLeagueId} is not an array`);
       return [];
     }
     
-    // Now it's safe to work with - create a copy using slice() (safer than spread)
-    const baseStandings: StandingRow[] = rawStandings.slice();
+    // Now it's safe to spread - create a copy
+    const baseStandings: StandingRow[] = [...rawData];
     
     // If filter is ALL, return the copy as-is
     if (filterType === 'ALL') {
