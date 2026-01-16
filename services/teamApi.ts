@@ -9,7 +9,6 @@ export interface TeamDetailsDTO {
   city: string;
   capacity: number;
   foundedYear: number;
-  description?: string;
 }
 
 /**
@@ -18,12 +17,7 @@ export interface TeamDetailsDTO {
  * @returns TeamDetailsDTO with stadium details, city, capacity, and founded year
  */
 export const getTeamDetails = async (teamId: number): Promise<TeamDetailsDTO> => {
-  try {
-    const response = await api.get<TeamDetailsDTO>(`/team/${teamId}/details`);
-    return response.data;
-  } catch (error: any) {
-    console.error('[teamApi] Error fetching team details:', error);
-    throw error;
-  }
+  const response = await api.get(`/team/${teamId}/details`);
+  return response.data;
 };
 

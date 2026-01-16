@@ -418,7 +418,7 @@ export default function TeamDetails() {
                   )}
 
                   {/* Capacity */}
-                  {details.capacity > 0 && (
+                  {details.capacity && details.capacity > 0 && (
                     <View style={styles.infoRow}>
                       <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
                         <Ionicons name="people" size={24} color={theme.colors.primary} />
@@ -433,7 +433,7 @@ export default function TeamDetails() {
                   )}
 
                   {/* Founded Year */}
-                  {details.foundedYear && (
+                  {details.foundedYear && details.foundedYear > 0 && (
                     <View style={styles.infoRow}>
                       <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
                         <Ionicons name="calendar" size={24} color={theme.colors.primary} />
