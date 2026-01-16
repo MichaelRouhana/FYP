@@ -13,16 +13,11 @@ import { useTheme } from '@/context/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getTeamDetails, TeamDetailsDTO, getTeamHeader, TeamHeader, getTrophies, Trophy as TrophyDTO } from '@/services/teamApi';
+import { getTeamDetails, TeamDetailsDTO, getTeamHeader, TeamHeader } from '@/services/teamApi';
+import { getStandings } from '@/services/matchApi';
+import { mapStandingsToUI } from '@/utils/matchDataMapper';
 
 type TabType = 'DETAILS' | 'STANDINGS' | 'SQUAD' | 'STATS';
-type TrophyFilter = 'MAJOR' | 'ALL';
-
-interface Trophy {
-  name: string;
-  count: number;
-  isMajor?: boolean;
-}
 
 interface StandingRow {
   rank: number;
@@ -48,7 +43,6 @@ interface TeamData {
   stadium?: string;
   uefaRank: number | null;
   tournaments: Array<{ name: string; logo?: string }>;
-  trophies: Trophy[];
 }
 
 export default function TeamDetails() {
@@ -57,14 +51,14 @@ export default function TeamDetails() {
   const { isFavorite, toggleFavorite } = useFavorites();
 
   const [activeTab, setActiveTab] = useState<TabType>('DETAILS');
-  const [trophyFilter, setTrophyFilter] = useState<TrophyFilter>('MAJOR');
-  const [selectedLeagueId, setSelectedLeagueId] = useState<string>('la_liga');
+  const [selectedLeagueId, setSelectedLeagueId] = useState<number>(140); // La Liga default
   const [loading, setLoading] = useState(true);
   const [teamData, setTeamData] = useState<TeamData | null>(null);
   const [details, setDetails] = useState<TeamDetailsDTO | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [header, setHeader] = useState<TeamHeader | null>(null);
-  const [trophies, setTrophies] = useState<TrophyDTO[]>([]);
+  const [standingsData, setStandingsData] = useState<StandingRow[]>([]);
+  const [standingsLoading, setStandingsLoading] = useState(false);
 
   // Fetch team data
   useEffect(() => {
@@ -84,33 +78,15 @@ export default function TeamDetails() {
         setLoading(true);
         setDetailsLoading(true);
 
-        // Fetch team header, trophies, and details from API
+        // Fetch team header and details from API
         try {
-          const [headerData, trophiesData, detailsData] = await Promise.all([
+          const [headerData, detailsData] = await Promise.all([
             getTeamHeader(teamId),
-            getTrophies(teamId),
             getTeamDetails(teamId).catch(() => null), // Don't fail if details endpoint fails
           ]);
 
           setHeader(headerData);
-          setTrophies(trophiesData);
           setDetails(detailsData);
-
-          // Transform trophies from backend format to UI format (group by leagueName and count)
-          const trophyMap = new Map<string, { name: string; count: number; isMajor: boolean }>();
-          trophiesData.forEach(trophy => {
-            const existing = trophyMap.get(trophy.leagueName);
-            if (existing) {
-              existing.count += 1;
-            } else {
-              trophyMap.set(trophy.leagueName, {
-                name: trophy.leagueName,
-                count: 1,
-                isMajor: trophy.isMajor,
-              });
-            }
-          });
-          const transformedTrophies = Array.from(trophyMap.values());
 
           // Update teamData with header information
           const teamDataUpdate: TeamData = {
@@ -131,7 +107,6 @@ export default function TeamDetails() {
               { name: 'Copa del Rey', logo: '' },
               { name: 'FIFA Club World Cup', logo: '' },
             ],
-            trophies: transformedTrophies,
           };
           setTeamData(teamDataUpdate);
         } catch (apiError) {
@@ -153,15 +128,6 @@ export default function TeamDetails() {
               { name: 'Supercopa de España', logo: '' },
               { name: 'Copa del Rey', logo: '' },
               { name: 'FIFA Club World Cup', logo: '' },
-            ],
-            trophies: [
-              { name: 'LaLiga', count: 36, isMajor: true },
-              { name: 'Copa del Rey', count: 20, isMajor: true },
-              { name: 'UEFA Champions League', count: 15, isMajor: true },
-              { name: 'FIFA Club World Cup', count: 5, isMajor: true },
-              { name: 'UEFA Europa League', count: 2, isMajor: false },
-              { name: 'UEFA Super Cup', count: 6, isMajor: false },
-              { name: 'Intercontinental Cup', count: 3, isMajor: false },
             ],
           };
           setTeamData(mockData);
@@ -190,43 +156,75 @@ export default function TeamDetails() {
     return ['#f8fafc', '#ffffff', '#f3f4f6'];
   };
 
-  // Filter trophies based on selected filter
-  const filteredTrophies = teamData?.trophies.filter(trophy => 
-    trophyFilter === 'MAJOR' ? trophy.isMajor : true
-  ) || [];
-
-  // Mock leagues for filter
+  // Real API League IDs
   const availableLeagues = [
-    { id: 'la_liga', name: 'La Liga' },
-    { id: 'ucl', name: 'Champions League' },
-    { id: 'copa', name: 'Copa del Rey' },
+    { id: 140, name: 'La Liga' },
+    { id: 2, name: 'Champions League' },
+    { id: 143, name: 'Copa del Rey' },
   ];
 
-  // Mock standings data
-  const mockStandings: Record<string, StandingRow[]> = {
-    la_liga: [
-      { rank: 1, team: 'Real Madrid', teamLogo: 'https://media.api-sports.io/football/teams/541.png', mp: 20, w: 16, d: 3, l: 1, gd: 35, pts: 51, isCurrent: true },
-      { rank: 2, team: 'Girona', teamLogo: 'https://media.api-sports.io/football/teams/533.png', mp: 20, w: 15, d: 4, l: 1, gd: 28, pts: 49, isCurrent: false },
-      { rank: 3, team: 'Barcelona', teamLogo: 'https://media.api-sports.io/football/teams/529.png', mp: 20, w: 13, d: 5, l: 2, gd: 24, pts: 44, isCurrent: false },
-      { rank: 4, team: 'Atletico Madrid', teamLogo: 'https://media.api-sports.io/football/teams/530.png', mp: 20, w: 12, d: 6, l: 2, gd: 18, pts: 42, isCurrent: false },
-      { rank: 5, team: 'Athletic Bilbao', teamLogo: 'https://media.api-sports.io/football/teams/531.png', mp: 20, w: 11, d: 5, l: 4, gd: 15, pts: 38, isCurrent: false },
-      { rank: 6, team: 'Real Sociedad', teamLogo: 'https://media.api-sports.io/football/teams/548.png', mp: 20, w: 10, d: 6, l: 4, gd: 12, pts: 36, isCurrent: false },
-      { rank: 7, team: 'Valencia', teamLogo: 'https://media.api-sports.io/football/teams/532.png', mp: 20, w: 9, d: 7, l: 4, gd: 8, pts: 34, isCurrent: false },
-      { rank: 8, team: 'Villarreal', teamLogo: 'https://media.api-sports.io/football/teams/533.png', mp: 20, w: 9, d: 6, l: 5, gd: 5, pts: 33, isCurrent: false },
-    ],
-    ucl: [
-      { rank: 1, team: 'Real Madrid', teamLogo: 'https://media.api-sports.io/football/teams/541.png', mp: 6, w: 6, d: 0, l: 0, gd: 12, pts: 18, isCurrent: true },
-      { rank: 2, team: 'Manchester City', teamLogo: 'https://media.api-sports.io/football/teams/50.png', mp: 6, w: 5, d: 1, l: 0, gd: 10, pts: 16, isCurrent: false },
-      { rank: 3, team: 'Bayern Munich', teamLogo: 'https://media.api-sports.io/football/teams/157.png', mp: 6, w: 5, d: 0, l: 1, gd: 8, pts: 15, isCurrent: false },
-      { rank: 4, team: 'PSG', teamLogo: 'https://media.api-sports.io/football/teams/85.png', mp: 6, w: 4, d: 1, l: 1, gd: 6, pts: 13, isCurrent: false },
-    ],
-    copa: [
-      { rank: 1, team: 'Real Madrid', teamLogo: 'https://media.api-sports.io/football/teams/541.png', mp: 4, w: 4, d: 0, l: 0, gd: 8, pts: 12, isCurrent: true },
-      { rank: 2, team: 'Barcelona', teamLogo: 'https://media.api-sports.io/football/teams/529.png', mp: 4, w: 3, d: 0, l: 1, gd: 5, pts: 9, isCurrent: false },
-    ],
-  };
+  // Fetch standings when selectedLeagueId or teamId changes
+  useEffect(() => {
+    const fetchStandings = async () => {
+      if (!selectedLeagueId || !teamId || teamId === 0) return;
 
-  const currentStandings = mockStandings[selectedLeagueId] || [];
+      try {
+        setStandingsLoading(true);
+        const rawStandingsData = await getStandings(selectedLeagueId, 2023);
+        
+        // Transform using mapStandingsToUI
+        const mappedData = mapStandingsToUI(rawStandingsData);
+        
+        if (mappedData && mappedData.standings) {
+          // Map TeamStanding to StandingRow format
+          const transformedStandings: StandingRow[] = mappedData.standings.map((standing) => ({
+            rank: standing.position,
+            team: standing.teamName,
+            teamLogo: (standing as any).teamLogo, // mapStandingsToUI includes teamLogo
+            mp: standing.played,
+            w: standing.won,
+            d: standing.drawn,
+            l: standing.lost,
+            gd: (standing as any).goalDifference || 0, // mapStandingsToUI includes goalDifference
+            pts: standing.points,
+            isCurrent: false, // Will be set below by comparing team names
+          }));
+
+          // Mark current team by comparing team name with teamData
+          if (teamData) {
+            transformedStandings.forEach((row) => {
+              row.isCurrent = row.team.toLowerCase() === teamData.name.toLowerCase();
+            });
+          }
+
+          setStandingsData(transformedStandings);
+        } else {
+          setStandingsData([]);
+        }
+      } catch (error) {
+        console.error('Error fetching standings:', error);
+        setStandingsData([]);
+      } finally {
+        setStandingsLoading(false);
+      }
+    };
+
+    fetchStandings();
+  }, [selectedLeagueId, teamId]);
+
+  // Update isCurrent flag when teamData becomes available
+  useEffect(() => {
+    if (teamData && standingsData.length > 0) {
+      setStandingsData((prevStandings) => 
+        prevStandings.map((row) => ({
+          ...row,
+          isCurrent: row.team.toLowerCase() === teamData.name.toLowerCase(),
+        }))
+      );
+    }
+  }, [teamData]);
+
+  const currentStandings = standingsData;
 
   const handleToggleFavorite = () => {
     if (teamData) {
@@ -391,33 +389,6 @@ export default function TeamDetails() {
             </View>
           ) : details ? (
             <>
-              {/* Stadium Image */}
-              {details.stadiumImage && (
-                <View style={[styles.card, { 
-                  backgroundColor: theme.colors.cardBackground,
-                  padding: 0,
-                  overflow: 'hidden',
-                  marginBottom: 16,
-                  ...Platform.select({
-                    ios: {
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 2 },
-                      shadowOpacity: 0.1,
-                      shadowRadius: 8,
-                    },
-                    android: {
-                      elevation: 4,
-                    },
-                  }),
-                }]}>
-                  <Image 
-                    source={{ uri: details.stadiumImage }} 
-                    style={styles.stadiumImage}
-                    resizeMode="cover"
-                  />
-                </View>
-              )}
-
               {/* Stadium Information Card */}
               <View style={[styles.card, { 
                 backgroundColor: theme.colors.cardBackground,
@@ -571,102 +542,7 @@ export default function TeamDetails() {
             </View>
           </View>
 
-          {/* Section 2: Major Trophies with Sub-Tabs */}
-          <View style={[styles.card, { 
-            backgroundColor: theme.colors.cardBackground,
-            ...Platform.select({
-              ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-              },
-              android: {
-                elevation: 4,
-              },
-            }),
-          }]}>
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Major Trophies</Text>
-            
-            {/* Trophy Filter Tabs */}
-            <View style={styles.trophyFilterContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.trophyFilterTab,
-                  trophyFilter === 'MAJOR' && [
-                    styles.trophyFilterTabActive,
-                    { backgroundColor: isDark ? theme.colors.text : '#FFFFFF' }
-                  ],
-                ]}
-                onPress={() => setTrophyFilter('MAJOR')}
-              >
-                <Text
-                  style={[
-                    styles.trophyFilterText,
-                    { 
-                      color: trophyFilter === 'MAJOR' 
-                        ? (isDark ? '#000' : theme.colors.text)
-                        : theme.colors.textSecondary,
-                      fontFamily: trophyFilter === 'MAJOR' 
-                        ? 'Montserrat_700Bold' 
-                        : 'Montserrat_500Medium',
-                    },
-                  ]}
-                >
-                  MAJOR TROPHIES
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.trophyFilterTab,
-                  trophyFilter === 'ALL' && [
-                    styles.trophyFilterTabActive,
-                    { backgroundColor: isDark ? theme.colors.text : '#FFFFFF' }
-                  ],
-                ]}
-                onPress={() => setTrophyFilter('ALL')}
-              >
-                <Text
-                  style={[
-                    styles.trophyFilterText,
-                    { 
-                      color: trophyFilter === 'ALL' 
-                        ? (isDark ? '#000' : theme.colors.text)
-                        : theme.colors.textSecondary,
-                      fontFamily: trophyFilter === 'ALL' 
-                        ? 'Montserrat_700Bold' 
-                        : 'Montserrat_500Medium',
-                    },
-                  ]}
-                >
-                  ALL TROPHIES
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Trophy List */}
-            <View style={styles.trophyList}>
-              {filteredTrophies.map((trophy, index) => (
-                <View key={index} style={styles.trophyRow}>
-                  <View style={styles.trophyRowLeft}>
-                    <MaterialCommunityIcons 
-                      name="trophy" 
-                      size={24} 
-                      color="#FFD700" 
-                    />
-                    <Text style={[styles.trophyRowName, { color: theme.colors.text }]}>
-                      {trophy.name}
-                    </Text>
-                  </View>
-                  <Text style={[styles.trophyRowCount, { color: theme.colors.text }]}>
-                    {trophy.count}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* Section 3: Tournaments */}
+          {/* Section 2: Tournaments */}
           {/* TODO: Fetch active tournaments from backend when endpoint is available */}
           <View style={[styles.card, { 
             backgroundColor: theme.colors.cardBackground,
@@ -737,7 +613,7 @@ export default function TeamDetails() {
                         borderWidth: 1.5,
                       },
                     ]}
-                    onPress={() => setSelectedLeagueId(league.id)}
+                    onPress={() => setSelectedLeagueId(league.id as number)}
                   >
                     <Text
                       style={[
@@ -761,7 +637,30 @@ export default function TeamDetails() {
           </View>
 
           {/* Standings Table */}
-          {currentStandings.length > 0 ? (
+          {standingsLoading ? (
+            <View style={[styles.standingsCard, { 
+              backgroundColor: theme.colors.cardBackground,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 40,
+              ...Platform.select({
+                ios: {
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 8,
+                },
+                android: {
+                  elevation: 4,
+                },
+              }),
+            }]}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={[styles.loadingText, { color: theme.colors.textSecondary, marginTop: 12 }]}>
+                Loading standings...
+              </Text>
+            </View>
+          ) : currentStandings.length > 0 ? (
             <View style={[styles.standingsCard, { 
               backgroundColor: theme.colors.cardBackground,
               ...Platform.select({
@@ -1029,10 +928,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  stadiumImage: {
-    width: '100%',
-    height: 200,
-  },
   loadingText: {
     fontSize: 14,
     fontFamily: 'Montserrat_500Medium',
@@ -1052,51 +947,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   infoValue: {
-    fontSize: 16,
-    fontFamily: 'Montserrat_700Bold',
-  },
-  // Trophy Filter Tabs
-  trophyFilterContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
-  },
-  trophyFilterTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  trophyFilterTabActive: {
-    borderRadius: 20,
-  },
-  trophyFilterText: {
-    fontSize: 13,
-    fontFamily: 'Montserrat_500Medium',
-  },
-  // Trophy List
-  trophyList: {
-    gap: 16,
-  },
-  trophyRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
-  },
-  trophyRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  trophyRowName: {
-    fontSize: 15,
-    fontFamily: 'Montserrat_600SemiBold',
-    flex: 1,
-  },
-  trophyRowCount: {
     fontSize: 16,
     fontFamily: 'Montserrat_700Bold',
   },
