@@ -159,43 +159,58 @@ export default function TeamDetails() {
     ],
   };
 
-  // Get base standings and apply filter - Safe access with fallback
-  const rawStandings = mockStandings[selectedLeagueId as keyof typeof mockStandings];
-  const baseStandings: StandingRow[] = Array.isArray(rawStandings) ? rawStandings : [];
-  
-  // Apply filter type (for now, just shuffle slightly to demonstrate UI)
+  // Get base standings and apply filter - All logic inside useMemo for safety
   const currentStandings = useMemo(() => {
-    // Ensure we always have an array
+    // Safe access with fallback - ensure we always get an array
+    const rawStandings = mockStandings[selectedLeagueId as keyof typeof mockStandings];
+    const baseStandings: StandingRow[] = Array.isArray(rawStandings) ? rawStandings : [];
+    
+    // Ensure we always have an array before proceeding
     if (!Array.isArray(baseStandings) || baseStandings.length === 0) {
       return [];
     }
 
     if (filterType === 'ALL') {
-      return [...baseStandings]; // Create a copy to avoid mutation
+      // Create a safe copy to avoid mutation
+      try {
+        return baseStandings.slice(); // Use slice() instead of spread for safety
+      } catch (error) {
+        console.error('Error copying standings:', error);
+        return [];
+      }
     }
     
     // For HOME/AWAY, we'll slightly modify the data to show different stats
     // In a real implementation, this would filter by home/away specific stats
-    return baseStandings.map((team, index) => {
-      if (filterType === 'HOME') {
-        // Simulate home stats (slightly better performance)
-        return {
-          ...team,
-          mp: Math.floor(team.mp / 2),
-          w: Math.floor(team.w / 2) + (team.w % 2),
-          pts: Math.floor(team.pts / 2) + (team.pts % 2),
-        };
-      } else {
-        // Simulate away stats
-        return {
-          ...team,
-          mp: Math.floor(team.mp / 2),
-          w: Math.floor(team.w / 2),
-          pts: Math.floor(team.pts / 2),
-        };
-      }
-    });
-  }, [baseStandings, filterType]);
+    try {
+      return baseStandings.map((team) => {
+        if (!team || typeof team !== 'object') {
+          return team; // Skip invalid entries
+        }
+        
+        if (filterType === 'HOME') {
+          // Simulate home stats (slightly better performance)
+          return {
+            ...team,
+            mp: Math.floor(team.mp / 2),
+            w: Math.floor(team.w / 2) + (team.w % 2),
+            pts: Math.floor(team.pts / 2) + (team.pts % 2),
+          };
+        } else {
+          // Simulate away stats
+          return {
+            ...team,
+            mp: Math.floor(team.mp / 2),
+            w: Math.floor(team.w / 2),
+            pts: Math.floor(team.pts / 2),
+          };
+        }
+      });
+    } catch (error) {
+      console.error('Error mapping standings:', error);
+      return [];
+    }
+  }, [selectedLeagueId, filterType]);
 
   const selectedLeague = availableLeagues.find(l => l.id === selectedLeagueId) || availableLeagues[0];
 
@@ -700,7 +715,7 @@ export default function TeamDetails() {
           </View>
 
           {/* Standings Table */}
-          {currentStandings.length > 0 ? (
+          {Array.isArray(currentStandings) && currentStandings.length > 0 ? (
             <View style={[styles.standingsCard, { 
               backgroundColor: theme.colors.cardBackground,
               ...Platform.select({
@@ -728,7 +743,9 @@ export default function TeamDetails() {
               </View>
 
               {/* Table Rows */}
-              {currentStandings.map((row) => (
+              {Array.isArray(currentStandings) ? currentStandings.map((row) => {
+                if (!row || typeof row !== 'object') return null;
+                return (
                 <View
                   key={row.rank}
                   style={[
@@ -800,7 +817,8 @@ export default function TeamDetails() {
                     {row.pts}
                   </Text>
                 </View>
-              ))}
+                );
+              }) : null}
             </View>
           ) : (
             <View style={styles.emptyStandingsContainer}>
