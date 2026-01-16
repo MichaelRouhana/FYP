@@ -54,7 +54,8 @@ export default function SearchScreen() {
   const [favorites, setFavorites] = useState<Set<string | number>>(new Set());
 
   // --- 1. Fuzzy Search Helper Functions (defined early) ---
-  const normalize = useCallback((text: string): string => {
+  const normalize = useCallback((text: string | undefined | null): string => {
+    if (!text || typeof text !== 'string') return '';
     return text.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
   }, []);
 
@@ -101,13 +102,16 @@ export default function SearchScreen() {
       if (teamsRes.status === 'fulfilled') {
         const teamsData = (teamsRes.value.data.response as ApiTeam[]) || [];
         teamsData.forEach((item) => {
-          newResults.push({
-            id: item.team.id,
-            title: item.team.name,
-            subtitle: 'Team',
-            imageUrl: item.team.logo,
-            type: 'team',
-          });
+          // Safety check: ensure team data exists and has required fields
+          if (item?.team?.id && item?.team?.name) {
+            newResults.push({
+              id: item.team.id,
+              title: item.team.name,
+              subtitle: 'Team',
+              imageUrl: item.team.logo,
+              type: 'team',
+            });
+          }
         });
       }
 
@@ -115,13 +119,16 @@ export default function SearchScreen() {
       if (leaguesRes.status === 'fulfilled') {
         const leaguesData = (leaguesRes.value.data.response as ApiLeague[]) || [];
         leaguesData.forEach((item) => {
-          newResults.push({
-            id: item.league.id,
-            title: item.league.name,
-            subtitle: item.league.country,
-            imageUrl: item.league.logo,
-            type: 'league',
-          });
+          // Safety check: ensure league data exists and has required fields
+          if (item?.league?.id && item?.league?.name) {
+            newResults.push({
+              id: item.league.id,
+              title: item.league.name,
+              subtitle: item.league.country || '',
+              imageUrl: item.league.logo,
+              type: 'league',
+            });
+          }
         });
       }
 
@@ -129,13 +136,16 @@ export default function SearchScreen() {
       if (playersRes.status === 'fulfilled') {
         const playersData = (playersRes.value.data.response as ApiPlayer[]) || [];
         playersData.forEach((item) => {
-          newResults.push({
-            id: item.player.id,
-            title: item.player.name,
-            subtitle: 'Player', // Simplified subtitle
-            imageUrl: item.player.photo,
-            type: 'player',
-          });
+          // Safety check: ensure player data exists and has required fields
+          if (item?.player?.id && item?.player?.name) {
+            newResults.push({
+              id: item.player.id,
+              title: item.player.name,
+              subtitle: 'Player', // Simplified subtitle
+              imageUrl: item.player.photo,
+              type: 'player',
+            });
+          }
         });
       }
 
@@ -152,15 +162,21 @@ export default function SearchScreen() {
   const fuzzyMatch = useCallback((item: SearchResultItem, query: string): boolean => {
     if (!query || query.trim().length === 0) return true;
     
+    // Safety check: ensure item has required properties
+    if (!item || (!item.title && !item.subtitle)) return false;
+    
     const normalizedQuery = normalize(query);
     const searchTerms = normalizedQuery.split(' ').filter(t => t.length > 0);
     
     if (searchTerms.length === 0) return true;
     
-    // Search in both title and subtitle
+    // Search in both title and subtitle (with null safety)
     const itemName = normalize(item.title);
-    const itemSubtitle = normalize(item.subtitle);
-    const combinedText = `${itemName} ${itemSubtitle}`;
+    const itemSubtitle = normalize(item.subtitle || '');
+    const combinedText = `${itemName} ${itemSubtitle}`.trim();
+    
+    // If combined text is empty after normalization, skip this item
+    if (combinedText.length === 0) return false;
     
     // Check if EVERY search term appears somewhere in the item name or subtitle
     return searchTerms.every(term => combinedText.includes(term));
@@ -168,7 +184,13 @@ export default function SearchScreen() {
 
   // --- 5. Filter Logic (Client Side) ---
   const filteredResults = useMemo(() => {
-    let results = allResults;
+    // First, filter out any invalid items (missing title or id)
+    let results = allResults.filter(item => 
+      item && 
+      item.id !== undefined && 
+      item.id !== null && 
+      (item.title || item.subtitle) // At least one should exist
+    );
 
     // First, apply fuzzy text filtering if there's a search query
     // This ensures multi-word queries like "Real Madrid" work correctly

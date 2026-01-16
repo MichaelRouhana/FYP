@@ -13,6 +13,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getTeamDetails, TeamDetailsDTO } from '@/services/teamApi';
 
 type TabType = 'DETAILS' | 'STANDINGS' | 'SQUAD' | 'STATS';
 type TrophyFilter = 'MAJOR' | 'ALL';
@@ -60,41 +61,76 @@ export default function TeamDetails() {
   const [selectedLeagueId, setSelectedLeagueId] = useState<string>('la_liga');
   const [loading, setLoading] = useState(true);
   const [teamData, setTeamData] = useState<TeamData | null>(null);
+  const [details, setDetails] = useState<TeamDetailsDTO | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
-  // Mock data for now - replace with API call later
+  // Fetch team data
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      const mockData: TeamData = {
-        name: 'Real Madrid',
-        logo: 'https://media.api-sports.io/football/teams/541.png',
-        country: 'Spain',
-        countryFlag: '🇪🇸',
-        coach: 'Carlo Ancelotti',
-        coachImageUrl: 'https://media.api-sports.io/football/coachs/1.png', // Example URL - replace with actual coach image
-        founded: '1902',
-        stadium: 'Santiago Bernabéu',
-        uefaRank: 1,
-        tournaments: [
-          { name: 'UEFA Champions League', logo: 'https://media.api-sports.io/football/leagues/2.png' },
-          { name: 'La Liga', logo: 'https://media.api-sports.io/football/leagues/140.png' },
-          { name: 'Supercopa de España', logo: '' },
-          { name: 'Copa del Rey', logo: '' },
-          { name: 'FIFA Club World Cup', logo: '' },
-        ],
-        trophies: [
-          { name: 'LaLiga', count: 36, isMajor: true },
-          { name: 'Copa del Rey', count: 20, isMajor: true },
-          { name: 'UEFA Champions League', count: 15, isMajor: true },
-          { name: 'FIFA Club World Cup', count: 5, isMajor: true },
-          { name: 'UEFA Europa League', count: 2, isMajor: false },
-          { name: 'UEFA Super Cup', count: 6, isMajor: false },
-          { name: 'Intercontinental Cup', count: 3, isMajor: false },
-        ],
-      };
-      setTeamData(mockData);
-      setLoading(false);
-    }, 500);
+    const fetchTeamData = async () => {
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
+      const teamId = typeof id === 'string' ? parseInt(id) : 0;
+      if (isNaN(teamId) || teamId === 0) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setDetailsLoading(true);
+
+        // Mock data for team header (replace with API call when available)
+        const mockData: TeamData = {
+          name: 'Real Madrid',
+          logo: 'https://media.api-sports.io/football/teams/541.png',
+          country: 'Spain',
+          countryFlag: '🇪🇸',
+          coach: 'Carlo Ancelotti',
+          coachImageUrl: 'https://media.api-sports.io/football/coachs/1.png',
+          founded: '1902',
+          stadium: 'Santiago Bernabéu',
+          uefaRank: 1,
+          tournaments: [
+            { name: 'UEFA Champions League', logo: 'https://media.api-sports.io/football/leagues/2.png' },
+            { name: 'La Liga', logo: 'https://media.api-sports.io/football/leagues/140.png' },
+            { name: 'Supercopa de España', logo: '' },
+            { name: 'Copa del Rey', logo: '' },
+            { name: 'FIFA Club World Cup', logo: '' },
+          ],
+          trophies: [
+            { name: 'LaLiga', count: 36, isMajor: true },
+            { name: 'Copa del Rey', count: 20, isMajor: true },
+            { name: 'UEFA Champions League', count: 15, isMajor: true },
+            { name: 'FIFA Club World Cup', count: 5, isMajor: true },
+            { name: 'UEFA Europa League', count: 2, isMajor: false },
+            { name: 'UEFA Super Cup', count: 6, isMajor: false },
+            { name: 'Intercontinental Cup', count: 3, isMajor: false },
+          ],
+        };
+        setTeamData(mockData);
+
+        // Fetch team details from API
+        try {
+          const teamDetails = await getTeamDetails(teamId);
+          setDetails(teamDetails);
+        } catch (detailsError) {
+          console.error('Error fetching team details:', detailsError);
+          // Don't fail the whole page if details fail
+          setDetails(null);
+        } finally {
+          setDetailsLoading(false);
+        }
+      } catch (error) {
+        console.error('Error fetching team data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeamData();
   }, [id]);
 
   const tabs: TabType[] = ['DETAILS', 'STANDINGS', 'SQUAD', 'STATS'];
@@ -295,6 +331,124 @@ export default function TeamDetails() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.contentContainer}
         >
+          {/* Stadium Details Section */}
+          {detailsLoading ? (
+            <View style={[styles.card, { 
+              backgroundColor: theme.colors.cardBackground,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 40,
+            }]}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={[styles.loadingText, { color: theme.colors.textSecondary, marginTop: 12 }]}>
+                Loading stadium details...
+              </Text>
+            </View>
+          ) : details ? (
+            <>
+              {/* Stadium Image */}
+              {details.stadiumImage && (
+                <View style={[styles.card, { 
+                  backgroundColor: theme.colors.cardBackground,
+                  padding: 0,
+                  overflow: 'hidden',
+                  marginBottom: 16,
+                  ...Platform.select({
+                    ios: {
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.1,
+                      shadowRadius: 8,
+                    },
+                    android: {
+                      elevation: 4,
+                    },
+                  }),
+                }]}>
+                  <Image 
+                    source={{ uri: details.stadiumImage }} 
+                    style={styles.stadiumImage}
+                    resizeMode="cover"
+                  />
+                </View>
+              )}
+
+              {/* Stadium Information Card */}
+              <View style={[styles.card, { 
+                backgroundColor: theme.colors.cardBackground,
+                marginBottom: 16,
+                ...Platform.select({
+                  ios: {
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 8,
+                  },
+                  android: {
+                    elevation: 4,
+                  },
+                }),
+              }]}>
+                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Stadium Information</Text>
+                <View style={styles.infoList}>
+                  {/* Stadium Name */}
+                  {details.stadiumName && (
+                    <View style={styles.infoRow}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
+                        <MaterialCommunityIcons name="stadium" size={24} color={theme.colors.primary} />
+                      </View>
+                      <View style={styles.infoTextContainer}>
+                        <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>STADIUM</Text>
+                        <Text style={[styles.infoValue, { color: theme.colors.text }]}>{details.stadiumName}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* City */}
+                  {details.city && (
+                    <View style={styles.infoRow}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
+                        <Ionicons name="location" size={24} color={theme.colors.primary} />
+                      </View>
+                      <View style={styles.infoTextContainer}>
+                        <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>CITY</Text>
+                        <Text style={[styles.infoValue, { color: theme.colors.text }]}>{details.city}</Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Capacity */}
+                  {details.capacity > 0 && (
+                    <View style={styles.infoRow}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
+                        <Ionicons name="people" size={24} color={theme.colors.primary} />
+                      </View>
+                      <View style={styles.infoTextContainer}>
+                        <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>CAPACITY</Text>
+                        <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                          {details.capacity.toLocaleString()}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Founded Year */}
+                  {details.foundedYear && (
+                    <View style={styles.infoRow}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
+                        <Ionicons name="calendar" size={24} color={theme.colors.primary} />
+                      </View>
+                      <View style={styles.infoTextContainer}>
+                        <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>FOUNDED</Text>
+                        <Text style={[styles.infoValue, { color: theme.colors.text }]}>{details.foundedYear}</Text>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </>
+          ) : null}
+
           {/* Section 1: Team Information Card */}
           <View style={[styles.card, { 
             backgroundColor: theme.colors.cardBackground,
@@ -828,6 +982,14 @@ const styles = StyleSheet.create({
   coachImage: {
     width: '100%',
     height: '100%',
+  },
+  stadiumImage: {
+    width: '100%',
+    height: 200,
+  },
+  loadingText: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_500Medium',
   },
   infoFlagIcon: {
     fontSize: 28,
