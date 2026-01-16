@@ -83,29 +83,54 @@ export default function TeamDetails() {
       try {
         setLoading(true);
         
-        // Fetch team header
-        const headerData = await getTeamHeader(teamId);
-        setTeamHeader(headerData);
+        // Fetch team header (critical - if this fails, we can't show the page)
+        try {
+          console.log(`[TeamDetails] Fetching team header for ID: ${teamId}`);
+          const headerData = await getTeamHeader(teamId);
+          console.log(`[TeamDetails] Team header received:`, headerData);
+          setTeamHeader(headerData);
+        } catch (headerError: any) {
+          console.error(`[TeamDetails] Error fetching team header for ID ${teamId}:`, headerError);
+          console.error(`[TeamDetails] Error response:`, headerError?.response?.data);
+          console.error(`[TeamDetails] Error status:`, headerError?.response?.status);
+          console.error(`[TeamDetails] Error URL:`, headerError?.config?.url);
+          // If header fails, we can't display the team - set error state
+          if (headerError?.response?.status === 404) {
+            console.log(`[TeamDetails] Team ${teamId} not found (404)`);
+          } else {
+            console.log(`[TeamDetails] Team header fetch failed:`, headerError?.message || 'Unknown error');
+          }
+          // Don't set teamHeader, so teamData will be null and show "Team not found"
+          setTeamHeader(null);
+        }
 
-        // Fetch standings
-        console.log('Fetching standings for team ID:', teamId);
-        const standingsData = await getTeamStandings(teamId, 2023);
-        // Ensure standings is always an array
-        setStandings(Array.isArray(standingsData) ? standingsData : []);
+        // Fetch standings (non-critical - can fail silently)
+        try {
+          console.log('Fetching standings for team ID:', teamId);
+          const standingsData = await getTeamStandings(teamId, 2023);
+          setStandings(Array.isArray(standingsData) ? standingsData : []);
+        } catch (standingsError) {
+          console.warn('Error fetching standings (non-critical):', standingsError);
+          setStandings([]);
+        }
 
-        // Fetch trophies
-        const trophiesData = await getTeamTrophies(teamId);
-        // Map trophies to local format
-        const mappedTrophies: Trophy[] = Array.isArray(trophiesData)
-          ? trophiesData.map((t) => ({
-              name: t.leagueName,
-              count: 1, // Backend returns individual trophies, we'll group them later if needed
-              isMajor: t.isMajor,
-            }))
-          : [];
-        setTrophies(mappedTrophies);
+        // Fetch trophies (non-critical - can fail silently)
+        try {
+          const trophiesData = await getTeamTrophies(teamId);
+          const mappedTrophies: Trophy[] = Array.isArray(trophiesData)
+            ? trophiesData.map((t) => ({
+                name: t.leagueName,
+                count: 1,
+                isMajor: t.isMajor,
+              }))
+            : [];
+          setTrophies(mappedTrophies);
+        } catch (trophiesError) {
+          console.warn('Error fetching trophies (non-critical):', trophiesError);
+          setTrophies([]);
+        }
       } catch (error) {
-        console.error('Error fetching team data:', error);
+        console.error('Unexpected error fetching team data:', error);
         // Set defaults on error
         setStandings([]);
         setTrophies([]);
@@ -230,14 +255,17 @@ export default function TeamDetails() {
   } : null;
 
   const handleToggleFavorite = () => {
-    if (teamData) {
-      toggleFavorite('team', {
-        id: teamId,
-        name: teamData.name,
-        imageUrl: teamData.logo,
-        type: 'team',
-      });
-    }
+    // Use teamHeader if teamData is not available (e.g., during loading or if mapping failed)
+    const teamName = teamData?.name || teamHeader?.name || 'Unknown Team';
+    const teamLogo = teamData?.logo || teamHeader?.logo || '';
+    
+    toggleFavorite('team', {
+      id: teamId,
+      name: teamName,
+      imageUrl: teamLogo,
+      logo: teamLogo, // Also include 'logo' for compatibility with favorites display
+      type: 'team',
+    });
   };
 
   const insets = useSafeAreaInsets();
@@ -254,12 +282,37 @@ export default function TeamDetails() {
     );
   }
 
-  if (!teamData) {
+  if (!teamData && !loading) {
     return (
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color={theme.colors.textSecondary} />
           <Text style={[styles.errorText, { color: theme.colors.text }]}>Team not found</Text>
+          <Text style={[styles.errorSubtext, { color: theme.colors.textSecondary }]}>
+            Team ID: {id}
+          </Text>
+          <TouchableOpacity 
+            style={[styles.retryButton, { backgroundColor: theme.colors.primary }]}
+            onPress={() => {
+              // Retry fetching
+              const teamId = typeof id === 'string' ? parseInt(id) : 0;
+              if (!isNaN(teamId) && teamId > 0) {
+                setLoading(true);
+                getTeamHeader(teamId)
+                  .then((header) => {
+                    setTeamHeader(header);
+                    setLoading(false);
+                  })
+                  .catch((error) => {
+                    console.error('Retry failed:', error);
+                    setLoading(false);
+                  });
+              }
+            }}
+          >
+            <Text style={[styles.retryButtonText, { color: '#FFFFFF' }]}>Retry</Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
@@ -879,8 +932,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   errorText: {
+    fontSize: 18,
+    fontFamily: 'Montserrat_600SemiBold',
+    marginTop: 16,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_400Regular',
+    marginTop: 8,
+  },
+  retryButton: {
+    marginTop: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  retryButtonText: {
     fontSize: 16,
-    fontFamily: 'Montserrat_500Medium',
+    fontFamily: 'Montserrat_600SemiBold',
   },
   headerStarButton: {
     padding: 8,
