@@ -114,8 +114,8 @@ export default function TeamDetails() {
 
         // Fetch team details from API
         try {
-          const teamDetails = await getTeamDetails(teamId);
-          setDetails(teamDetails);
+          const detailsData = await getTeamDetails(teamId);
+          setDetails(detailsData);
         } catch (detailsError) {
           console.error('Error fetching team details:', detailsError);
           // Don't fail the whole page if details fail
