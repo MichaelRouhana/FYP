@@ -87,7 +87,8 @@ export default function TeamDetails() {
         const headerData = await getTeamHeader(teamId);
         setTeamHeader(headerData);
 
-        // Fetch standings (currently returns empty array until backend endpoint is ready)
+        // Fetch standings
+        console.log('Fetching standings for team ID:', teamId);
         const standingsData = await getTeamStandings(teamId, 2023);
         // Ensure standings is always an array
         setStandings(Array.isArray(standingsData) ? standingsData : []);
@@ -138,40 +139,7 @@ export default function TeamDetails() {
     { id: 'la_liga', name: 'La Liga' },
     { id: 'ucl', name: 'Champions League' },
     { id: 'copa', name: 'Copa del Rey' },
-  };
-    la_liga: [
-      { rank: 1, team: 'Real Madrid', teamLogo: 'https://media.api-sports.io/football/teams/541.png', mp: 20, w: 16, d: 3, l: 1, gd: 35, pts: 51, isCurrent: true },
-      { rank: 2, team: 'Girona', teamLogo: 'https://media.api-sports.io/football/teams/533.png', mp: 20, w: 15, d: 4, l: 1, gd: 28, pts: 49, isCurrent: false },
-      { rank: 3, team: 'Barcelona', teamLogo: 'https://media.api-sports.io/football/teams/529.png', mp: 20, w: 13, d: 5, l: 2, gd: 24, pts: 44, isCurrent: false },
-      { rank: 4, team: 'Atletico Madrid', teamLogo: 'https://media.api-sports.io/football/teams/530.png', mp: 20, w: 12, d: 6, l: 2, gd: 18, pts: 42, isCurrent: false },
-      { rank: 5, team: 'Athletic Bilbao', teamLogo: 'https://media.api-sports.io/football/teams/531.png', mp: 20, w: 11, d: 5, l: 4, gd: 15, pts: 38, isCurrent: false },
-      { rank: 6, team: 'Real Sociedad', teamLogo: 'https://media.api-sports.io/football/teams/548.png', mp: 20, w: 10, d: 6, l: 4, gd: 12, pts: 36, isCurrent: false },
-      { rank: 7, team: 'Valencia', teamLogo: 'https://media.api-sports.io/football/teams/532.png', mp: 20, w: 9, d: 7, l: 4, gd: 8, pts: 34, isCurrent: false },
-      { rank: 8, team: 'Villarreal', teamLogo: 'https://media.api-sports.io/football/teams/533.png', mp: 20, w: 9, d: 6, l: 5, gd: 5, pts: 33, isCurrent: false },
-      { rank: 9, team: 'Real Betis', teamLogo: 'https://media.api-sports.io/football/teams/543.png', mp: 20, w: 8, d: 7, l: 5, gd: 3, pts: 31, isCurrent: false },
-      { rank: 10, team: 'Getafe', teamLogo: 'https://media.api-sports.io/football/teams/546.png', mp: 20, w: 8, d: 6, l: 6, gd: 0, pts: 30, isCurrent: false },
-      { rank: 11, team: 'Las Palmas', teamLogo: 'https://media.api-sports.io/football/teams/534.png', mp: 20, w: 7, d: 7, l: 6, gd: -2, pts: 28, isCurrent: false },
-      { rank: 12, team: 'Osasuna', teamLogo: 'https://media.api-sports.io/football/teams/727.png', mp: 20, w: 7, d: 6, l: 7, gd: -5, pts: 27, isCurrent: false },
-      { rank: 13, team: 'Rayo Vallecano', teamLogo: 'https://media.api-sports.io/football/teams/728.png', mp: 20, w: 6, d: 8, l: 6, gd: -7, pts: 26, isCurrent: false },
-      { rank: 14, team: 'Sevilla', teamLogo: 'https://media.api-sports.io/football/teams/536.png', mp: 20, w: 6, d: 7, l: 7, gd: -8, pts: 25, isCurrent: false },
-      { rank: 15, team: 'Mallorca', teamLogo: 'https://media.api-sports.io/football/teams/535.png', mp: 20, w: 5, d: 9, l: 6, gd: -10, pts: 24, isCurrent: false },
-      { rank: 16, team: 'Celta Vigo', teamLogo: 'https://media.api-sports.io/football/teams/538.png', mp: 20, w: 5, d: 8, l: 7, gd: -12, pts: 23, isCurrent: false },
-      { rank: 17, team: 'Cadiz', teamLogo: 'https://media.api-sports.io/football/teams/724.png', mp: 20, w: 4, d: 9, l: 7, gd: -15, pts: 21, isCurrent: false },
-      { rank: 18, team: 'Granada', teamLogo: 'https://media.api-sports.io/football/teams/715.png', mp: 20, w: 3, d: 8, l: 9, gd: -18, pts: 17, isCurrent: false },
-      { rank: 19, team: 'Alaves', teamLogo: 'https://media.api-sports.io/football/teams/542.png', mp: 20, w: 3, d: 7, l: 10, gd: -20, pts: 16, isCurrent: false },
-      { rank: 20, team: 'Almeria', teamLogo: 'https://media.api-sports.io/football/teams/723.png', mp: 20, w: 2, d: 6, l: 12, gd: -25, pts: 12, isCurrent: false },
-    ],
-    ucl: [
-      { rank: 1, team: 'Real Madrid', teamLogo: 'https://media.api-sports.io/football/teams/541.png', mp: 6, w: 6, d: 0, l: 0, gd: 12, pts: 18, isCurrent: true },
-      { rank: 2, team: 'Manchester City', teamLogo: 'https://media.api-sports.io/football/teams/50.png', mp: 6, w: 5, d: 1, l: 0, gd: 10, pts: 16, isCurrent: false },
-      { rank: 3, team: 'Bayern Munich', teamLogo: 'https://media.api-sports.io/football/teams/157.png', mp: 6, w: 5, d: 0, l: 1, gd: 8, pts: 15, isCurrent: false },
-      { rank: 4, team: 'PSG', teamLogo: 'https://media.api-sports.io/football/teams/85.png', mp: 6, w: 4, d: 1, l: 1, gd: 6, pts: 13, isCurrent: false },
-    ],
-    copa: [
-      { rank: 1, team: 'Real Madrid', teamLogo: 'https://media.api-sports.io/football/teams/541.png', mp: 4, w: 4, d: 0, l: 0, gd: 8, pts: 12, isCurrent: true },
-      { rank: 2, team: 'Barcelona', teamLogo: 'https://media.api-sports.io/football/teams/529.png', mp: 4, w: 3, d: 0, l: 1, gd: 5, pts: 9, isCurrent: false },
-    ],
-  };
+  ];
 
   // Get base standings and apply filter - Using real API data with safe fallback
   const currentStandings = useMemo(() => {

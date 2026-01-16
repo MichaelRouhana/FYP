@@ -59,7 +59,9 @@ export interface StandingRow {
  */
 export const getTeamHeader = async (teamId: number): Promise<TeamHeaderDTO> => {
   try {
-    const response = await api.get(`/teams/${teamId}/header`);
+    const url = `/teams/${teamId}/header`;
+    console.log('Fetching URL:', url);
+    const response = await api.get(url);
     return response.data;
   } catch (error) {
     console.error('Error fetching team header:', error);
@@ -123,15 +125,14 @@ export const getTeamTrophies = async (teamId: number): Promise<TrophyDTO[]> => {
  * @param leagueId Optional league ID
  * @returns List of StandingRow
  */
-export const getTeamStandings = async (teamId: number, leagueId?: number): Promise<StandingRow[]> => {
+export const getTeamStandings = async (teamId: number, season: number = 2023): Promise<StandingRow[]> => {
   try {
-    // TODO: Update this endpoint when standings endpoint is available
-    // For now, return empty array to prevent crashes
-    // Example: const response = await api.get(`/teams/${teamId}/standings`, { params: { leagueId } });
-    // return Array.isArray(response.data) ? response.data : [];
-    
-    console.warn('Standings endpoint not yet implemented in backend');
-    return [];
+    const url = `/teams/${teamId}/standings`;
+    console.log('Fetching URL:', url, 'with season:', season);
+    const response = await api.get(url, {
+      params: { season },
+    });
+    return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.error('Error fetching team standings:', error);
     return [];
