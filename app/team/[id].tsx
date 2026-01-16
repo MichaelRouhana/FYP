@@ -165,17 +165,16 @@ export default function TeamDetails() {
     console.log('Selected League:', selectedLeagueId, 'Available Keys:', Object.keys(mockStandings));
     
     // CRITICAL: Safe access with fallback - ensure we always get an array
+    // Pattern: [...(rawData || [])] prevents crash if rawData is undefined
     const leagueKey = selectedLeagueId as keyof typeof mockStandings;
-    const rawData = mockStandings[leagueKey] || []; // Fallback to empty array if key is wrong
     
-    // Ensure rawData is actually an array (double-check)
-    if (!Array.isArray(rawData)) {
-      console.warn(`Standings data for ${selectedLeagueId} is not an array`);
-      return [];
-    }
+    // 1. Try to get the data
+    const rawData = mockStandings[leagueKey];
     
-    // Now it's safe to spread - create a copy
-    const baseStandings: StandingRow[] = [...rawData];
+    // 2. If rawData is undefined, use an empty array [] instead.
+    // [...[]] results in an empty list, which is safe and valid.
+    // This prevents the crash even if the keys don't match, buying you time to fix the typo.
+    const baseStandings: StandingRow[] = [...(rawData || [])];
     
     // If filter is ALL, return the copy as-is
     if (filterType === 'ALL') {
