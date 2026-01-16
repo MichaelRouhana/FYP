@@ -712,7 +712,17 @@ export default function TeamDetails() {
                     {row.rank}
                   </Text>
                   
-                  <View style={[styles.tableCellTeam, { flex: 1 }]}>
+                  <View 
+                    style={[
+                      styles.tableCellTeam, 
+                      { 
+                        flex: 1,
+                        backgroundColor: row.isCurrent 
+                          ? (isDark ? theme.colors.primary + '20' : theme.colors.primary + '10')
+                          : 'transparent',
+                      }
+                    ]}
+                  >
                     {row.teamLogo ? (
                       <Image 
                         source={{ uri: row.teamLogo }} 
