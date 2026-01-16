@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Image,
   ScrollView,
@@ -58,6 +58,8 @@ export default function TeamDetails() {
   const [activeTab, setActiveTab] = useState<TabType>('DETAILS');
   const [trophyFilter, setTrophyFilter] = useState<TrophyFilter>('MAJOR');
   const [selectedLeagueId, setSelectedLeagueId] = useState<string>('la_liga');
+  const [isLeagueDropdownOpen, setIsLeagueDropdownOpen] = useState<boolean>(false);
+  const [filterType, setFilterType] = useState<'ALL' | 'HOME' | 'AWAY'>('ALL');
   const [loading, setLoading] = useState(true);
   const [teamData, setTeamData] = useState<TeamData | null>(null);
 
@@ -121,7 +123,7 @@ export default function TeamDetails() {
     { id: 'copa', name: 'Copa del Rey' },
   ];
 
-  // Mock standings data
+  // Mock standings data - Expanded to 20 teams for La Liga
   const mockStandings: Record<string, StandingRow[]> = {
     la_liga: [
       { rank: 1, team: 'Real Madrid', teamLogo: 'https://media.api-sports.io/football/teams/541.png', mp: 20, w: 16, d: 3, l: 1, gd: 35, pts: 51, isCurrent: true },
@@ -132,6 +134,18 @@ export default function TeamDetails() {
       { rank: 6, team: 'Real Sociedad', teamLogo: 'https://media.api-sports.io/football/teams/548.png', mp: 20, w: 10, d: 6, l: 4, gd: 12, pts: 36, isCurrent: false },
       { rank: 7, team: 'Valencia', teamLogo: 'https://media.api-sports.io/football/teams/532.png', mp: 20, w: 9, d: 7, l: 4, gd: 8, pts: 34, isCurrent: false },
       { rank: 8, team: 'Villarreal', teamLogo: 'https://media.api-sports.io/football/teams/533.png', mp: 20, w: 9, d: 6, l: 5, gd: 5, pts: 33, isCurrent: false },
+      { rank: 9, team: 'Real Betis', teamLogo: 'https://media.api-sports.io/football/teams/543.png', mp: 20, w: 8, d: 7, l: 5, gd: 3, pts: 31, isCurrent: false },
+      { rank: 10, team: 'Getafe', teamLogo: 'https://media.api-sports.io/football/teams/546.png', mp: 20, w: 8, d: 6, l: 6, gd: 0, pts: 30, isCurrent: false },
+      { rank: 11, team: 'Las Palmas', teamLogo: 'https://media.api-sports.io/football/teams/534.png', mp: 20, w: 7, d: 7, l: 6, gd: -2, pts: 28, isCurrent: false },
+      { rank: 12, team: 'Osasuna', teamLogo: 'https://media.api-sports.io/football/teams/727.png', mp: 20, w: 7, d: 6, l: 7, gd: -5, pts: 27, isCurrent: false },
+      { rank: 13, team: 'Rayo Vallecano', teamLogo: 'https://media.api-sports.io/football/teams/728.png', mp: 20, w: 6, d: 8, l: 6, gd: -7, pts: 26, isCurrent: false },
+      { rank: 14, team: 'Sevilla', teamLogo: 'https://media.api-sports.io/football/teams/536.png', mp: 20, w: 6, d: 7, l: 7, gd: -8, pts: 25, isCurrent: false },
+      { rank: 15, team: 'Mallorca', teamLogo: 'https://media.api-sports.io/football/teams/535.png', mp: 20, w: 5, d: 9, l: 6, gd: -10, pts: 24, isCurrent: false },
+      { rank: 16, team: 'Celta Vigo', teamLogo: 'https://media.api-sports.io/football/teams/538.png', mp: 20, w: 5, d: 8, l: 7, gd: -12, pts: 23, isCurrent: false },
+      { rank: 17, team: 'Cadiz', teamLogo: 'https://media.api-sports.io/football/teams/724.png', mp: 20, w: 4, d: 9, l: 7, gd: -15, pts: 21, isCurrent: false },
+      { rank: 18, team: 'Granada', teamLogo: 'https://media.api-sports.io/football/teams/715.png', mp: 20, w: 3, d: 8, l: 9, gd: -18, pts: 17, isCurrent: false },
+      { rank: 19, team: 'Alaves', teamLogo: 'https://media.api-sports.io/football/teams/542.png', mp: 20, w: 3, d: 7, l: 10, gd: -20, pts: 16, isCurrent: false },
+      { rank: 20, team: 'Almeria', teamLogo: 'https://media.api-sports.io/football/teams/723.png', mp: 20, w: 2, d: 6, l: 12, gd: -25, pts: 12, isCurrent: false },
     ],
     ucl: [
       { rank: 1, team: 'Real Madrid', teamLogo: 'https://media.api-sports.io/football/teams/541.png', mp: 6, w: 6, d: 0, l: 0, gd: 12, pts: 18, isCurrent: true },
@@ -145,7 +159,38 @@ export default function TeamDetails() {
     ],
   };
 
-  const currentStandings = mockStandings[selectedLeagueId] || [];
+  // Get base standings and apply filter
+  const baseStandings = mockStandings[selectedLeagueId] || [];
+  
+  // Apply filter type (for now, just shuffle slightly to demonstrate UI)
+  const currentStandings = useMemo(() => {
+    if (filterType === 'ALL') {
+      return baseStandings;
+    }
+    // For HOME/AWAY, we'll slightly modify the data to show different stats
+    // In a real implementation, this would filter by home/away specific stats
+    return baseStandings.map((team, index) => {
+      if (filterType === 'HOME') {
+        // Simulate home stats (slightly better performance)
+        return {
+          ...team,
+          mp: Math.floor(team.mp / 2),
+          w: Math.floor(team.w / 2) + (team.w % 2),
+          pts: Math.floor(team.pts / 2) + (team.pts % 2),
+        };
+      } else {
+        // Simulate away stats
+        return {
+          ...team,
+          mp: Math.floor(team.mp / 2),
+          w: Math.floor(team.w / 2),
+          pts: Math.floor(team.pts / 2),
+        };
+      }
+    });
+  }, [baseStandings, filterType]);
+
+  const selectedLeague = availableLeagues.find(l => l.id === selectedLeagueId) || availableLeagues[0];
 
   const handleToggleFavorite = () => {
     if (teamData) {
@@ -515,49 +560,136 @@ export default function TeamDetails() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.standingsContainer}
         >
-          {/* League Filter */}
+          {/* League Dropdown */}
           <View style={styles.leagueFilterContainer}>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
-              contentContainerStyle={styles.leagueFilterScroll}
+            <TouchableOpacity
+              style={[
+                styles.leagueDropdownHeader,
+                {
+                  backgroundColor: theme.colors.cardBackground,
+                  borderColor: theme.colors.border,
+                },
+                ...Platform.select({
+                  ios: {
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.1,
+                    shadowRadius: 2,
+                  },
+                  android: {
+                    elevation: 2,
+                  },
+                }),
+              ]}
+              onPress={() => setIsLeagueDropdownOpen(!isLeagueDropdownOpen)}
             >
-              {availableLeagues.map((league) => {
-                const isSelected = selectedLeagueId === league.id;
-                return (
+              <Text style={[styles.leagueDropdownText, { color: theme.colors.text }]}>
+                {selectedLeague.name}
+              </Text>
+              <Ionicons 
+                name={isLeagueDropdownOpen ? 'chevron-up' : 'chevron-down'} 
+                size={20} 
+                color={theme.colors.textSecondary} 
+              />
+            </TouchableOpacity>
+
+            {/* Dropdown Options */}
+            {isLeagueDropdownOpen && (
+              <View style={[
+                styles.leagueDropdownList,
+                {
+                  backgroundColor: theme.colors.cardBackground,
+                  borderColor: theme.colors.border,
+                },
+                ...Platform.select({
+                  ios: {
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.15,
+                    shadowRadius: 4,
+                  },
+                  android: {
+                    elevation: 4,
+                  },
+                }),
+              ]}>
+                {availableLeagues.map((league) => (
                   <TouchableOpacity
                     key={league.id}
                     style={[
-                      styles.leagueChip,
+                      styles.leagueDropdownItem,
                       {
-                        backgroundColor: isSelected 
-                          ? theme.colors.primary 
+                        backgroundColor: selectedLeagueId === league.id 
+                          ? (isDark ? theme.colors.primary + '20' : theme.colors.primary + '10')
                           : 'transparent',
-                        borderColor: theme.colors.primary,
-                        borderWidth: 1.5,
                       },
                     ]}
-                    onPress={() => setSelectedLeagueId(league.id)}
+                    onPress={() => {
+                      setSelectedLeagueId(league.id);
+                      setIsLeagueDropdownOpen(false);
+                    }}
                   >
                     <Text
                       style={[
-                        styles.leagueChipText,
+                        styles.leagueDropdownItemText,
                         {
-                          color: isSelected 
-                            ? '#FFFFFF' 
-                            : theme.colors.primary,
-                          fontFamily: isSelected 
+                          color: selectedLeagueId === league.id 
+                            ? theme.colors.primary 
+                            : theme.colors.text,
+                          fontFamily: selectedLeagueId === league.id 
                             ? 'Montserrat_700Bold' 
-                            : 'Montserrat_600SemiBold',
+                            : 'Montserrat_500Medium',
                         },
                       ]}
                     >
                       {league.name}
                     </Text>
+                    {selectedLeagueId === league.id && (
+                      <Ionicons name="checkmark" size={18} color={theme.colors.primary} />
+                    )}
                   </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* All | Home | Away Filter */}
+          <View style={styles.filterTypeContainer}>
+            {(['ALL', 'HOME', 'AWAY'] as const).map((type) => {
+              const isActive = filterType === type;
+              return (
+                <TouchableOpacity
+                  key={type}
+                  style={[
+                    styles.filterTypeButton,
+                    {
+                      backgroundColor: isActive 
+                        ? theme.colors.primary 
+                        : 'transparent',
+                      borderColor: theme.colors.primary,
+                      borderWidth: 1.5,
+                    },
+                  ]}
+                  onPress={() => setFilterType(type)}
+                >
+                  <Text
+                    style={[
+                      styles.filterTypeText,
+                      {
+                        color: isActive 
+                          ? '#FFFFFF' 
+                          : theme.colors.primary,
+                        fontFamily: isActive 
+                          ? 'Montserrat_700Bold' 
+                          : 'Montserrat_600SemiBold',
+                      },
+                    ]}
+                  >
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* Standings Table */}
@@ -932,20 +1064,57 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   leagueFilterContainer: {
+    marginBottom: 12,
+    zIndex: 10,
+  },
+  leagueDropdownHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+  },
+  leagueDropdownText: {
+    fontSize: 15,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  leagueDropdownList: {
+    marginTop: 4,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    overflow: 'hidden',
+  },
+  leagueDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  leagueDropdownItemText: {
+    fontSize: 15,
+    flex: 1,
+  },
+  filterTypeContainer: {
+    flexDirection: 'row',
+    gap: 8,
     marginBottom: 16,
   },
-  leagueFilterScroll: {
-    paddingRight: 16,
-    gap: 8,
+  filterTypeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  leagueChip: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginRight: 8,
-  },
-  leagueChipText: {
-    fontSize: 14,
+  filterTypeText: {
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   standingsCard: {
     borderRadius: 16,
