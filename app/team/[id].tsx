@@ -13,7 +13,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getTeamDetails, TeamDetailsDTO } from '@/services/teamApi';
+import { getTeamDetails, TeamDetailsDTO, getTeamHeader, TeamHeader, getTrophies, Trophy as TrophyDTO } from '@/services/teamApi';
 
 type TabType = 'DETAILS' | 'STANDINGS' | 'SQUAD' | 'STATS';
 type TrophyFilter = 'MAJOR' | 'ALL';
@@ -63,6 +63,8 @@ export default function TeamDetails() {
   const [teamData, setTeamData] = useState<TeamData | null>(null);
   const [details, setDetails] = useState<TeamDetailsDTO | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [header, setHeader] = useState<TeamHeader | null>(null);
+  const [trophies, setTrophies] = useState<TrophyDTO[]>([]);
 
   // Fetch team data
   useEffect(() => {
@@ -82,44 +84,87 @@ export default function TeamDetails() {
         setLoading(true);
         setDetailsLoading(true);
 
-        // Mock data for team header (replace with API call when available)
-        const mockData: TeamData = {
-          name: 'Real Madrid',
-          logo: 'https://media.api-sports.io/football/teams/541.png',
-          country: 'Spain',
-          countryFlag: '🇪🇸',
-          coach: 'Carlo Ancelotti',
-          coachImageUrl: 'https://media.api-sports.io/football/coachs/1.png',
-          founded: '1902',
-          stadium: 'Santiago Bernabéu',
-          uefaRank: 1,
-          tournaments: [
-            { name: 'UEFA Champions League', logo: 'https://media.api-sports.io/football/leagues/2.png' },
-            { name: 'La Liga', logo: 'https://media.api-sports.io/football/leagues/140.png' },
-            { name: 'Supercopa de España', logo: '' },
-            { name: 'Copa del Rey', logo: '' },
-            { name: 'FIFA Club World Cup', logo: '' },
-          ],
-          trophies: [
-            { name: 'LaLiga', count: 36, isMajor: true },
-            { name: 'Copa del Rey', count: 20, isMajor: true },
-            { name: 'UEFA Champions League', count: 15, isMajor: true },
-            { name: 'FIFA Club World Cup', count: 5, isMajor: true },
-            { name: 'UEFA Europa League', count: 2, isMajor: false },
-            { name: 'UEFA Super Cup', count: 6, isMajor: false },
-            { name: 'Intercontinental Cup', count: 3, isMajor: false },
-          ],
-        };
-        setTeamData(mockData);
-
-        // Fetch team details from API
+        // Fetch team header, trophies, and details from API
         try {
-          const detailsData = await getTeamDetails(teamId);
+          const [headerData, trophiesData, detailsData] = await Promise.all([
+            getTeamHeader(teamId),
+            getTrophies(teamId),
+            getTeamDetails(teamId).catch(() => null), // Don't fail if details endpoint fails
+          ]);
+
+          setHeader(headerData);
+          setTrophies(trophiesData);
           setDetails(detailsData);
-        } catch (detailsError) {
-          console.error('Error fetching team details:', detailsError);
-          // Don't fail the whole page if details fail
-          setDetails(null);
+
+          // Transform trophies from backend format to UI format (group by leagueName and count)
+          const trophyMap = new Map<string, { name: string; count: number; isMajor: boolean }>();
+          trophiesData.forEach(trophy => {
+            const existing = trophyMap.get(trophy.leagueName);
+            if (existing) {
+              existing.count += 1;
+            } else {
+              trophyMap.set(trophy.leagueName, {
+                name: trophy.leagueName,
+                count: 1,
+                isMajor: trophy.isMajor,
+              });
+            }
+          });
+          const transformedTrophies = Array.from(trophyMap.values());
+
+          // Update teamData with header information
+          const teamDataUpdate: TeamData = {
+            name: headerData.name,
+            logo: headerData.logo,
+            country: headerData.country,
+            countryFlag: '🇪🇸', // TODO: Map country to flag emoji based on country name
+            coach: headerData.coachName,
+            coachImageUrl: headerData.coachImageUrl,
+            founded: headerData.foundedYear.toString(),
+            stadium: headerData.stadiumName,
+            uefaRank: headerData.uefaRanking,
+            // TODO: Fetch active tournaments from backend when endpoint is available
+            tournaments: [
+              { name: 'UEFA Champions League', logo: 'https://media.api-sports.io/football/leagues/2.png' },
+              { name: 'La Liga', logo: 'https://media.api-sports.io/football/leagues/140.png' },
+              { name: 'Supercopa de España', logo: '' },
+              { name: 'Copa del Rey', logo: '' },
+              { name: 'FIFA Club World Cup', logo: '' },
+            ],
+            trophies: transformedTrophies,
+          };
+          setTeamData(teamDataUpdate);
+        } catch (apiError) {
+          console.error('Error fetching team data from API:', apiError);
+          // Fallback to mock data if API fails
+          const mockData: TeamData = {
+            name: 'Real Madrid',
+            logo: 'https://media.api-sports.io/football/teams/541.png',
+            country: 'Spain',
+            countryFlag: '🇪🇸',
+            coach: 'Carlo Ancelotti',
+            coachImageUrl: 'https://media.api-sports.io/football/coachs/1.png',
+            founded: '1902',
+            stadium: 'Santiago Bernabéu',
+            uefaRank: 1,
+            tournaments: [
+              { name: 'UEFA Champions League', logo: 'https://media.api-sports.io/football/leagues/2.png' },
+              { name: 'La Liga', logo: 'https://media.api-sports.io/football/leagues/140.png' },
+              { name: 'Supercopa de España', logo: '' },
+              { name: 'Copa del Rey', logo: '' },
+              { name: 'FIFA Club World Cup', logo: '' },
+            ],
+            trophies: [
+              { name: 'LaLiga', count: 36, isMajor: true },
+              { name: 'Copa del Rey', count: 20, isMajor: true },
+              { name: 'UEFA Champions League', count: 15, isMajor: true },
+              { name: 'FIFA Club World Cup', count: 5, isMajor: true },
+              { name: 'UEFA Europa League', count: 2, isMajor: false },
+              { name: 'UEFA Super Cup', count: 6, isMajor: false },
+              { name: 'Intercontinental Cup', count: 3, isMajor: false },
+            ],
+          };
+          setTeamData(mockData);
         } finally {
           setDetailsLoading(false);
         }
@@ -622,6 +667,7 @@ export default function TeamDetails() {
           </View>
 
           {/* Section 3: Tournaments */}
+          {/* TODO: Fetch active tournaments from backend when endpoint is available */}
           <View style={[styles.card, { 
             backgroundColor: theme.colors.cardBackground,
             ...Platform.select({
