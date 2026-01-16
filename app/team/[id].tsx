@@ -161,14 +161,28 @@ export default function TeamDetails() {
 
   // Get base standings and apply filter - All logic inside useMemo for safety
   const currentStandings = useMemo(() => {
-    // Safe access with fallback - ensure we always get an array
-    const rawStandings = mockStandings[selectedLeagueId as keyof typeof mockStandings];
-    const baseStandings: StandingRow[] = Array.isArray(rawStandings) ? rawStandings : [];
-    
-    // Ensure we always have an array before proceeding
-    if (!Array.isArray(baseStandings) || baseStandings.length === 0) {
-      return [];
-    }
+    try {
+      // Validate mockStandings exists and is an object
+      if (!mockStandings || typeof mockStandings !== 'object' || Array.isArray(mockStandings)) {
+        console.warn('mockStandings is not a valid object');
+        return [];
+      }
+
+      // Safe access with fallback - ensure we always get an array
+      const rawStandings = mockStandings[selectedLeagueId as keyof typeof mockStandings];
+      
+      // Validate that rawStandings is an array
+      if (!Array.isArray(rawStandings)) {
+        console.warn(`No standings data for league: ${selectedLeagueId}`);
+        return [];
+      }
+      
+      const baseStandings: StandingRow[] = rawStandings;
+      
+      // Ensure we always have an array before proceeding
+      if (baseStandings.length === 0) {
+        return [];
+      }
 
     if (filterType === 'ALL') {
       // Create a safe copy to avoid mutation
@@ -183,31 +197,74 @@ export default function TeamDetails() {
     // For HOME/AWAY, we'll slightly modify the data to show different stats
     // In a real implementation, this would filter by home/away specific stats
     try {
-      return baseStandings.map((team) => {
-        if (!team || typeof team !== 'object') {
-          return team; // Skip invalid entries
-        }
-        
-        if (filterType === 'HOME') {
-          // Simulate home stats (slightly better performance)
-          return {
-            ...team,
-            mp: Math.floor(team.mp / 2),
-            w: Math.floor(team.w / 2) + (team.w % 2),
-            pts: Math.floor(team.pts / 2) + (team.pts % 2),
+      return baseStandings
+        .filter((team) => {
+          // Filter out invalid entries before mapping
+          return team && 
+                 typeof team === 'object' && 
+                 !Array.isArray(team) &&
+                 'rank' in team &&
+                 'team' in team &&
+                 'mp' in team &&
+                 'w' in team &&
+                 'd' in team &&
+                 'l' in team &&
+                 'gd' in team &&
+                 'pts' in team;
+        })
+        .map((team) => {
+          // Create a safe copy of the team object
+          const safeTeam: StandingRow = {
+            rank: Number(team.rank) || 0,
+            team: String(team.team) || '',
+            teamLogo: team.teamLogo || undefined,
+            mp: Number(team.mp) || 0,
+            w: Number(team.w) || 0,
+            d: Number(team.d) || 0,
+            l: Number(team.l) || 0,
+            gd: Number(team.gd) || 0,
+            pts: Number(team.pts) || 0,
+            isCurrent: Boolean(team.isCurrent),
           };
-        } else {
-          // Simulate away stats
-          return {
-            ...team,
-            mp: Math.floor(team.mp / 2),
-            w: Math.floor(team.w / 2),
-            pts: Math.floor(team.pts / 2),
-          };
-        }
-      });
+          
+          if (filterType === 'HOME') {
+            // Simulate home stats (slightly better performance)
+            // Explicitly construct object to avoid spread operator issues
+            return {
+              rank: safeTeam.rank,
+              team: safeTeam.team,
+              teamLogo: safeTeam.teamLogo,
+              mp: Math.floor(safeTeam.mp / 2),
+              w: Math.floor(safeTeam.w / 2) + (safeTeam.w % 2),
+              d: safeTeam.d,
+              l: safeTeam.l,
+              gd: safeTeam.gd,
+              pts: Math.floor(safeTeam.pts / 2) + (safeTeam.pts % 2),
+              isCurrent: safeTeam.isCurrent,
+            };
+          } else {
+            // Simulate away stats
+            // Explicitly construct object to avoid spread operator issues
+            return {
+              rank: safeTeam.rank,
+              team: safeTeam.team,
+              teamLogo: safeTeam.teamLogo,
+              mp: Math.floor(safeTeam.mp / 2),
+              w: Math.floor(safeTeam.w / 2),
+              d: safeTeam.d,
+              l: safeTeam.l,
+              gd: safeTeam.gd,
+              pts: Math.floor(safeTeam.pts / 2),
+              isCurrent: safeTeam.isCurrent,
+            };
+          }
+        });
     } catch (error) {
       console.error('Error mapping standings:', error);
+      return [];
+    }
+    } catch (error) {
+      console.error('Error in currentStandings useMemo:', error);
       return [];
     }
   }, [selectedLeagueId, filterType]);
