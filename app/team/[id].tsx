@@ -23,6 +23,19 @@ interface Trophy {
   isMajor?: boolean;
 }
 
+interface StandingRow {
+  rank: number;
+  team: string;
+  teamLogo?: string;
+  mp: number; // Matches Played
+  w: number;  // Wins
+  d: number;  // Draws
+  l: number;  // Losses
+  gd: number; // Goal Difference
+  pts: number; // Points
+  isCurrent: boolean;
+}
+
 interface TeamData {
   name: string;
   logo: string;
@@ -44,6 +57,7 @@ export default function TeamDetails() {
 
   const [activeTab, setActiveTab] = useState<TabType>('DETAILS');
   const [trophyFilter, setTrophyFilter] = useState<TrophyFilter>('MAJOR');
+  const [selectedLeagueId, setSelectedLeagueId] = useState<string>('la_liga');
   const [loading, setLoading] = useState(true);
   const [teamData, setTeamData] = useState<TeamData | null>(null);
 
@@ -99,6 +113,39 @@ export default function TeamDetails() {
   const filteredTrophies = teamData?.trophies.filter(trophy => 
     trophyFilter === 'MAJOR' ? trophy.isMajor : true
   ) || [];
+
+  // Mock leagues for filter
+  const availableLeagues = [
+    { id: 'la_liga', name: 'La Liga' },
+    { id: 'ucl', name: 'Champions League' },
+    { id: 'copa', name: 'Copa del Rey' },
+  ];
+
+  // Mock standings data
+  const mockStandings: Record<string, StandingRow[]> = {
+    la_liga: [
+      { rank: 1, team: 'Real Madrid', teamLogo: 'https://media.api-sports.io/football/teams/541.png', mp: 20, w: 16, d: 3, l: 1, gd: 35, pts: 51, isCurrent: true },
+      { rank: 2, team: 'Girona', teamLogo: 'https://media.api-sports.io/football/teams/533.png', mp: 20, w: 15, d: 4, l: 1, gd: 28, pts: 49, isCurrent: false },
+      { rank: 3, team: 'Barcelona', teamLogo: 'https://media.api-sports.io/football/teams/529.png', mp: 20, w: 13, d: 5, l: 2, gd: 24, pts: 44, isCurrent: false },
+      { rank: 4, team: 'Atletico Madrid', teamLogo: 'https://media.api-sports.io/football/teams/530.png', mp: 20, w: 12, d: 6, l: 2, gd: 18, pts: 42, isCurrent: false },
+      { rank: 5, team: 'Athletic Bilbao', teamLogo: 'https://media.api-sports.io/football/teams/531.png', mp: 20, w: 11, d: 5, l: 4, gd: 15, pts: 38, isCurrent: false },
+      { rank: 6, team: 'Real Sociedad', teamLogo: 'https://media.api-sports.io/football/teams/548.png', mp: 20, w: 10, d: 6, l: 4, gd: 12, pts: 36, isCurrent: false },
+      { rank: 7, team: 'Valencia', teamLogo: 'https://media.api-sports.io/football/teams/532.png', mp: 20, w: 9, d: 7, l: 4, gd: 8, pts: 34, isCurrent: false },
+      { rank: 8, team: 'Villarreal', teamLogo: 'https://media.api-sports.io/football/teams/533.png', mp: 20, w: 9, d: 6, l: 5, gd: 5, pts: 33, isCurrent: false },
+    ],
+    ucl: [
+      { rank: 1, team: 'Real Madrid', teamLogo: 'https://media.api-sports.io/football/teams/541.png', mp: 6, w: 6, d: 0, l: 0, gd: 12, pts: 18, isCurrent: true },
+      { rank: 2, team: 'Manchester City', teamLogo: 'https://media.api-sports.io/football/teams/50.png', mp: 6, w: 5, d: 1, l: 0, gd: 10, pts: 16, isCurrent: false },
+      { rank: 3, team: 'Bayern Munich', teamLogo: 'https://media.api-sports.io/football/teams/157.png', mp: 6, w: 5, d: 0, l: 1, gd: 8, pts: 15, isCurrent: false },
+      { rank: 4, team: 'PSG', teamLogo: 'https://media.api-sports.io/football/teams/85.png', mp: 6, w: 4, d: 1, l: 1, gd: 6, pts: 13, isCurrent: false },
+    ],
+    copa: [
+      { rank: 1, team: 'Real Madrid', teamLogo: 'https://media.api-sports.io/football/teams/541.png', mp: 4, w: 4, d: 0, l: 0, gd: 8, pts: 12, isCurrent: true },
+      { rank: 2, team: 'Barcelona', teamLogo: 'https://media.api-sports.io/football/teams/529.png', mp: 4, w: 3, d: 0, l: 1, gd: 5, pts: 9, isCurrent: false },
+    ],
+  };
+
+  const currentStandings = mockStandings[selectedLeagueId] || [];
 
   const handleToggleFavorite = () => {
     if (teamData) {
@@ -462,6 +509,168 @@ export default function TeamDetails() {
             </View>
           </View>
         </ScrollView>
+      ) : activeTab === 'STANDINGS' ? (
+        <ScrollView 
+          style={[styles.content, { backgroundColor: theme.colors.background }]}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.standingsContainer}
+        >
+          {/* League Filter */}
+          <View style={styles.leagueFilterContainer}>
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false} 
+              contentContainerStyle={styles.leagueFilterScroll}
+            >
+              {availableLeagues.map((league) => {
+                const isSelected = selectedLeagueId === league.id;
+                return (
+                  <TouchableOpacity
+                    key={league.id}
+                    style={[
+                      styles.leagueChip,
+                      {
+                        backgroundColor: isSelected 
+                          ? theme.colors.primary 
+                          : 'transparent',
+                        borderColor: theme.colors.primary,
+                        borderWidth: 1.5,
+                      },
+                    ]}
+                    onPress={() => setSelectedLeagueId(league.id)}
+                  >
+                    <Text
+                      style={[
+                        styles.leagueChipText,
+                        {
+                          color: isSelected 
+                            ? '#FFFFFF' 
+                            : theme.colors.primary,
+                          fontFamily: isSelected 
+                            ? 'Montserrat_700Bold' 
+                            : 'Montserrat_600SemiBold',
+                        },
+                      ]}
+                    >
+                      {league.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          {/* Standings Table */}
+          {currentStandings.length > 0 ? (
+            <View style={[styles.standingsCard, { 
+              backgroundColor: theme.colors.cardBackground,
+              ...Platform.select({
+                ios: {
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.1,
+                  shadowRadius: 8,
+                },
+                android: {
+                  elevation: 4,
+                },
+              }),
+            }]}>
+              {/* Table Header */}
+              <View style={[styles.tableHeader, { borderBottomColor: theme.colors.separator }]}>
+                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary }]}>#</Text>
+                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary, flex: 1 }]}>Team</Text>
+                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary }]}>P</Text>
+                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary }]}>W</Text>
+                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary }]}>D</Text>
+                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary }]}>L</Text>
+                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary }]}>GD</Text>
+                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary }]}>Pts</Text>
+              </View>
+
+              {/* Table Rows */}
+              {currentStandings.map((row) => (
+                <View
+                  key={row.rank}
+                  style={[
+                    styles.tableRow,
+                    {
+                      backgroundColor: row.isCurrent 
+                        ? (isDark ? theme.colors.primary + '20' : theme.colors.primary + '10')
+                        : 'transparent',
+                      borderBottomColor: theme.colors.separator,
+                    },
+                  ]}
+                >
+                  <Text style={[
+                    styles.tableCell,
+                    styles.tableCellRank,
+                    { 
+                      color: row.isCurrent ? theme.colors.primary : theme.colors.text,
+                      fontFamily: row.isCurrent ? 'Montserrat_700Bold' : 'Montserrat_600SemiBold',
+                    },
+                  ]}>
+                    {row.rank}
+                  </Text>
+                  
+                  <View style={[styles.tableCellTeam, { flex: 1 }]}>
+                    {row.teamLogo ? (
+                      <Image 
+                        source={{ uri: row.teamLogo }} 
+                        style={styles.teamLogoSmall} 
+                        resizeMode="contain" 
+                      />
+                    ) : (
+                      <View style={[styles.teamLogoPlaceholder, { backgroundColor: theme.colors.border }]} />
+                    )}
+                    <Text 
+                      style={[
+                        styles.tableCellTeamName,
+                        { 
+                          color: row.isCurrent ? theme.colors.primary : theme.colors.text,
+                          fontFamily: row.isCurrent ? 'Montserrat_700Bold' : 'Montserrat_600SemiBold',
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {row.team}
+                    </Text>
+                  </View>
+                  
+                  <Text style={[styles.tableCell, { color: theme.colors.text }]}>{row.mp}</Text>
+                  <Text style={[styles.tableCell, { color: theme.colors.text }]}>{row.w}</Text>
+                  <Text style={[styles.tableCell, { color: theme.colors.text }]}>{row.d}</Text>
+                  <Text style={[styles.tableCell, { color: theme.colors.text }]}>{row.l}</Text>
+                  <Text style={[
+                    styles.tableCell,
+                    { 
+                      color: row.gd >= 0 ? theme.colors.primary : '#ef4444',
+                      fontFamily: 'Montserrat_600SemiBold',
+                    },
+                  ]}>
+                    {row.gd > 0 ? '+' : ''}{row.gd}
+                  </Text>
+                  <Text style={[
+                    styles.tableCell,
+                    styles.tableCellPoints,
+                    { 
+                      color: row.isCurrent ? theme.colors.primary : theme.colors.text,
+                      fontFamily: 'Montserrat_700Bold',
+                    },
+                  ]}>
+                    {row.pts}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyStandingsContainer}>
+              <Text style={[styles.emptyStandingsText, { color: theme.colors.textSecondary }]}>
+                No standings data available
+              </Text>
+            </View>
+          )}
+        </ScrollView>
       ) : (
         <View style={[styles.comingSoonContainer, { backgroundColor: theme.colors.background }]}>
           <Text style={[styles.comingSoonText, { color: theme.colors.textSecondary }]}>Coming Soon</Text>
@@ -716,6 +925,91 @@ const styles = StyleSheet.create({
   },
   comingSoonText: {
     fontSize: 18,
+    fontFamily: 'Montserrat_500Medium',
+  },
+  // Standings Tab Styles
+  standingsContainer: {
+    padding: 16,
+  },
+  leagueFilterContainer: {
+    marginBottom: 16,
+  },
+  leagueFilterScroll: {
+    paddingRight: 16,
+    gap: 8,
+  },
+  leagueChip: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginRight: 8,
+  },
+  leagueChipText: {
+    fontSize: 14,
+  },
+  standingsCard: {
+    borderRadius: 16,
+    padding: 16,
+    overflow: 'hidden',
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    marginBottom: 4,
+  },
+  tableHeaderText: {
+    fontSize: 11,
+    fontFamily: 'Montserrat_600SemiBold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+  },
+  tableCell: {
+    fontSize: 13,
+    fontFamily: 'Montserrat_500Medium',
+    textAlign: 'center',
+    minWidth: 28,
+  },
+  tableCellRank: {
+    minWidth: 32,
+  },
+  tableCellTeam: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginRight: 8,
+  },
+  teamLogoSmall: {
+    width: 24,
+    height: 24,
+  },
+  teamLogoPlaceholder: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  tableCellTeamName: {
+    fontSize: 13,
+    flex: 1,
+  },
+  tableCellPoints: {
+    minWidth: 36,
+  },
+  emptyStandingsContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+  },
+  emptyStandingsText: {
+    fontSize: 14,
     fontFamily: 'Montserrat_500Medium',
   },
 });
