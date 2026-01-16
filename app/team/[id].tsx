@@ -13,6 +13,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getTeamHeader, getTeamStandings, getTeamTrophies, TeamHeaderDTO, StandingRow as ApiStandingRow } from '@/services/teamApi';
 
 type TabType = 'DETAILS' | 'STANDINGS' | 'SQUAD' | 'STATS';
 type TrophyFilter = 'MAJOR' | 'ALL';
@@ -61,42 +62,58 @@ export default function TeamDetails() {
   const [isLeagueDropdownOpen, setIsLeagueDropdownOpen] = useState<boolean>(false);
   const [filterType, setFilterType] = useState<'ALL' | 'HOME' | 'AWAY'>('ALL');
   const [loading, setLoading] = useState(true);
-  const [teamData, setTeamData] = useState<TeamData | null>(null);
+  const [teamHeader, setTeamHeader] = useState<TeamHeaderDTO | null>(null);
+  const [standings, setStandings] = useState<ApiStandingRow[]>([]);
+  const [trophies, setTrophies] = useState<Trophy[]>([]);
 
-  // Mock data for now - replace with API call later
+  // Fetch real data from API
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      const mockData: TeamData = {
-        name: 'Real Madrid',
-        logo: 'https://media.api-sports.io/football/teams/541.png',
-        country: 'Spain',
-        countryFlag: '🇪🇸',
-        coach: 'Carlo Ancelotti',
-        coachImageUrl: 'https://media.api-sports.io/football/coachs/1.png', // Example URL - replace with actual coach image
-        founded: '1902',
-        stadium: 'Santiago Bernabéu',
-        uefaRank: 1,
-        tournaments: [
-          { name: 'UEFA Champions League', logo: 'https://media.api-sports.io/football/leagues/2.png' },
-          { name: 'La Liga', logo: 'https://media.api-sports.io/football/leagues/140.png' },
-          { name: 'Supercopa de España', logo: '' },
-          { name: 'Copa del Rey', logo: '' },
-          { name: 'FIFA Club World Cup', logo: '' },
-        ],
-        trophies: [
-          { name: 'LaLiga', count: 36, isMajor: true },
-          { name: 'Copa del Rey', count: 20, isMajor: true },
-          { name: 'UEFA Champions League', count: 15, isMajor: true },
-          { name: 'FIFA Club World Cup', count: 5, isMajor: true },
-          { name: 'UEFA Europa League', count: 2, isMajor: false },
-          { name: 'UEFA Super Cup', count: 6, isMajor: false },
-          { name: 'Intercontinental Cup', count: 3, isMajor: false },
-        ],
-      };
-      setTeamData(mockData);
-      setLoading(false);
-    }, 500);
+    const fetchTeamData = async () => {
+      if (!id) {
+        setLoading(false);
+        return;
+      }
+
+      const teamId = typeof id === 'string' ? parseInt(id) : 0;
+      if (isNaN(teamId) || teamId === 0) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        
+        // Fetch team header
+        const headerData = await getTeamHeader(teamId);
+        setTeamHeader(headerData);
+
+        // Fetch standings (currently returns empty array until backend endpoint is ready)
+        const standingsData = await getTeamStandings(teamId, 2023);
+        // Ensure standings is always an array
+        setStandings(Array.isArray(standingsData) ? standingsData : []);
+
+        // Fetch trophies
+        const trophiesData = await getTeamTrophies(teamId);
+        // Map trophies to local format
+        const mappedTrophies: Trophy[] = Array.isArray(trophiesData)
+          ? trophiesData.map((t) => ({
+              name: t.leagueName,
+              count: 1, // Backend returns individual trophies, we'll group them later if needed
+              isMajor: t.isMajor,
+            }))
+          : [];
+        setTrophies(mappedTrophies);
+      } catch (error) {
+        console.error('Error fetching team data:', error);
+        // Set defaults on error
+        setStandings([]);
+        setTrophies([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeamData();
   }, [id]);
 
   const tabs: TabType[] = ['DETAILS', 'STANDINGS', 'SQUAD', 'STATS'];
@@ -116,15 +133,12 @@ export default function TeamDetails() {
     trophyFilter === 'MAJOR' ? trophy.isMajor : true
   ) || [];
 
-  // Mock leagues for filter
+  // Mock leagues for filter (can be replaced with API call later)
   const availableLeagues = [
     { id: 'la_liga', name: 'La Liga' },
     { id: 'ucl', name: 'Champions League' },
     { id: 'copa', name: 'Copa del Rey' },
-  ];
-
-  // Mock standings data - Expanded to 20 teams for La Liga
-  const mockStandings: Record<string, StandingRow[]> = {
+  };
     la_liga: [
       { rank: 1, team: 'Real Madrid', teamLogo: 'https://media.api-sports.io/football/teams/541.png', mp: 20, w: 16, d: 3, l: 1, gd: 35, pts: 51, isCurrent: true },
       { rank: 2, team: 'Girona', teamLogo: 'https://media.api-sports.io/football/teams/533.png', mp: 20, w: 15, d: 4, l: 1, gd: 28, pts: 49, isCurrent: false },
@@ -159,22 +173,37 @@ export default function TeamDetails() {
     ],
   };
 
-  // Get base standings and apply filter - Defensive fix with safe fallback
+  // Get base standings and apply filter - Using real API data with safe fallback
   const currentStandings = useMemo(() => {
-    // Debug logging to verify key mismatch
-    console.log('Selected League:', selectedLeagueId, 'Available Keys:', Object.keys(mockStandings));
+    // CRITICAL: Safe access - ensure we always have an array
+    // Array.isArray check prevents crash if standings is undefined or not an array
+    const safeStandings: ApiStandingRow[] = Array.isArray(standings) ? standings : [];
     
-    // CRITICAL: Safe access with fallback - ensure we always get an array
-    // Pattern: [...(rawData || [])] prevents crash if rawData is undefined
-    const leagueKey = selectedLeagueId as keyof typeof mockStandings;
+    // If filter is ALL, return the standings as-is
+    if (filterType === 'ALL') {
+      return safeStandings;
+    }
     
-    // 1. Try to get the data
-    const rawData = mockStandings[leagueKey];
-    
-    // 2. If rawData is undefined, use an empty array [] instead.
-    // [...[]] results in an empty list, which is safe and valid.
-    // This prevents the crash even if the keys don't match, buying you time to fix the typo.
-    const baseStandings: StandingRow[] = [...(rawData || [])];
+    // For HOME/AWAY, modify the stats (placeholder logic until backend provides home/away data)
+    return safeStandings.map((team) => {
+      if (filterType === 'HOME') {
+        // Simulate home stats (slightly better performance)
+        return {
+          ...team,
+          mp: Math.floor(team.mp / 2),
+          w: Math.floor(team.w / 2) + (team.w % 2),
+          pts: Math.floor(team.pts / 2) + (team.pts % 2),
+        };
+      } else {
+        // Simulate away stats
+        return {
+          ...team,
+          mp: Math.floor(team.mp / 2),
+          w: Math.floor(team.w / 2),
+          pts: Math.floor(team.pts / 2),
+        };
+      }
+    });
     
     // If filter is ALL, return the copy as-is
     if (filterType === 'ALL') {
@@ -213,9 +242,24 @@ export default function TeamDetails() {
         };
       }
     });
-  }, [selectedLeagueId, filterType]);
+  }, [standings, filterType]);
 
   const selectedLeague = availableLeagues.find(l => l.id === selectedLeagueId) || availableLeagues[0];
+
+  // Map teamHeader to TeamData format for compatibility
+  const teamData: TeamData | null = teamHeader ? {
+    name: teamHeader.name,
+    logo: teamHeader.logo,
+    country: teamHeader.country,
+    countryFlag: undefined, // Can be added if backend provides it
+    coach: teamHeader.coachName,
+    coachImageUrl: teamHeader.coachImageUrl,
+    founded: teamHeader.foundedYear?.toString() || '',
+    stadium: teamHeader.stadiumName,
+    uefaRank: teamHeader.uefaRanking || null,
+    tournaments: [], // Can be fetched separately if needed
+    trophies: trophies,
+  } : null;
 
   const handleToggleFavorite = () => {
     if (teamData) {
@@ -718,7 +762,14 @@ export default function TeamDetails() {
           </View>
 
           {/* Standings Table */}
-          {Array.isArray(currentStandings) && currentStandings.length > 0 ? (
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>
+                Loading standings...
+              </Text>
+            </View>
+          ) : Array.isArray(currentStandings) && currentStandings.length > 0 ? (
             <View style={[styles.standingsCard, { 
               backgroundColor: theme.colors.cardBackground,
               ...Platform.select({
