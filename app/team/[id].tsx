@@ -808,38 +808,96 @@ export default function TeamDetails() {
                           },
                         }),
                       }]}>
-                        {players.map((player) => (
-                          <TouchableOpacity
-                            key={player.id}
-                            style={[styles.playerCard, {
-                              borderBottomColor: theme.colors.separator,
-                            }]}
-                            onPress={() => router.push(`/player/${player.id}`)}
-                            activeOpacity={0.7}
-                          >
-                            <View style={[styles.playerPhotoContainer, { backgroundColor: theme.colors.border }]}>
-                              {player.photoUrl ? (
-                                <Image 
-                                  source={{ uri: player.photoUrl }} 
-                                  style={styles.playerPhoto}
-                                  resizeMode="cover"
-                                />
-                              ) : (
-                                <View style={[styles.playerPhotoPlaceholder, { backgroundColor: theme.colors.border }]}>
-                                  <Ionicons name="person" size={20} color={theme.colors.textSecondary} />
+                        {players.map((player) => {
+                          // Map position code to readable text
+                          const positionText: Record<string, string> = {
+                            'GK': 'Goalkeeper',
+                            'DEF': 'Defender',
+                            'MID': 'Midfielder',
+                            'FWD': 'Attacker',
+                          };
+                          const readablePosition = positionText[player.position?.toUpperCase() || ''] || player.position || '';
+                          const isPlayerFavorite = isFavorite('player', player.id);
+
+                          const handleToggleFavorite = (e: any) => {
+                            e.stopPropagation();
+                            toggleFavorite('player', {
+                              id: player.id,
+                              name: player.name,
+                              imageUrl: player.photoUrl || '',
+                              type: 'player',
+                            });
+                          };
+
+                          return (
+                            <TouchableOpacity
+                              key={player.id}
+                              style={[styles.playerCard, {
+                                borderBottomColor: theme.colors.separator,
+                                backgroundColor: 'transparent',
+                              }]}
+                              onPress={() => router.push(`/player/${player.id}`)}
+                              activeOpacity={0.7}
+                            >
+                              <View style={[styles.playerPhotoContainer, { backgroundColor: theme.colors.border }]}>
+                                {player.photoUrl ? (
+                                  <Image 
+                                    source={{ uri: player.photoUrl }} 
+                                    style={styles.playerPhoto}
+                                    resizeMode="cover"
+                                  />
+                                ) : (
+                                  <View style={[styles.playerPhotoPlaceholder, { backgroundColor: theme.colors.border }]}>
+                                    <Ionicons name="person" size={20} color={theme.colors.textSecondary} />
+                                  </View>
+                                )}
+                              </View>
+                              <View style={styles.playerInfoContainer}>
+                                <View style={styles.playerNameRow}>
+                                  <Text style={[styles.playerName, { color: theme.colors.text }]} numberOfLines={1}>
+                                    {player.name}
+                                  </Text>
+                                  {player.nationalityFlag && (
+                                    <Text style={styles.playerFlag}>{player.nationalityFlag}</Text>
+                                  )}
                                 </View>
-                              )}
-                            </View>
-                            <Text style={[styles.playerName, { color: theme.colors.text }]} numberOfLines={1}>
-                              {player.name}
-                            </Text>
-                            {player.number !== undefined && player.number !== null && (
-                              <Text style={[styles.playerNumber, { color: theme.colors.primary }]}>
-                                {player.number}
-                              </Text>
-                            )}
-                          </TouchableOpacity>
-                        ))}
+                                <View style={styles.playerDetailsRow}>
+                                  <Text style={[styles.playerPosition, { color: theme.colors.textSecondary }]}>
+                                    {readablePosition}
+                                  </Text>
+                                  {player.nationality && !player.nationalityFlag && (
+                                    <Text style={[styles.playerNationality, { color: theme.colors.textSecondary }]}>
+                                      {player.nationality}
+                                    </Text>
+                                  )}
+                                </View>
+                                {player.injured && (
+                                  <Text style={[styles.playerInjury, { color: theme.colors.primary }]}>
+                                    🚑 {player.injuryReason || 'Injured'}
+                                  </Text>
+                                )}
+                              </View>
+                              <View style={styles.playerRightSection}>
+                                {player.number !== undefined && player.number !== null && (
+                                  <Text style={[styles.playerNumber, { color: theme.colors.primary }]}>
+                                    {player.number}
+                                  </Text>
+                                )}
+                                <TouchableOpacity 
+                                  onPress={handleToggleFavorite}
+                                  style={styles.favoriteButton}
+                                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                >
+                                  <Ionicons
+                                    name={isPlayerFavorite ? 'star' : 'star-outline'}
+                                    size={20}
+                                    color={isPlayerFavorite ? theme.colors.primary : theme.colors.iconMuted}
+                                  />
+                                </TouchableOpacity>
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
                       </View>
                     </View>
                   );
@@ -1098,17 +1156,54 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  playerName: {
+  playerInfoContainer: {
     flex: 1,
-    fontSize: 15,
-    fontFamily: 'Montserrat_600SemiBold',
     marginRight: 12,
   },
+  playerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  playerName: {
+    fontSize: 15,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  playerFlag: {
+    fontSize: 16,
+  },
+  playerDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  playerPosition: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_500Medium',
+  },
+  playerNationality: {
+    fontSize: 12,
+    fontFamily: 'Montserrat_400Regular',
+  },
+  playerInjury: {
+    fontSize: 11,
+    fontFamily: 'Montserrat_500Medium',
+    marginTop: 2,
+  },
+  playerRightSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   playerNumber: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'Montserrat_700Bold',
-    minWidth: 32,
+    minWidth: 28,
     textAlign: 'right',
+  },
+  favoriteButton: {
+    padding: 4,
   },
   comingSoonContainer: {
     flex: 1,

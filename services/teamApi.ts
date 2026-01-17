@@ -78,6 +78,10 @@ export interface SquadMemberDTO {
   contractUntil?: string;
   previousClub?: string;
   number?: number; // Jersey number - may not be available yet from backend
+  nationality?: string; // Player nationality
+  nationalityFlag?: string; // Flag URL or emoji
+  injured?: boolean; // Injury status
+  injuryReason?: string; // Injury reason/description
 }
 
 /**
