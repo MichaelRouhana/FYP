@@ -64,3 +64,29 @@ export const getTrophies = async (teamId: number): Promise<Trophy[]> => {
   return response.data;
 };
 
+/**
+ * Squad Member DTO matching the backend structure
+ */
+export interface SquadMemberDTO {
+  id: number;
+  name: string;
+  photoUrl: string;
+  position: string; // GK, DEF, MID, FWD
+  age?: number;
+  height?: number;
+  marketValue?: string;
+  contractUntil?: string;
+  previousClub?: string;
+  number?: number; // Jersey number - may not be available yet from backend
+}
+
+/**
+ * Fetch team squad
+ * @param teamId The team ID
+ * @returns Array of SquadMemberDTO objects
+ */
+export const getSquad = async (teamId: number): Promise<SquadMemberDTO[]> => {
+  const response = await api.get(`/team/${teamId}/squad`);
+  return response.data;
+};
+

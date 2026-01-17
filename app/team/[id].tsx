@@ -13,7 +13,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getTeamDetails, TeamDetailsDTO, getTeamHeader, TeamHeader } from '@/services/teamApi';
+import { getTeamDetails, TeamDetailsDTO, getTeamHeader, TeamHeader, getSquad, SquadMemberDTO } from '@/services/teamApi';
 import { getStandings } from '@/services/matchApi';
 import { mapStandingsToUI } from '@/utils/matchDataMapper';
 
@@ -51,7 +51,7 @@ export default function TeamDetails() {
   const { isFavorite, toggleFavorite } = useFavorites();
 
   const [activeTab, setActiveTab] = useState<TabType>('DETAILS');
-  const [selectedLeagueId, setSelectedLeagueId] = useState<number>(140); // La Liga default
+  const selectedLeagueId = 140; // La Liga - fixed, no filtering
   const [loading, setLoading] = useState(true);
   const [teamData, setTeamData] = useState<TeamData | null>(null);
   const [details, setDetails] = useState<TeamDetailsDTO | null>(null);
@@ -59,6 +59,7 @@ export default function TeamDetails() {
   const [header, setHeader] = useState<TeamHeader | null>(null);
   const [standingsData, setStandingsData] = useState<StandingRow[]>([]);
   const [standingsLoading, setStandingsLoading] = useState(false);
+  const [squad, setSquad] = useState<SquadMemberDTO[]>([]);
 
   // Fetch team data
   useEffect(() => {
@@ -78,15 +79,17 @@ export default function TeamDetails() {
         setLoading(true);
         setDetailsLoading(true);
 
-        // Fetch team header and details from API
+        // Fetch team header, details, and squad from API
         try {
-          const [headerData, detailsData] = await Promise.all([
+          const [headerData, detailsData, squadData] = await Promise.all([
             getTeamHeader(teamId),
             getTeamDetails(teamId).catch(() => null), // Don't fail if details endpoint fails
+            getSquad(teamId).catch(() => []), // Don't fail if squad endpoint fails
           ]);
 
           setHeader(headerData);
           setDetails(detailsData);
+          setSquad(squadData);
 
           // Update teamData with header information
           const teamDataUpdate: TeamData = {
@@ -112,25 +115,25 @@ export default function TeamDetails() {
         } catch (apiError) {
           console.error('Error fetching team data from API:', apiError);
           // Fallback to mock data if API fails
-          const mockData: TeamData = {
-            name: 'Real Madrid',
-            logo: 'https://media.api-sports.io/football/teams/541.png',
-            country: 'Spain',
-            countryFlag: '🇪🇸',
-            coach: 'Carlo Ancelotti',
-            coachImageUrl: 'https://media.api-sports.io/football/coachs/1.png',
-            founded: '1902',
-            stadium: 'Santiago Bernabéu',
-            uefaRank: 1,
-            tournaments: [
-              { name: 'UEFA Champions League', logo: 'https://media.api-sports.io/football/leagues/2.png' },
-              { name: 'La Liga', logo: 'https://media.api-sports.io/football/leagues/140.png' },
-              { name: 'Supercopa de España', logo: '' },
-              { name: 'Copa del Rey', logo: '' },
-              { name: 'FIFA Club World Cup', logo: '' },
-            ],
-          };
-          setTeamData(mockData);
+        const mockData: TeamData = {
+          name: 'Real Madrid',
+          logo: 'https://media.api-sports.io/football/teams/541.png',
+          country: 'Spain',
+          countryFlag: '🇪🇸',
+          coach: 'Carlo Ancelotti',
+          coachImageUrl: 'https://media.api-sports.io/football/coachs/1.png',
+          founded: '1902',
+          stadium: 'Santiago Bernabéu',
+          uefaRank: 1,
+          tournaments: [
+            { name: 'UEFA Champions League', logo: 'https://media.api-sports.io/football/leagues/2.png' },
+            { name: 'La Liga', logo: 'https://media.api-sports.io/football/leagues/140.png' },
+            { name: 'Supercopa de España', logo: '' },
+            { name: 'Copa del Rey', logo: '' },
+            { name: 'FIFA Club World Cup', logo: '' },
+          ],
+        };
+        setTeamData(mockData);
         } finally {
           setDetailsLoading(false);
         }
@@ -156,14 +159,7 @@ export default function TeamDetails() {
     return ['#f8fafc', '#ffffff', '#f3f4f6'];
   };
 
-  // Real API League IDs
-  const availableLeagues = [
-    { id: 140, name: 'La Liga' },
-    { id: 2, name: 'Champions League' },
-    { id: 143, name: 'Copa del Rey' },
-  ];
-
-  // Fetch standings when selectedLeagueId or teamId changes
+  // Fetch standings when teamId changes
   useEffect(() => {
     const fetchStandings = async () => {
       if (!selectedLeagueId || !teamId || teamId === 0) return;
@@ -210,7 +206,7 @@ export default function TeamDetails() {
     };
 
     fetchStandings();
-  }, [selectedLeagueId, teamId]);
+  }, [teamId]);
 
   // Update isCurrent flag when teamData becomes available
   useEffect(() => {
@@ -591,51 +587,6 @@ export default function TeamDetails() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.standingsContainer}
         >
-          {/* League Filter */}
-          <View style={styles.leagueFilterContainer}>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
-              contentContainerStyle={styles.leagueFilterScroll}
-            >
-              {availableLeagues.map((league) => {
-                const isSelected = selectedLeagueId === league.id;
-                return (
-                  <TouchableOpacity
-                    key={league.id}
-                    style={[
-                      styles.leagueChip,
-                      {
-                        backgroundColor: isSelected 
-                          ? theme.colors.primary 
-                          : 'transparent',
-                        borderColor: theme.colors.primary,
-                        borderWidth: 1.5,
-                      },
-                    ]}
-                    onPress={() => setSelectedLeagueId(league.id as number)}
-                  >
-                    <Text
-                      style={[
-                        styles.leagueChipText,
-                        {
-                          color: isSelected 
-                            ? '#FFFFFF' 
-                            : theme.colors.primary,
-                          fontFamily: isSelected 
-                            ? 'Montserrat_700Bold' 
-                            : 'Montserrat_600SemiBold',
-                        },
-                      ]}
-                    >
-                      {league.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-
           {/* Standings Table */}
           {standingsLoading ? (
             <View style={[styles.standingsCard, { 
@@ -677,14 +628,14 @@ export default function TeamDetails() {
             }]}>
               {/* Table Header */}
               <View style={[styles.tableHeader, { borderBottomColor: theme.colors.separator }]}>
-                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary }]}>#</Text>
-                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary, flex: 1 }]}>Team</Text>
-                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary }]}>P</Text>
-                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary }]}>W</Text>
-                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary }]}>D</Text>
-                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary }]}>L</Text>
-                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary }]}>GD</Text>
-                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary }]}>Pts</Text>
+                <Text style={[styles.tableHeaderText, styles.tableCellRank, { color: theme.colors.textSecondary }]}>#</Text>
+                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary, flex: 1, marginRight: 8 }]}>TEAM</Text>
+                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.textSecondary }]}>P</Text>
+                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.textSecondary }]}>W</Text>
+                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.textSecondary }]}>D</Text>
+                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.textSecondary }]}>L</Text>
+                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.textSecondary }]}>GD</Text>
+                <Text style={[styles.tableHeaderText, styles.tableCellPoints, { color: theme.colors.textSecondary }]}>PTS</Text>
               </View>
 
               {/* Table Rows */}
@@ -693,10 +644,8 @@ export default function TeamDetails() {
                   key={row.rank}
                   style={[
                     styles.tableRow,
+                    row.isCurrent && styles.tableRowHighlighted,
                     {
-                      backgroundColor: row.isCurrent 
-                        ? (isDark ? theme.colors.primary + '20' : theme.colors.primary + '10')
-                        : 'transparent',
                       borderBottomColor: theme.colors.separator,
                     },
                   ]}
@@ -705,24 +654,21 @@ export default function TeamDetails() {
                     styles.tableCell,
                     styles.tableCellRank,
                     { 
-                      color: row.isCurrent ? theme.colors.primary : theme.colors.text,
+                        color: row.isCurrent ? '#ffffff' : theme.colors.text,
                       fontFamily: row.isCurrent ? 'Montserrat_700Bold' : 'Montserrat_600SemiBold',
                     },
                   ]}>
                     {row.rank}
                   </Text>
                   
-                  <View 
-                    style={[
-                      styles.tableCellTeam, 
-                      { 
-                        flex: 1,
-                        backgroundColor: row.isCurrent 
-                          ? (isDark ? theme.colors.primary + '20' : theme.colors.primary + '10')
-                          : 'transparent',
-                      }
-                    ]}
-                  >
+                    <View 
+                      style={[
+                        styles.tableCellTeam, 
+                        { 
+                          flex: 1,
+                        }
+                      ]}
+                    >
                     {row.teamLogo ? (
                       <Image 
                         source={{ uri: row.teamLogo }} 
@@ -736,7 +682,7 @@ export default function TeamDetails() {
                       style={[
                         styles.tableCellTeamName,
                         { 
-                          color: row.isCurrent ? theme.colors.primary : theme.colors.text,
+                            color: row.isCurrent ? '#ffffff' : theme.colors.text,
                           fontFamily: row.isCurrent ? 'Montserrat_700Bold' : 'Montserrat_600SemiBold',
                         },
                       ]}
@@ -746,14 +692,36 @@ export default function TeamDetails() {
                     </Text>
                   </View>
                   
-                  <Text style={[styles.tableCell, { color: theme.colors.text }]}>{row.mp}</Text>
-                  <Text style={[styles.tableCell, { color: theme.colors.text }]}>{row.w}</Text>
-                  <Text style={[styles.tableCell, { color: theme.colors.text }]}>{row.d}</Text>
-                  <Text style={[styles.tableCell, { color: theme.colors.text }]}>{row.l}</Text>
+                    <Text style={[
+                      styles.tableCell, 
+                      { color: row.isCurrent ? '#ffffff' : theme.colors.text }
+                    ]}>
+                      {row.mp}
+                    </Text>
+                    <Text style={[
+                      styles.tableCell, 
+                      { color: row.isCurrent ? '#ffffff' : theme.colors.text }
+                    ]}>
+                      {row.w}
+                    </Text>
+                    <Text style={[
+                      styles.tableCell, 
+                      { color: row.isCurrent ? '#ffffff' : theme.colors.text }
+                    ]}>
+                      {row.d}
+                    </Text>
+                    <Text style={[
+                      styles.tableCell, 
+                      { color: row.isCurrent ? '#ffffff' : theme.colors.text }
+                    ]}>
+                      {row.l}
+                    </Text>
                   <Text style={[
                     styles.tableCell,
                     { 
-                      color: row.gd >= 0 ? theme.colors.primary : '#ef4444',
+                        color: row.isCurrent 
+                          ? '#ffffff' 
+                          : (row.gd >= 0 ? theme.colors.primary : '#ef4444'),
                       fontFamily: 'Montserrat_600SemiBold',
                     },
                   ]}>
@@ -763,7 +731,7 @@ export default function TeamDetails() {
                     styles.tableCell,
                     styles.tableCellPoints,
                     { 
-                      color: row.isCurrent ? theme.colors.primary : theme.colors.text,
+                        color: row.isCurrent ? '#ffffff' : theme.colors.text,
                       fontFamily: 'Montserrat_700Bold',
                     },
                   ]}>
@@ -779,6 +747,106 @@ export default function TeamDetails() {
               </Text>
             </View>
           )}
+        </ScrollView>
+      ) : activeTab === 'SQUAD' ? (
+        <ScrollView 
+          style={[styles.content, { backgroundColor: theme.colors.background }]}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.squadContainer}
+        >
+          {(() => {
+            // Group players by position
+            const positionGroups: Record<string, SquadMemberDTO[]> = {
+              'GK': [],
+              'DEF': [],
+              'MID': [],
+              'FWD': [],
+            };
+            
+            squad.forEach((player) => {
+              const position = player.position?.toUpperCase() || '';
+              if (position === 'GK') {
+                positionGroups['GK'].push(player);
+              } else if (position === 'DEF') {
+                positionGroups['DEF'].push(player);
+              } else if (position === 'MID') {
+                positionGroups['MID'].push(player);
+              } else if (position === 'FWD') {
+                positionGroups['FWD'].push(player);
+              }
+            });
+
+            const positionLabels: Record<string, string> = {
+              'GK': 'GOALKEEPERS',
+              'DEF': 'DEFENDERS',
+              'MID': 'MIDFIELDERS',
+              'FWD': 'ATTACKERS',
+            };
+
+            return (
+              <>
+                {(['GK', 'DEF', 'MID', 'FWD'] as const).map((positionKey) => {
+                  const players = positionGroups[positionKey];
+                  if (players.length === 0) return null;
+
+                  return (
+                    <View key={positionKey} style={styles.squadSection}>
+                      <Text style={[styles.squadSectionTitle, { color: theme.colors.text }]}>
+                        {positionLabels[positionKey]}
+                      </Text>
+                      <View style={[styles.squadCard, { 
+                        backgroundColor: theme.colors.cardBackground,
+                        ...Platform.select({
+                          ios: {
+                            shadowColor: '#000',
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: 0.1,
+                            shadowRadius: 8,
+                          },
+                          android: {
+                            elevation: 4,
+                          },
+                        }),
+                      }]}>
+                        {players.map((player) => (
+                          <TouchableOpacity
+                            key={player.id}
+                            style={[styles.playerCard, {
+                              borderBottomColor: theme.colors.separator,
+                            }]}
+                            onPress={() => router.push(`/player/${player.id}`)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={[styles.playerPhotoContainer, { backgroundColor: theme.colors.border }]}>
+                              {player.photoUrl ? (
+                                <Image 
+                                  source={{ uri: player.photoUrl }} 
+                                  style={styles.playerPhoto}
+                                  resizeMode="cover"
+                                />
+                              ) : (
+                                <View style={[styles.playerPhotoPlaceholder, { backgroundColor: theme.colors.border }]}>
+                                  <Ionicons name="person" size={20} color={theme.colors.textSecondary} />
+                                </View>
+                              )}
+                            </View>
+                            <Text style={[styles.playerName, { color: theme.colors.text }]} numberOfLines={1}>
+                              {player.name}
+                            </Text>
+                            {player.number !== undefined && player.number !== null && (
+                              <Text style={[styles.playerNumber, { color: theme.colors.primary }]}>
+                                {player.number}
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  );
+                })}
+              </>
+            );
+          })()}
         </ScrollView>
       ) : (
         <View style={[styles.comingSoonContainer, { backgroundColor: theme.colors.background }]}>
@@ -938,10 +1006,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  loadingText: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_500Medium',
-  },
   infoFlagIcon: {
     fontSize: 28,
   },
@@ -986,6 +1050,66 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
     flex: 1,
   },
+  // Squad Tab Styles
+  squadContainer: {
+    padding: 16,
+    gap: 24,
+  },
+  squadSection: {
+    marginBottom: 8,
+  },
+  squadSectionTitle: {
+    fontSize: 14,
+    fontFamily: 'Montserrat_700Bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  squadCard: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  playerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+  },
+  playerPhotoContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playerPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  playerPhotoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playerName: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: 'Montserrat_600SemiBold',
+    marginRight: 12,
+  },
+  playerNumber: {
+    fontSize: 18,
+    fontFamily: 'Montserrat_700Bold',
+    minWidth: 32,
+    textAlign: 'right',
+  },
   comingSoonContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1001,6 +1125,9 @@ const styles = StyleSheet.create({
   },
   leagueFilterContainer: {
     marginBottom: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 16,
   },
   leagueFilterScroll: {
     paddingRight: 16,
@@ -1041,6 +1168,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     borderBottomWidth: 1,
   },
+  tableRowHighlighted: {
+    backgroundColor: '#3FAC66',
+    marginHorizontal: -16,
+    paddingHorizontal: 24,
+  },
   tableCell: {
     fontSize: 13,
     fontFamily: 'Montserrat_500Medium',
@@ -1055,6 +1187,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginRight: 8,
+    backgroundColor: 'transparent',
   },
   teamLogoSmall: {
     width: 24,
