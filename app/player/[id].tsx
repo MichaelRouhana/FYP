@@ -311,101 +311,41 @@ export default function PlayerDetailsScreen() {
             <>
               {/* SUMMARY Container */}
               <StatSection title="SUMMARY" isDark={isDark} theme={theme}>
-                <View style={styles.statsGrid}>
-                  <View style={styles.statItem}>
-                    <StatRow label="Matches Played" value={detailedStats.summary.matchesPlayed ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Minutes Played" value={detailedStats.summary.minutesPlayed ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Goals" value={detailedStats.summary.goals ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Assists" value={detailedStats.summary.assists ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={[styles.statItem, styles.statItemFull]}>
-                    <StatRow label="Rating" value={detailedStats.summary.rating ?? 'N/A'} isLast isDark={isDark} theme={theme} />
-                  </View>
-                </View>
+                <StatRow label="Matches" value={detailedStats.summary.matchesPlayed ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Minutes" value={detailedStats.summary.minutesPlayed ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Goals" value={detailedStats.summary.goals ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Assists" value={detailedStats.summary.assists ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Rating" value={detailedStats.summary.rating ?? '-'} isLast isDark={isDark} theme={theme} />
               </StatSection>
 
               {/* ATTACKING Container */}
               <StatSection title="ATTACKING" isDark={isDark} theme={theme}>
-                <View style={styles.statsGrid}>
-                  <View style={styles.statItem}>
-                    <StatRow label="Shots Total" value={detailedStats.attacking.shotsTotal ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Shots on Target" value={detailedStats.attacking.shotsOnTarget ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Dribbles Attempted" value={detailedStats.attacking.dribblesAttempted ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Dribbles Success" value={detailedStats.attacking.dribblesSuccess ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Penalties Scored" value={detailedStats.attacking.penaltiesScored ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Penalties Missed" value={detailedStats.attacking.penaltiesMissed ?? 0} isLast isDark={isDark} theme={theme} />
-                  </View>
-                </View>
+                <StatRow label="Shots" value={detailedStats.attacking.shotsTotal ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="On Target" value={detailedStats.attacking.shotsOnTarget ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Dribbles (Succ/Att)" value={`${detailedStats.attacking.dribblesSuccess ?? 0}/${detailedStats.attacking.dribblesAttempted ?? 0}`} isDark={isDark} theme={theme} />
+                <StatRow label="Penalties" value={`${detailedStats.attacking.penaltiesScored ?? 0}/${(detailedStats.attacking.penaltiesScored ?? 0) + (detailedStats.attacking.penaltiesMissed ?? 0)}`} isLast isDark={isDark} theme={theme} />
               </StatSection>
 
               {/* PASSING Container */}
               <StatSection title="PASSING" isDark={isDark} theme={theme}>
-                <View style={styles.statsGrid}>
-                  <View style={styles.statItem}>
-                    <StatRow label="Total Passes" value={detailedStats.passing.totalPasses ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Key Passes" value={detailedStats.passing.keyPasses ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={[styles.statItem, styles.statItemFull]}>
-                    <StatRow label="Pass Accuracy" value={detailedStats.passing.passAccuracy !== null ? `${detailedStats.passing.passAccuracy}%` : 'N/A'} isLast isDark={isDark} theme={theme} />
-                  </View>
-                </View>
+                <StatRow label="Key Passes" value={detailedStats.passing.keyPasses ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Total Passes" value={detailedStats.passing.totalPasses ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Accuracy" value={detailedStats.passing.passAccuracy !== null ? `${detailedStats.passing.passAccuracy}%` : '-'} isLast isDark={isDark} theme={theme} />
               </StatSection>
 
               {/* DEFENDING Container */}
               <StatSection title="DEFENDING" isDark={isDark} theme={theme}>
-                <View style={styles.statsGrid}>
-                  <View style={styles.statItem}>
-                    <StatRow label="Tackles" value={detailedStats.defending.tacklesTotal ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Interceptions" value={detailedStats.defending.interceptions ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Blocks" value={detailedStats.defending.blocks ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Duels Total" value={detailedStats.defending.duelsTotal ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={[styles.statItem, styles.statItemFull]}>
-                    <StatRow label="Duels Won" value={detailedStats.defending.duelsWon ?? 0} isLast isDark={isDark} theme={theme} />
-                  </View>
-                </View>
+                <StatRow label="Tackles" value={detailedStats.defending.tacklesTotal ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Interceptions" value={detailedStats.defending.interceptions ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Blocks" value={detailedStats.defending.blocks ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Duels Won" value={detailedStats.defending.duelsWon ?? 0} isLast isDark={isDark} theme={theme} />
               </StatSection>
 
               {/* DISCIPLINE Container */}
               <StatSection title="DISCIPLINE" isDark={isDark} theme={theme}>
-                <View style={styles.statsGrid}>
-                  <View style={styles.statItem}>
-                    <StatRow label="Yellow Cards" value={detailedStats.discipline.yellowCards ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Red Cards" value={detailedStats.discipline.redCards ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Fouls Committed" value={detailedStats.discipline.foulsCommitted ?? 0} isDark={isDark} theme={theme} />
-                  </View>
-                  <View style={styles.statItem}>
-                    <StatRow label="Fouls Drawn" value={detailedStats.discipline.foulsDrawn ?? 0} isLast isDark={isDark} theme={theme} />
-                  </View>
-                </View>
+                <StatRow label="Yellow Cards" value={detailedStats.discipline.yellowCards ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Red Cards" value={detailedStats.discipline.redCards ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Fouls" value={detailedStats.discipline.foulsCommitted ?? 0} isLast isDark={isDark} theme={theme} />
               </StatSection>
 
               <View style={styles.bottomSpacer} />
