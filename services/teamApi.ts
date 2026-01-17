@@ -107,28 +107,28 @@ export interface TeamStatsDTO {
   cleanSheets: number;
   
   // Attacking
-  totalGoalsFor: number;
-  goalsForAverage: string;
-  shotsTotal: number;
+  goalsScored: number;
+  goalsPerMatch: string;
+  shots: number;
   shotsOnTarget: number;
   penaltiesScored: number;
   
   // Passing
-  passesTotal: number;
+  passes: number;
   passesAccurate: number;
-  passAccuracyPercentage: string;
+  passAccuracy: string;
   
   // Defending
-  totalGoalsAgainst: number;
-  goalsAgainstAverage: string;
-  tacklesTotal: number;
-  interceptionsTotal: number;
-  savesTotal: number;
+  goalsConceded: number;
+  goalsConcededPerMatch: string;
+  tackles: number;
+  interceptions: number;
+  saves: number;
   
   // Other
   yellowCards: number;
   redCards: number;
-  foulsCommitted: number;
+  fouls: number;
 }
 
 /**
