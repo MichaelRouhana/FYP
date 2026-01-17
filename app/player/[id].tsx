@@ -280,68 +280,7 @@ export default function PlayerDetailsScreen() {
     );
   }
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-          <Feather name="chevron-left" size={24} color={theme.colors.icon} />
-        </TouchableOpacity>
-        <View style={styles.headerSpacer} />
-        <TouchableOpacity 
-          style={styles.headerButton}
-          onPress={handleToggleFavorite}
-        >
-          <MaterialCommunityIcons 
-            name={playerIsFavorite ? "star" : "star-outline"} 
-            size={24} 
-            color={playerIsFavorite ? theme.colors.primary : theme.colors.icon} 
-          />
-        </TouchableOpacity>
-      </View>
-
-      {/* Custom Segmented Control Tabs */}
-      <View style={[styles.tabBar, { 
-        backgroundColor: isDark ? 'transparent' : theme.colors.headerBackground,
-        borderBottomColor: theme.colors.separator,
-      }]}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          contentContainerStyle={styles.tabScrollContent}
-        >
-          {(['DETAILS', 'STATS'] as TabType[]).map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={styles.tabButton}
-              onPress={() => setActiveTab(tab)}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.tabLabel,
-                  { 
-                    color: activeTab === tab 
-                      ? theme.colors.text 
-                      : theme.colors.textSecondary + '99',
-                  },
-                ]}
-              >
-                {tab}
-              </Text>
-              {activeTab === tab && (
-                <View style={[styles.tabIndicator, { backgroundColor: theme.colors.primary }]} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-
-      {renderContent()}
-    </SafeAreaView>
-  );
-
-  function renderContent() {
+  const renderContent = () => {
     if (activeTab === 'STATS') {
       return (
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -649,7 +588,68 @@ export default function PlayerDetailsScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
     );
-  }
+  };
+
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: theme.colors.headerBackground }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+          <Feather name="chevron-left" size={24} color={theme.colors.icon} />
+        </TouchableOpacity>
+        <View style={styles.headerSpacer} />
+        <TouchableOpacity 
+          style={styles.headerButton}
+          onPress={handleToggleFavorite}
+        >
+          <MaterialCommunityIcons 
+            name={playerIsFavorite ? "star" : "star-outline"} 
+            size={24} 
+            color={playerIsFavorite ? theme.colors.primary : theme.colors.icon} 
+          />
+        </TouchableOpacity>
+      </View>
+
+      {/* Custom Segmented Control Tabs */}
+      <View style={[styles.tabBar, { 
+        backgroundColor: isDark ? 'transparent' : theme.colors.headerBackground,
+        borderBottomColor: theme.colors.separator,
+      }]}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.tabScrollContent}
+        >
+          {(['DETAILS', 'STATS'] as TabType[]).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={styles.tabButton}
+              onPress={() => setActiveTab(tab)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.tabLabel,
+                  { 
+                    color: activeTab === tab 
+                      ? theme.colors.text 
+                      : theme.colors.textSecondary + '99',
+                  },
+                ]}
+              >
+                {tab}
+              </Text>
+              {activeTab === tab && (
+                <View style={[styles.tabIndicator, { backgroundColor: theme.colors.primary }]} />
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {renderContent()}
+    </SafeAreaView>
+  );
 }
 
 const styles = StyleSheet.create({
