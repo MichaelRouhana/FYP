@@ -13,8 +13,9 @@ import { useTheme } from '@/context/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getTeamDetails, TeamDetailsDTO, getTeamHeader, TeamHeader, getSquad, SquadMemberDTO, getTeamStats, TeamStatsDTO } from '@/services/teamApi';
-import { StatRow, StatSection } from '@/components/player';
+import { getTeamDetails, TeamDetailsDTO, getTeamHeader, TeamHeader, getSquad, SquadMemberDTO, fetchTeamStats } from '@/services/teamApi';
+import { TeamStats } from '@/types/team';
+import { StatsGroup } from '@/components/team/StatsGroup';
 import { getStandings } from '@/services/matchApi';
 import { mapStandingsToUI } from '@/utils/matchDataMapper';
 
@@ -61,7 +62,7 @@ export default function TeamDetails() {
   const [standingsData, setStandingsData] = useState<StandingRow[]>([]);
   const [standingsLoading, setStandingsLoading] = useState(false);
   const [squad, setSquad] = useState<SquadMemberDTO[]>([]);
-  const [stats, setStats] = useState<TeamStatsDTO | null>(null);
+  const [stats, setStats] = useState<TeamStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
   // Fetch team data
@@ -225,11 +226,11 @@ export default function TeamDetails() {
 
   // Fetch team stats when STATS tab is active
   useEffect(() => {
-    const fetchTeamStats = async () => {
+    const loadTeamStats = async () => {
       if (activeTab === 'STATS' && teamId && !stats && !statsLoading) {
         try {
           setStatsLoading(true);
-          const teamStats = await getTeamStats(teamId, selectedLeagueId);
+          const teamStats = await fetchTeamStats(teamId, selectedLeagueId);
           setStats(teamStats);
         } catch (error) {
           console.error('Error fetching team stats:', error);
@@ -239,7 +240,7 @@ export default function TeamDetails() {
       }
     };
 
-    fetchTeamStats();
+    loadTeamStats();
   }, [activeTab, teamId, stats, statsLoading, selectedLeagueId]);
 
   const currentStandings = standingsData;
@@ -999,15 +1000,20 @@ export default function TeamDetails() {
             </View>
           ) : stats ? (
             <>
-              {/* Summary Section */}
-              <StatSection title="STATISTICS" isDark={isDark} theme={theme}>
-                <StatRow label="Matches Played" value={stats.matchesPlayed ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Goals Scored" value={stats.goalsScored ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Goals Per Game" value={stats.goalsPerGame ? stats.goalsPerGame.toFixed(2) : '0.00'} isDark={isDark} theme={theme} />
-                <StatRow label="Clean Sheets" value={stats.cleanSheets ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Yellow Cards" value={stats.yellowCards ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Red Cards" value={stats.redCards ?? 0} isLast isDark={isDark} theme={theme} />
-              </StatSection>
+              {/* Summary Group */}
+              <StatsGroup title="Summary" data={stats.summary} theme={theme} />
+
+              {/* Attacking Group */}
+              <StatsGroup title="Attacking" data={stats.attacking} theme={theme} />
+
+              {/* Passing Group */}
+              <StatsGroup title="Passing" data={stats.passing} theme={theme} />
+
+              {/* Defending Group */}
+              <StatsGroup title="Defending" data={stats.defending} theme={theme} />
+
+              {/* Other Group */}
+              <StatsGroup title="Other" data={stats.other} theme={theme} />
             </>
           ) : (
             <View style={styles.loadingContainer}>

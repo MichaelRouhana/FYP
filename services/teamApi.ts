@@ -1,4 +1,5 @@
 import api from './api';
+import { TeamStats } from '@/types/team';
 
 /**
  * Team Details DTO matching the backend structure
@@ -98,12 +99,50 @@ export const getSquad = async (teamId: number): Promise<SquadMemberDTO[]> => {
  * Team Stats DTO matching the backend structure
  */
 export interface TeamStatsDTO {
-  matchesPlayed: number;
+  summary: Summary;
+  attacking: Attacking;
+  passing: Passing;
+  defending: Defending;
+  other: Other;
+}
+
+export interface Summary {
+  played: number;
+  wins: number;
+  draws: number;
+  loses: number;
+  form: string;
+}
+
+export interface Attacking {
   goalsScored: number;
-  goalsPerGame: number;
+  penaltiesScored: number;
+  penaltiesMissed: number;
+  shotsOnGoal: number;
+  shotsOffGoal: number;
+  totalShots: number;
+}
+
+export interface Passing {
+  totalPasses: number;
+  passesAccurate: number;
+  passAccuracyPercentage: number;
+}
+
+export interface Defending {
+  goalsConceded: number;
   cleanSheets: number;
+  saves: number;
+  tackles: number;
+  interceptions: number;
+}
+
+export interface Other {
   yellowCards: number;
   redCards: number;
+  fouls: number;
+  corners: number;
+  offsides: number;
 }
 
 /**
@@ -117,5 +156,34 @@ export const getTeamStats = async (teamId: number, leagueId: number = 140): Prom
     params: { leagueId },
   });
   return response.data;
+};
+
+/**
+ * Fetch team statistics with optional league and season parameters
+ * @param teamId The team ID
+ * @param leagueId Optional league ID (defaults to backend default if not provided)
+ * @param season Optional season year (defaults to current season if not provided)
+ * @returns TeamStats with team statistics
+ */
+export const fetchTeamStats = async (
+  teamId: number, 
+  leagueId?: number, 
+  season?: number
+): Promise<TeamStats> => {
+  try {
+    const params: any = {};
+    if (leagueId !== undefined) {
+      params.leagueId = leagueId;
+    }
+    if (season !== undefined) {
+      params.season = season;
+    }
+    
+    const response = await api.get(`/team/${teamId}/statistics`, { params });
+    return response.data as TeamStats;
+  } catch (error: any) {
+    console.error('Error fetching team stats:', error);
+    throw new Error(error.response?.data?.message || 'Failed to fetch team statistics');
+  }
 };
 

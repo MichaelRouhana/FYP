@@ -1,0 +1,46 @@
+import React from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import { ThemeColors } from '@/context/ThemeContext';
+
+interface StatRowProps {
+  label: string;
+  value: string | number;
+  theme?: { colors: ThemeColors };
+}
+
+export const StatRow: React.FC<StatRowProps> = ({ label, value, theme }) => {
+  const labelColor = theme?.colors?.textSecondary || '#9ca3af';
+  const valueColor = theme?.colors?.text || '#ffffff';
+
+  return (
+    <View style={styles.container}>
+      <Text style={[styles.label, { color: labelColor }]}>
+        {label}
+      </Text>
+      <Text style={[styles.value, { color: valueColor }]}>
+        {String(value)}
+      </Text>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  label: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 14,
+  },
+  value: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+  },
+});
+
+export default StatRow;
+

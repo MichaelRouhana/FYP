@@ -508,8 +508,10 @@ export default function HomeScreen() {
       homeTeam: match.homeTeam,
       awayTeam: match.awayTeam,
       date: match.date,
-      league: match.league,
-      goals: match.goals,
+      leagueId: match.leagueId,
+      leagueName: match.leagueName,
+      homeScore: match.homeScore,
+      awayScore: match.awayScore,
       status: match.status,
       statusShort: match.statusShort,
     };
@@ -562,7 +564,7 @@ export default function HomeScreen() {
                 <Text style={[styles.liveText, { color: '#ffffff' }]}>LIVE</Text>
               </View>
               {isHidden && (
-                <Text style={[styles.hiddenIndicator, { color: '#ef4444', fontSize: 9, marginTop: 2 }]}>
+                <Text style={{ color: '#ef4444', fontSize: 9, marginTop: 2 }}>
                   (Hidden)
                 </Text>
               )}
@@ -574,7 +576,7 @@ export default function HomeScreen() {
                 {match.scheduledTime}
               </Text>
               {isHidden && (
-                <Text style={[styles.hiddenIndicator, { color: '#ef4444', fontSize: 9, marginTop: 2 }]}>
+                <Text style={{ color: '#ef4444', fontSize: 9, marginTop: 2 }}>
                   (Hidden)
                 </Text>
               )}
@@ -586,7 +588,7 @@ export default function HomeScreen() {
                 <Text style={{ color: '#ef4444', fontSize: 10, marginTop: 2 }}>Postponed</Text>
               )}
               {isHidden && (
-                <Text style={[styles.hiddenIndicator, { color: '#ef4444', fontSize: 9, marginTop: 2 }]}>
+                <Text style={{ color: '#ef4444', fontSize: 9, marginTop: 2 }}>
                   (Hidden)
                 </Text>
               )}
