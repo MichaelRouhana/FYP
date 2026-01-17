@@ -2,6 +2,7 @@ import { InfoCard, StatRow, StatSection } from '@/components/player';
 import { useTheme } from '@/context/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import api from '@/services/api';
+import { getPlayerStats, PlayerDetailedStatsDTO } from '@/services/playerApi';
 import { PlayerStats } from '@/types/player';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -9,6 +10,7 @@ import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Image,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -16,6 +18,8 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+type TabType = 'DETAILS' | 'STATS';
 
 export default function PlayerDetailsScreen() {
   const { id } = useLocalSearchParams();
@@ -26,6 +30,9 @@ export default function PlayerDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [playerData, setPlayerData] = useState<PlayerStats | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>('DETAILS');
+  const [detailedStats, setDetailedStats] = useState<PlayerDetailedStatsDTO | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   useEffect(() => {
     const fetchPlayerData = async () => {
@@ -174,6 +181,25 @@ export default function PlayerDetailsScreen() {
     fetchPlayerData();
   }, [playerId]);
 
+  // Fetch detailed stats when STATS tab is active
+  useEffect(() => {
+    const fetchDetailedStats = async () => {
+      if (activeTab === 'STATS' && playerId && playerId !== 'default' && !detailedStats) {
+        try {
+          setStatsLoading(true);
+          const stats = await getPlayerStats(Number(playerId), 2023);
+          setDetailedStats(stats);
+        } catch (err: any) {
+          console.error('Error fetching detailed stats:', err);
+        } finally {
+          setStatsLoading(false);
+        }
+      }
+    };
+
+    fetchDetailedStats();
+  }, [activeTab, playerId, detailedStats]);
+
   // Show loading indicator
   if (loading) {
     return (
@@ -274,6 +300,188 @@ export default function PlayerDetailsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Custom Segmented Control Tabs */}
+      <View style={[styles.tabBar, { 
+        backgroundColor: isDark ? 'transparent' : theme.colors.headerBackground,
+        borderBottomColor: theme.colors.separator,
+      }]}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.tabScrollContent}
+        >
+          {(['DETAILS', 'STATS'] as TabType[]).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={styles.tabButton}
+              onPress={() => setActiveTab(tab)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.tabLabel,
+                  { 
+                    color: activeTab === tab 
+                      ? theme.colors.text 
+                      : theme.colors.textSecondary + '99',
+                  },
+                ]}
+              >
+                {tab}
+              </Text>
+              {activeTab === tab && (
+                <View style={[styles.tabIndicator, { backgroundColor: theme.colors.primary }]} />
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {renderContent()}
+    </SafeAreaView>
+  );
+
+  function renderContent() {
+    if (activeTab === 'STATS') {
+      return (
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {/* Player Avatar & Name */}
+          <View style={styles.playerHeader}>
+            <Image
+              source={{ uri: player.photo }}
+              style={[styles.playerPhoto, { backgroundColor: isDark ? '#1A253D' : '#E5E7EB' }]}
+              defaultSource={require('@/images/SerieA.jpg')}
+            />
+            <Text style={[styles.playerName, { color: theme.colors.text }]}>{player.name.toUpperCase()}</Text>
+            <View style={styles.teamBadge}>
+              <Image
+                source={{ uri: stats.team.logo }}
+                style={styles.teamLogo}
+                defaultSource={require('@/images/SerieA.jpg')}
+              />
+              <Text style={[styles.teamName, { color: theme.colors.textSecondary }]}>{stats.team.name}</Text>
+            </View>
+          </View>
+
+          {statsLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading stats...</Text>
+            </View>
+          ) : detailedStats ? (
+            <>
+              {/* SUMMARY Container */}
+              <StatSection title="SUMMARY" isDark={isDark} theme={theme}>
+                <View style={styles.statsGrid}>
+                  <View style={styles.statItem}>
+                    <StatRow label="Matches Played" value={detailedStats.summary.matchesPlayed ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Minutes Played" value={detailedStats.summary.minutesPlayed ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Goals" value={detailedStats.summary.goals ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Assists" value={detailedStats.summary.assists ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={[styles.statItem, styles.statItemFull]}>
+                    <StatRow label="Rating" value={detailedStats.summary.rating ?? 'N/A'} isLast isDark={isDark} theme={theme} />
+                  </View>
+                </View>
+              </StatSection>
+
+              {/* ATTACKING Container */}
+              <StatSection title="ATTACKING" isDark={isDark} theme={theme}>
+                <View style={styles.statsGrid}>
+                  <View style={styles.statItem}>
+                    <StatRow label="Shots Total" value={detailedStats.attacking.shotsTotal ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Shots on Target" value={detailedStats.attacking.shotsOnTarget ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Dribbles Attempted" value={detailedStats.attacking.dribblesAttempted ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Dribbles Success" value={detailedStats.attacking.dribblesSuccess ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Penalties Scored" value={detailedStats.attacking.penaltiesScored ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Penalties Missed" value={detailedStats.attacking.penaltiesMissed ?? 0} isLast isDark={isDark} theme={theme} />
+                  </View>
+                </View>
+              </StatSection>
+
+              {/* PASSING Container */}
+              <StatSection title="PASSING" isDark={isDark} theme={theme}>
+                <View style={styles.statsGrid}>
+                  <View style={styles.statItem}>
+                    <StatRow label="Total Passes" value={detailedStats.passing.totalPasses ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Key Passes" value={detailedStats.passing.keyPasses ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={[styles.statItem, styles.statItemFull]}>
+                    <StatRow label="Pass Accuracy" value={detailedStats.passing.passAccuracy !== null ? `${detailedStats.passing.passAccuracy}%` : 'N/A'} isLast isDark={isDark} theme={theme} />
+                  </View>
+                </View>
+              </StatSection>
+
+              {/* DEFENDING Container */}
+              <StatSection title="DEFENDING" isDark={isDark} theme={theme}>
+                <View style={styles.statsGrid}>
+                  <View style={styles.statItem}>
+                    <StatRow label="Tackles" value={detailedStats.defending.tacklesTotal ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Interceptions" value={detailedStats.defending.interceptions ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Blocks" value={detailedStats.defending.blocks ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Duels Total" value={detailedStats.defending.duelsTotal ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={[styles.statItem, styles.statItemFull]}>
+                    <StatRow label="Duels Won" value={detailedStats.defending.duelsWon ?? 0} isLast isDark={isDark} theme={theme} />
+                  </View>
+                </View>
+              </StatSection>
+
+              {/* DISCIPLINE Container */}
+              <StatSection title="DISCIPLINE" isDark={isDark} theme={theme}>
+                <View style={styles.statsGrid}>
+                  <View style={styles.statItem}>
+                    <StatRow label="Yellow Cards" value={detailedStats.discipline.yellowCards ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Red Cards" value={detailedStats.discipline.redCards ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Fouls Committed" value={detailedStats.discipline.foulsCommitted ?? 0} isDark={isDark} theme={theme} />
+                  </View>
+                  <View style={styles.statItem}>
+                    <StatRow label="Fouls Drawn" value={detailedStats.discipline.foulsDrawn ?? 0} isLast isDark={isDark} theme={theme} />
+                  </View>
+                </View>
+              </StatSection>
+
+              <View style={styles.bottomSpacer} />
+            </>
+          ) : (
+            <View style={styles.loadingContainer}>
+              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>No stats available</Text>
+            </View>
+          )}
+        </ScrollView>
+      );
+    }
+
+    // DETAILS Tab - Original content
+    return (
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Player Avatar & Name */}
         <View style={styles.playerHeader}>
@@ -440,8 +648,8 @@ export default function PlayerDetailsScreen() {
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
-    </SafeAreaView>
-  );
+    );
+  }
 }
 
 const styles = StyleSheet.create({
@@ -536,6 +744,46 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Montserrat_500Medium',
     marginTop: 16,
+  },
+  tabBar: {
+    borderBottomWidth: 1,
+    paddingVertical: 8,
+  },
+  tabScrollContent: {
+    paddingHorizontal: 16,
+    gap: 24,
+  },
+  tabButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    position: 'relative',
+  },
+  tabLabel: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  tabIndicator: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    borderRadius: 1,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  statItem: {
+    width: '50%',
+    borderRightWidth: 1,
+    borderRightColor: '#222F4E',
+  },
+  statItemFull: {
+    width: '100%',
+    borderRightWidth: 0,
   },
 });
 
