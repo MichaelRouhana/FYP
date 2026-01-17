@@ -94,3 +94,28 @@ export const getSquad = async (teamId: number): Promise<SquadMemberDTO[]> => {
   return response.data;
 };
 
+/**
+ * Team Stats DTO matching the backend structure
+ */
+export interface TeamStatsDTO {
+  matchesPlayed: number;
+  goalsScored: number;
+  goalsPerGame: number;
+  cleanSheets: number;
+  yellowCards: number;
+  redCards: number;
+}
+
+/**
+ * Fetch team statistics
+ * @param teamId The team ID
+ * @param leagueId The league ID (default: 140 for La Liga)
+ * @returns TeamStatsDTO with team statistics
+ */
+export const getTeamStats = async (teamId: number, leagueId: number = 140): Promise<TeamStatsDTO> => {
+  const response = await api.get(`/team/${teamId}/statistics`, {
+    params: { leagueId },
+  });
+  return response.data;
+};
+

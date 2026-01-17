@@ -13,7 +13,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getTeamDetails, TeamDetailsDTO, getTeamHeader, TeamHeader, getSquad, SquadMemberDTO } from '@/services/teamApi';
+import { getTeamDetails, TeamDetailsDTO, getTeamHeader, TeamHeader, getSquad, SquadMemberDTO, getTeamStats, TeamStatsDTO } from '@/services/teamApi';
+import { StatRow, StatSection } from '@/components/player';
 import { getStandings } from '@/services/matchApi';
 import { mapStandingsToUI } from '@/utils/matchDataMapper';
 
@@ -60,6 +61,8 @@ export default function TeamDetails() {
   const [standingsData, setStandingsData] = useState<StandingRow[]>([]);
   const [standingsLoading, setStandingsLoading] = useState(false);
   const [squad, setSquad] = useState<SquadMemberDTO[]>([]);
+  const [stats, setStats] = useState<TeamStatsDTO | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
 
   // Fetch team data
   useEffect(() => {
@@ -219,6 +222,25 @@ export default function TeamDetails() {
       );
     }
   }, [teamData]);
+
+  // Fetch team stats when STATS tab is active
+  useEffect(() => {
+    const fetchTeamStats = async () => {
+      if (activeTab === 'STATS' && teamId && !stats && !statsLoading) {
+        try {
+          setStatsLoading(true);
+          const teamStats = await getTeamStats(teamId, selectedLeagueId);
+          setStats(teamStats);
+        } catch (error) {
+          console.error('Error fetching team stats:', error);
+        } finally {
+          setStatsLoading(false);
+        }
+      }
+    };
+
+    fetchTeamStats();
+  }, [activeTab, teamId, stats, statsLoading, selectedLeagueId]);
 
   const currentStandings = standingsData;
 
@@ -964,6 +986,35 @@ export default function TeamDetails() {
             );
           })()}
         </ScrollView>
+      ) : activeTab === 'STATS' ? (
+        <ScrollView 
+          style={[styles.content, { backgroundColor: theme.colors.background }]}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.statsContainer}
+        >
+          {statsLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={theme.colors.primary} />
+              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading stats...</Text>
+            </View>
+          ) : stats ? (
+            <>
+              {/* Summary Section */}
+              <StatSection title="STATISTICS" isDark={isDark} theme={theme}>
+                <StatRow label="Matches Played" value={stats.matchesPlayed ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Goals Scored" value={stats.goalsScored ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Goals Per Game" value={stats.goalsPerGame ? stats.goalsPerGame.toFixed(2) : '0.00'} isDark={isDark} theme={theme} />
+                <StatRow label="Clean Sheets" value={stats.cleanSheets ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Yellow Cards" value={stats.yellowCards ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Red Cards" value={stats.redCards ?? 0} isLast isDark={isDark} theme={theme} />
+              </StatSection>
+            </>
+          ) : (
+            <View style={styles.loadingContainer}>
+              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>No stats available</Text>
+            </View>
+          )}
+        </ScrollView>
       ) : (
         <View style={[styles.comingSoonContainer, { backgroundColor: theme.colors.background }]}>
           <Text style={[styles.comingSoonText, { color: theme.colors.textSecondary }]}>Coming Soon</Text>
@@ -1170,7 +1221,10 @@ const styles = StyleSheet.create({
   squadContainer: {
     padding: 16,
     gap: 24,
-    
+  },
+  statsContainer: {
+    padding: 16,
+    gap: 16,
   },
   squadSection: {
     borderRadius: 8,
