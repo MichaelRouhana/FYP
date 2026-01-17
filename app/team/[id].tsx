@@ -780,22 +780,19 @@ export default function TeamDetails() {
               'GK': 'GOALKEEPERS',
               'DEF': 'DEFENDERS',
               'MID': 'MIDFIELDERS',
-              'FWD': 'ATTACKERS',
+              'FWD': 'FORWARDS',
             };
 
             return (
               <>
-                {(['GK', 'DEF', 'MID', 'FWD'] as const).map((positionKey) => {
-                  const players = positionGroups[positionKey];
-                  if (players.length === 0) return null;
-
-                  return (
-                    <View key={positionKey} style={styles.squadSection}>
-                      <Text style={[styles.squadSectionTitle, { color: theme.colors.text }]}>
-                        {positionLabels[positionKey]}
-                      </Text>
-                      <View style={[styles.squadCard, { 
+                {/* Coach Section */}
+                {teamData?.coach && (
+                  <View style={styles.squadSection}>
+                    <View style={[
+                      styles.squadCard,
+                      { 
                         backgroundColor: theme.colors.cardBackground,
+                        borderRadius: 24,
                         ...Platform.select({
                           ios: {
                             shadowColor: '#000',
@@ -807,8 +804,67 @@ export default function TeamDetails() {
                             elevation: 4,
                           },
                         }),
+                      }
+                    ]}>
+                      <View style={[styles.playerCard, {
+                        borderBottomWidth: 0,
+                        backgroundColor: 'transparent',
                       }]}>
-                        {players.map((player) => {
+                        <View style={[styles.playerPhotoContainer, { backgroundColor: theme.colors.border }]}>
+                          {teamData.coachImageUrl ? (
+                            <Image 
+                              source={{ uri: teamData.coachImageUrl }} 
+                              style={styles.playerPhoto}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <View style={[styles.playerPhotoPlaceholder, { backgroundColor: theme.colors.border }]}>
+                              <Ionicons name="person" size={20} color={theme.colors.textSecondary} />
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.playerInfoContainer}>
+                          <Text style={[styles.playerName, { color: theme.colors.text }]} numberOfLines={1}>
+                            {teamData.coach}
+                          </Text>
+                          <Text style={[styles.playerPosition, { color: theme.colors.textSecondary }]}>
+                            Coach
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                {/* Player Position Groups - Ordered: FWD, MID, DEF, GK */}
+                {(['FWD', 'MID', 'DEF', 'GK'] as const).map((positionKey) => {
+                  const players = positionGroups[positionKey];
+                  if (players.length === 0) return null;
+
+                  return (
+                    <View key={positionKey} style={styles.squadSection}>
+                      <Text style={[styles.squadSectionTitle, { color: theme.colors.text }]}>
+                        {positionLabels[positionKey]}
+                      </Text>
+                      <View style={[
+                        styles.squadCard,
+                        { 
+                          backgroundColor: theme.colors.cardBackground,
+                          borderRadius: 24,
+                          ...Platform.select({
+                            ios: {
+                              shadowColor: '#000',
+                              shadowOffset: { width: 0, height: 2 },
+                              shadowOpacity: 0.1,
+                              shadowRadius: 8,
+                            },
+                            android: {
+                              elevation: 4,
+                            },
+                          }),
+                        }
+                      ]}>
+                        {players.map((player, index) => {
                           // Map position code to readable text
                           const positionText: Record<string, string> = {
                             'GK': 'Goalkeeper',
@@ -818,6 +874,7 @@ export default function TeamDetails() {
                           };
                           const readablePosition = positionText[player.position?.toUpperCase() || ''] || player.position || '';
                           const isPlayerFavorite = isFavorite('player', player.id);
+                          const isLastPlayer = index === players.length - 1;
 
                           const handleToggleFavorite = (e: any) => {
                             e.stopPropagation();
@@ -834,6 +891,7 @@ export default function TeamDetails() {
                               key={player.id}
                               style={[styles.playerCard, {
                                 borderBottomColor: theme.colors.separator,
+                                borderBottomWidth: isLastPlayer ? 0 : 1,
                                 backgroundColor: 'transparent',
                               }]}
                               onPress={() => router.push(`/player/${player.id}`)}
@@ -1112,20 +1170,24 @@ const styles = StyleSheet.create({
   squadContainer: {
     padding: 16,
     gap: 24,
+    
   },
   squadSection: {
-    marginBottom: 8,
+    borderRadius: 8,
+
   },
   squadSectionTitle: {
     fontSize: 14,
     fontFamily: 'Montserrat_700Bold',
     textTransform: 'uppercase',
     letterSpacing: 1,
+    marginTop: 10,
+    marginLeft: 10,
     marginBottom: 12,
     paddingHorizontal: 4,
   },
   squadCard: {
-    borderRadius: 16,
+    borderRadius: 24,
     overflow: 'hidden',
     marginBottom: 8,
   },
