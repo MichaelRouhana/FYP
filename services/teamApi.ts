@@ -134,12 +134,16 @@ export interface TeamStatsDTO {
 /**
  * Fetch team statistics
  * @param teamId The team ID
- * @param leagueId The league ID (default: 140 for La Liga)
+ * @param leagueId The league ID (optional - if null, backend will auto-detect)
  * @returns TeamStatsDTO with team statistics
  */
-export const getTeamStats = async (teamId: number, leagueId: number = 140): Promise<TeamStatsDTO> => {
+export const getTeamStats = async (teamId: number, leagueId: number | null = null): Promise<TeamStatsDTO> => {
+  const params: any = {};
+  if (leagueId !== null) {
+    params.leagueId = leagueId;
+  }
   const response = await api.get(`/team/${teamId}/statistics`, {
-    params: { leagueId },
+    params,
   });
   return response.data;
 };

@@ -226,21 +226,27 @@ export default function TeamDetails() {
   // Fetch team stats when STATS tab is active
   useEffect(() => {
     const fetchTeamStats = async () => {
-      if (activeTab === 'STATS' && teamId && !stats && !statsLoading) {
+      if (activeTab === 'STATS' && teamId) {
         try {
           setStatsLoading(true);
-          const teamStats = await getTeamStats(teamId, selectedLeagueId);
+          setStats(null); // Reset stats when switching to STATS tab
+          // Pass null to let backend auto-detect league and season
+          const teamStats = await getTeamStats(teamId, null);
           setStats(teamStats);
         } catch (error) {
           console.error('Error fetching team stats:', error);
+          setStats(null);
         } finally {
           setStatsLoading(false);
         }
+      } else if (activeTab !== 'STATS') {
+        // Reset stats when leaving STATS tab to ensure fresh fetch next time
+        setStats(null);
       }
     };
 
     fetchTeamStats();
-  }, [activeTab, teamId, stats, statsLoading, selectedLeagueId]);
+  }, [activeTab, teamId]);
 
   const currentStandings = standingsData;
 
