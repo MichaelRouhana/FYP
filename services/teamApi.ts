@@ -98,12 +98,37 @@ export const getSquad = async (teamId: number): Promise<SquadMemberDTO[]> => {
  * Team Stats DTO matching the backend structure
  */
 export interface TeamStatsDTO {
+  // Summary
   matchesPlayed: number;
-  goalsScored: number;
-  goalsPerGame: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalDifference: number;
   cleanSheets: number;
+  
+  // Attacking
+  totalGoalsFor: number;
+  goalsForAverage: string;
+  shotsTotal: number;
+  shotsOnTarget: number;
+  penaltiesScored: number;
+  
+  // Passing
+  passesTotal: number;
+  passesAccurate: number;
+  passAccuracyPercentage: string;
+  
+  // Defending
+  totalGoalsAgainst: number;
+  goalsAgainstAverage: string;
+  tacklesTotal: number;
+  interceptionsTotal: number;
+  savesTotal: number;
+  
+  // Other
   yellowCards: number;
   redCards: number;
+  foulsCommitted: number;
 }
 
 /**

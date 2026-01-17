@@ -999,14 +999,46 @@ export default function TeamDetails() {
             </View>
           ) : stats ? (
             <>
-              {/* Summary Section */}
-              <StatSection title="STATISTICS" isDark={isDark} theme={theme}>
+              {/* Container 1: Summary */}
+              <StatSection title="SUMMARY" isDark={isDark} theme={theme}>
                 <StatRow label="Matches Played" value={stats.matchesPlayed ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Goals Scored" value={stats.goalsScored ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Goals Per Game" value={stats.goalsPerGame ? stats.goalsPerGame.toFixed(2) : '0.00'} isDark={isDark} theme={theme} />
-                <StatRow label="Clean Sheets" value={stats.cleanSheets ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Wins" value={stats.wins ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Draws" value={stats.draws ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Losses" value={stats.losses ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Goal Difference" value={stats.goalDifference ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Clean Sheets" value={stats.cleanSheets ?? 0} isLast isDark={isDark} theme={theme} />
+              </StatSection>
+
+              {/* Container 2: Attacking */}
+              <StatSection title="ATTACKING" isDark={isDark} theme={theme}>
+                <StatRow label="Total Goals" value={stats.totalGoalsFor ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Goals per Match" value={stats.goalsForAverage ?? '0.00'} isDark={isDark} theme={theme} />
+                <StatRow label="Shots" value={stats.shotsTotal ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Shots on Target" value={stats.shotsOnTarget ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Penalties Scored" value={stats.penaltiesScored ?? 0} isLast isDark={isDark} theme={theme} />
+              </StatSection>
+
+              {/* Container 3: Passing */}
+              <StatSection title="PASSING" isDark={isDark} theme={theme}>
+                <StatRow label="Total Passes" value={stats.passesTotal ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Passes Accurate" value={stats.passesAccurate ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Pass Accuracy %" value={stats.passAccuracyPercentage ?? '0%'} isLast isDark={isDark} theme={theme} />
+              </StatSection>
+
+              {/* Container 4: Defending */}
+              <StatSection title="DEFENDING" isDark={isDark} theme={theme}>
+                <StatRow label="Goals Conceded" value={stats.totalGoalsAgainst ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Goals Conceded per Match" value={stats.goalsAgainstAverage ?? '0.00'} isDark={isDark} theme={theme} />
+                <StatRow label="Tackles" value={stats.tacklesTotal ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Interceptions" value={stats.interceptionsTotal ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Saves" value={stats.savesTotal ?? 0} isLast isDark={isDark} theme={theme} />
+              </StatSection>
+
+              {/* Container 5: Other */}
+              <StatSection title="OTHER" isDark={isDark} theme={theme}>
                 <StatRow label="Yellow Cards" value={stats.yellowCards ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Red Cards" value={stats.redCards ?? 0} isLast isDark={isDark} theme={theme} />
+                <StatRow label="Red Cards" value={stats.redCards ?? 0} isDark={isDark} theme={theme} />
+                <StatRow label="Fouls Committed" value={stats.foulsCommitted ?? 0} isLast isDark={isDark} theme={theme} />
               </StatSection>
             </>
           ) : (
