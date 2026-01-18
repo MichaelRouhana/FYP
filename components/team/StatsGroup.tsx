@@ -21,6 +21,11 @@ const camelCaseToTitleCase = (str: string): string => {
 };
 
 export const StatsGroup: React.FC<StatsGroupProps> = ({ title, data, theme }) => {
+  // Guard clause: Don't render if data is missing or invalid
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
   const backgroundColor = theme?.colors?.cardBackground || '#ffffff';
   const titleColor = theme?.colors?.text || '#000000';
   const borderColor = theme?.colors?.border || '#e5e7eb';
