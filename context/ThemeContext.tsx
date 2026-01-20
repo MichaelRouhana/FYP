@@ -53,7 +53,7 @@ const darkTheme: Theme = {
     background: '#080C17',
     headerBackground: '#080C17',
     cardBackground: '#111828',
-    card: '#111827', // Matches Colors.ts dark.card
+    card: '#111828', // Match cardBackground for consistency
     inputBackground: '#111828',
     
     // Text
