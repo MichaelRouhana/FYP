@@ -26,9 +26,10 @@ export const StatsGroup: React.FC<StatsGroupProps> = ({ title, data, theme }) =>
     return null;
   }
 
-  const backgroundColor = theme?.colors?.cardBackground || '#ffffff';
-  const titleColor = theme?.colors?.text || '#000000';
-  const borderColor = theme?.colors?.border || '#e5e7eb';
+  // Use theme colors with light mode friendly fallbacks
+  const backgroundColor = theme?.colors?.cardBackground || '#FFFFFF';
+  const titleColor = theme?.colors?.text || '#18223A';
+  const borderColor = theme?.colors?.separator || '#E5E7EB';
 
   // Format values appropriately (e.g., percentages)
   const formatValue = (key: string, value: number | string | undefined): string | number => {

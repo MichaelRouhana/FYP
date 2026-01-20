@@ -656,7 +656,10 @@ export default function TeamDetails() {
               }),
             }]}>
               {/* Table Header */}
-              <View style={[styles.tableHeader, { borderBottomColor: theme.colors.separator }]}>
+              <View style={[styles.tableHeader, { 
+                borderBottomColor: theme.colors.separator,
+                backgroundColor: isDark ? theme.colors.headerBackground : '#F9FAFB',
+              }]}>
                 <Text style={[styles.tableHeaderText, styles.tableCellRank, { color: theme.colors.textSecondary }]}>#</Text>
                 <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary, flex: 1, marginRight: 8 }]}>TEAM</Text>
                 <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.textSecondary }]}>P</Text>
