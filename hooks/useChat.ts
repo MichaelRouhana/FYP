@@ -6,6 +6,7 @@ import { Client } from '@stomp/stompjs';
 import { getItem } from '@/utils/storage';
 import api from '@/services/api';
 import { Community, Message, User, CommunityInfo, Moderator, Member, LeaderboardEntry, MessageType, CommunityMessage, CommunityMessageDTO } from '@/types/chat';
+import { formatMessageTimestamp } from '@/utils/dateFormatter';
 
 // Current user (mock)
 export const CURRENT_USER: User = {
@@ -214,8 +215,8 @@ export function useCommunities() {
         const mappedCommunities: Community[] = (Array.isArray(response.data) ? response.data : response.data.content || []).map((dto) => ({
           id: dto.id.toString(),
           name: dto.name || 'Unnamed Community',
-          lastMessage: 'No messages yet', // Default, can be updated if we fetch last message
-          lastMessageTime: '', // Will be empty until we have messages
+          lastMessage: 'No messages yet', // Default, will be updated after fetching last message
+          lastMessageTime: '', // Will be updated after fetching last message
           logo: dto.logo || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(dto.name || 'Community') + '&background=3b82f6&color=fff',
           unreadCount: 0, // Can be calculated if we track unread messages
           memberCount: dto.userIds?.length 
@@ -225,7 +226,42 @@ export function useCommunities() {
             : '0 members',
         }));
         
-        setCommunities(mappedCommunities);
+        // Fetch last message for each community in parallel
+        // Get current user's username from storage to check if message is from current user
+        const currentUserEmail = await getItem('user_email');
+        const currentUsername = await getItem('username');
+        
+        const lastMessagePromises = mappedCommunities.map(async (community) => {
+          try {
+            const messagesResponse = await api.get<CommunityMessageDTO[]>(
+              `/communities/${community.id}/messages`
+            );
+            const messages = Array.isArray(messagesResponse.data) ? messagesResponse.data : [];
+            
+            if (messages.length > 0) {
+              const lastMessage = messages[messages.length - 1]; // Get the last message
+              // Check if message is from current user by comparing email or username
+              const isCurrentUser = currentUserEmail === lastMessage.senderEmail || 
+                                   currentUsername === lastMessage.senderUsername;
+              const senderName = isCurrentUser ? 'You' : lastMessage.senderUsername || 'Unknown';
+              
+              return {
+                ...community,
+                lastMessage: `${senderName}: ${lastMessage.content || ''}`,
+                lastMessageTime: formatMessageTimestamp(lastMessage.sentAt),
+              };
+            }
+            
+            return community;
+          } catch (err) {
+            // If fetching messages fails, just return the community with default values
+            console.warn(`Failed to fetch messages for community ${community.id}:`, err);
+            return community;
+          }
+        });
+        
+        const communitiesWithMessages = await Promise.all(lastMessagePromises);
+        setCommunities(communitiesWithMessages);
       } catch (err: any) {
         console.error('Error fetching communities:', err);
         setError(err.response?.data?.message || err.message || 'Failed to fetch communities');
@@ -258,8 +294,8 @@ export function useCommunities() {
       const mappedCommunities: Community[] = (Array.isArray(response.data) ? response.data : response.data.content || []).map((dto) => ({
         id: dto.id.toString(),
         name: dto.name || 'Unnamed Community',
-        lastMessage: 'No messages yet',
-        lastMessageTime: '',
+        lastMessage: 'No messages yet', // Default, will be updated after fetching last message
+        lastMessageTime: '', // Will be updated after fetching last message
         logo: dto.logo || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(dto.name || 'Community') + '&background=3b82f6&color=fff',
         unreadCount: 0,
         memberCount: dto.userIds?.length 
@@ -269,7 +305,42 @@ export function useCommunities() {
           : '0 members',
       }));
       
-      setCommunities(mappedCommunities);
+      // Fetch last message for each community in parallel
+      // Get current user's username from storage to check if message is from current user
+      const currentUserEmail = await getItem('user_email');
+      const currentUsername = await getItem('username');
+      
+      const lastMessagePromises = mappedCommunities.map(async (community) => {
+        try {
+          const messagesResponse = await api.get<CommunityMessageDTO[]>(
+            `/communities/${community.id}/messages`
+          );
+          const messages = Array.isArray(messagesResponse.data) ? messagesResponse.data : [];
+          
+          if (messages.length > 0) {
+            const lastMessage = messages[messages.length - 1]; // Get the last message
+            // Check if message is from current user by comparing email or username
+            const isCurrentUser = currentUserEmail === lastMessage.senderEmail || 
+                                 currentUsername === lastMessage.senderUsername;
+            const senderName = isCurrentUser ? 'You' : lastMessage.senderUsername || 'Unknown';
+            
+            return {
+              ...community,
+              lastMessage: `${senderName}: ${lastMessage.content || ''}`,
+              lastMessageTime: formatMessageTimestamp(lastMessage.sentAt),
+            };
+          }
+          
+          return community;
+        } catch (err) {
+          // If fetching messages fails, just return the community with default values
+          console.warn(`Failed to fetch messages for community ${community.id}:`, err);
+          return community;
+        }
+      });
+      
+      const communitiesWithMessages = await Promise.all(lastMessagePromises);
+      setCommunities(communitiesWithMessages);
     } catch (err: any) {
       console.error('Error fetching communities:', err);
       setError(err.response?.data?.message || err.message || 'Failed to fetch communities');

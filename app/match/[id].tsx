@@ -29,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMatchData } from '@/hooks/useMatchData';
 import { useUserBalance } from '@/hooks/useUserBalance';
 import { useProfile } from '@/hooks/useProfile';
+import { useFavorites } from '@/hooks/useFavorites';
 import { placeBet, createMatchWinnerBet, getOddsForSelection, getOdds } from '@/services/betApi';
 import { MarketType, BetRequestDTO } from '@/types/bet';
 import { getFixtureInjuries, getBetTypes, getOddsForFixture, getPredictionSettings } from '@/services/matchApi';
@@ -131,9 +132,9 @@ const getMatchStatus = (statusShort: string | undefined): MatchStatus => {
 const getTabsForStatus = (status: MatchStatus, isAdmin: boolean = false): { id: TabType; label: string }[] => {
   const allowedTabs = TABS_BY_STATUS[status];
   const filteredTabs = ALL_TABS.filter(tab => {
-    // Always include settings tab for admins
+    // Include settings tab for admins, but only if match is not finished
     if (tab.id === 'settings') {
-      return isAdmin;
+      return isAdmin && status !== 'finished';
     }
     return allowedTabs.includes(tab.id);
   });
@@ -217,14 +218,14 @@ export default function MatchDetailsScreen() {
   const [selectedPicks, setSelectedPicks] = useState<Pick[]>([]);
   
   // All state hooks MUST be called unconditionally
-  // Default to 'settings' tab for admins, otherwise use 'details'
-  const [selectedTab, setSelectedTab] = useState<TabType>(isAdmin ? 'settings' : 'details');
+  // Default to 'details' tab (will be adjusted based on match status and admin permissions)
+  const [selectedTab, setSelectedTab] = useState<TabType>('details');
   const [h2hFilter, setH2hFilter] = useState<'meetings' | 'home' | 'away'>('meetings');
   const [h2hShowAll, setH2hShowAll] = useState(false);
   const [tableFilter, setTableFilter] = useState<'all' | 'home' | 'away'>('all');
   const [betSelection, setBetSelection] = useState<BetSelection>(null);
   const [stake, setStake] = useState('');
-  const [isFavorite, setIsFavorite] = useState(false);
+  const { isFavorite, toggleFavorite } = useFavorites();
   
   // Predictions state
   const [goalsOverUnder, setGoalsOverUnder] = useState<GoalsOverUnder>(null);
@@ -257,17 +258,26 @@ export default function MatchDetailsScreen() {
   React.useEffect(() => {
     // Only set default tab once - don't interfere with user's tab selection after that
     if (hasAutoSelectedTab) {
+      // If current tab is no longer available (e.g., settings on finished match), switch to a valid tab
+      if (!availableTabs.some(t => t.id === selectedTab)) {
+        const defaultTab = DEFAULT_TAB_BY_STATUS[matchStatus];
+        if (defaultTab && availableTabs.some(t => t.id === defaultTab)) {
+          setSelectedTab(defaultTab);
+        } else if (availableTabs.length > 0) {
+          setSelectedTab(availableTabs[0].id);
+        }
+      }
       return; // User has already selected a tab, don't override
     }
     
-    // For admins: set default to 'settings' tab if available (only once)
-    if (isAdmin && availableTabs.some(t => t.id === 'settings')) {
+    // For admins: set default to 'settings' tab if available and match is not finished (only once)
+    if (isAdmin && matchStatus !== 'finished' && availableTabs.some(t => t.id === 'settings')) {
       setSelectedTab('settings');
       setHasAutoSelectedTab(true);
       return;
     }
     
-    // For non-admins: auto-select appropriate default tab when match status changes
+    // For non-admins or finished matches: auto-select appropriate default tab when match status changes
     if (matchData) {
       const defaultTab = DEFAULT_TAB_BY_STATUS[matchStatus];
       if (defaultTab && availableTabs.some(t => t.id === defaultTab)) {
@@ -275,7 +285,7 @@ export default function MatchDetailsScreen() {
         setHasAutoSelectedTab(true);
       }
     }
-  }, [matchData, matchStatus, availableTabs, hasAutoSelectedTab, isAdmin]);
+  }, [matchData, matchStatus, availableTabs, hasAutoSelectedTab, isAdmin, selectedTab]);
 
   // Fetch injuries data
   useEffect(() => {
@@ -292,10 +302,18 @@ export default function MatchDetailsScreen() {
     fetchInjuries();
   }, [id]);
 
-  // Fetch prediction settings
+  // Fetch prediction settings - only for non-finished matches
   useEffect(() => {
     const fetchSettings = async () => {
-      if (!id) return;
+      if (!id || !matchData?.fixture?.status?.short) return;
+      
+      // Don't fetch settings for finished matches
+      const status = getMatchStatus(matchData.fixture.status.short);
+      if (status === 'finished') {
+        setPredictionSettings(null);
+        return;
+      }
+      
       try {
         const settings = await getPredictionSettings(Number(id));
         setPredictionSettings(settings);
@@ -306,7 +324,7 @@ export default function MatchDetailsScreen() {
       }
     };
     fetchSettings();
-  }, [id]);
+  }, [id, matchData?.fixture?.status?.short]);
 
   // Fetch odds data and resolve bet types
   useEffect(() => {
@@ -778,7 +796,7 @@ export default function MatchDetailsScreen() {
       venue: venueWeather.venue,
       weather: venueWeather.weather,
       odds,
-      isFavorite: isFavorite,
+      isFavorite: matchData?.fixture?.id ? isFavorite('match', matchData.fixture.id) : false,
     };
   }, [matchData, predictionsData, homeTeamVenue, isFavorite, apiOdds]);
 
@@ -921,34 +939,41 @@ export default function MatchDetailsScreen() {
     );
   };
 
-  const renderDetailsTab = () => (
-    <View style={styles.detailsContainer}>
-      {/* User Balance */}
-      <View style={[
-        styles.balanceCard,
-        {
-          backgroundColor: isDark ? '#101828' : '#FFFFFF',
-          borderWidth: isDark ? 0 : 1,
-          borderColor: '#18223A',
-        }
-      ]}>
-        <Text style={[styles.balanceLabel, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
-          Available Balance
-        </Text>
-        <Text style={[styles.balanceAmount, { color: '#22c55e' }]}>
-          {balance} PTS
-        </Text>
-      </View>
+  const renderDetailsTab = () => {
+    // Check if match is finished
+    const isFinished = matchStatus === 'finished';
+    
+    return (
+      <View style={styles.detailsContainer}>
+        {/* User Balance - Only show for non-finished matches */}
+        {!isFinished && (
+          <View style={[
+            styles.balanceCard,
+            {
+              backgroundColor: isDark ? '#101828' : '#FFFFFF',
+              borderWidth: isDark ? 0 : 1,
+              borderColor: '#18223A',
+            }
+          ]}>
+            <Text style={[styles.balanceLabel, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
+              Available Balance
+            </Text>
+            <Text style={[styles.balanceAmount, { color: '#22c55e' }]}>
+              {balance} PTS
+            </Text>
+          </View>
+        )}
 
-      {/* Betting Card */}
-      <View style={[
-        styles.bettingCard, 
-        { 
-          backgroundColor: isDark ? '#101828' : '#FFFFFF',
-          borderWidth: isDark ? 0 : 1,
-          borderColor: '#18223A',
-        }
-      ]}>
+        {/* Betting Card - Only show for non-finished matches */}
+        {!isFinished && (
+          <View style={[
+            styles.bettingCard, 
+            { 
+              backgroundColor: isDark ? '#101828' : '#FFFFFF',
+              borderWidth: isDark ? 0 : 1,
+              borderColor: '#18223A',
+            }
+          ]}>
         <Text style={[styles.bettingTitle, { color: isDark ? '#ffffff' : '#18223A' }]}>Who will win?</Text>
 
         {/* Bet Options */}
@@ -1146,6 +1171,7 @@ export default function MatchDetailsScreen() {
           )}
         </TouchableOpacity>
       </View>
+        )}
 
       {/* Match Info Card */}
       <View style={[
@@ -1166,7 +1192,7 @@ export default function MatchDetailsScreen() {
         </View>
 
         {/* Capacity & Surface */}
-        <View style={[styles.infoRowDouble, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+        <View style={[styles.infoRowDouble, { borderBottomWidth: 0 }]}>
           <View style={styles.infoHalf}>
             <MaterialCommunityIcons name="account-group" size={24} color={isDark ? '#6b7280' : '#6B7280'} />
             <View style={styles.infoTextContainer}>
@@ -1208,7 +1234,8 @@ export default function MatchDetailsScreen() {
         )}
       </View>
     </View>
-  );
+    );
+  };
 
   const getEventIcon = (type: EventType) => {
     switch (type) {
@@ -3283,12 +3310,34 @@ export default function MatchDetailsScreen() {
           </View>
           <TouchableOpacity
             style={styles.headerButton}
-            onPress={() => setIsFavorite(!isFavorite)}
+            onPress={() => {
+              if (matchData?.fixture?.id) {
+                toggleFavorite('match', {
+                  id: matchData.fixture.id,
+                  homeTeam: {
+                    name: matchData.teams.home.name,
+                    logo: matchData.teams.home.logo,
+                  },
+                  awayTeam: {
+                    name: matchData.teams.away.name,
+                    logo: matchData.teams.away.logo,
+                  },
+                  date: matchData.fixture.date,
+                  status: matchData.fixture.status?.short || '',
+                  statusLong: matchData.fixture.status?.long || '',
+                  goals: {
+                    home: matchData.goals.home,
+                    away: matchData.goals.away,
+                  },
+                  betsCount: 0, // Will be updated if available
+                });
+              }
+            }}
           >
             <MaterialCommunityIcons
-              name={isFavorite ? 'star' : 'star-outline'}
+              name={matchData?.fixture?.id && isFavorite('match', matchData.fixture.id) ? 'star' : 'star-outline'}
               size={24}
-              color={isFavorite ? '#22c55e' : (isDark ? '#ffffff' : '#18223A')}
+              color={matchData?.fixture?.id && isFavorite('match', matchData.fixture.id) ? '#22c55e' : (isDark ? '#ffffff' : '#18223A')}
             />
           </TouchableOpacity>
         </View>

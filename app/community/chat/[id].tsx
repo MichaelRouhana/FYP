@@ -6,6 +6,7 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -40,6 +41,7 @@ export default function ChatScreen() {
   const [inputText, setInputText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [user, setUser] = useState<{ email?: string; name?: string } | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   // Get current user's email and name from JWT token for identity verification
@@ -60,6 +62,27 @@ export default function ChatScreen() {
       }
     };
     getCurrentUser();
+  }, []);
+
+  // Listen to keyboard show/hide events
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
   }, []);
 
   const handleSend = useCallback(() => {
@@ -356,7 +379,7 @@ export default function ChatScreen() {
 
           {/* Input Area */}
           <View style={[styles.inputContainer, { 
-            paddingBottom: insets.bottom + 8,
+            paddingBottom: keyboardVisible ? 8 : insets.bottom + 8,
             borderTopColor: theme.colors.separator,
             backgroundColor: theme.colors.headerBackground
           }]}>

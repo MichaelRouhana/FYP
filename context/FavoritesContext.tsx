@@ -3,6 +3,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getItem, setItem } from '@/utils/storage';
+import { useProfile } from '@/hooks/useProfile';
 
 export type FavoriteType = 'match' | 'player' | 'team' | 'competition';
 
@@ -11,12 +12,23 @@ export interface FavoriteItem {
   [key: string]: any; // Allow any additional properties
 }
 
-const STORAGE_KEYS = {
+// Base storage keys (will be prefixed with username)
+const BASE_STORAGE_KEYS = {
   match: 'fav_matches',
   player: 'fav_players',
   team: 'fav_teams',
   competition: 'fav_competitions',
 } as const;
+
+// Generate user-specific storage key
+const getStorageKey = (type: FavoriteType, username: string | null): string => {
+  const baseKey = BASE_STORAGE_KEYS[type];
+  if (!username) {
+    // Fallback to non-user-specific key if no username (shouldn't happen in normal flow)
+    return baseKey;
+  }
+  return `${baseKey}_${username}`;
+};
 
 interface FavoritesContextType {
   matches: FavoriteItem[];
@@ -34,25 +46,28 @@ interface FavoritesContextType {
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
 
 export function FavoritesProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useProfile();
+  const username = user?.username || null;
+  
   const [matches, setMatches] = useState<FavoriteItem[]>([]);
   const [players, setPlayers] = useState<FavoriteItem[]>([]);
   const [teams, setTeams] = useState<FavoriteItem[]>([]);
   const [competitions, setCompetitions] = useState<FavoriteItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load favorites from storage on mount
-  useEffect(() => {
-    loadFavorites();
-  }, []);
-
   const loadFavorites = useCallback(async () => {
+    if (!username) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       const [matchesData, playersData, teamsData, competitionsData] = await Promise.all([
-        getItem(STORAGE_KEYS.match),
-        getItem(STORAGE_KEYS.player),
-        getItem(STORAGE_KEYS.team),
-        getItem(STORAGE_KEYS.competition),
+        getItem(getStorageKey('match', username)),
+        getItem(getStorageKey('player', username)),
+        getItem(getStorageKey('team', username)),
+        getItem(getStorageKey('competition', username)),
       ]);
 
       setMatches(matchesData ? JSON.parse(matchesData) : []);
@@ -64,11 +79,30 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [username]);
+
+  // Load favorites from storage on mount and when username changes
+  useEffect(() => {
+    if (username) {
+      loadFavorites();
+    } else {
+      // Clear favorites if no user is logged in
+      setMatches([]);
+      setPlayers([]);
+      setTeams([]);
+      setCompetitions([]);
+      setLoading(false);
+    }
+  }, [username, loadFavorites]);
 
   const saveFavorites = useCallback(async (type: FavoriteType, items: FavoriteItem[]) => {
+    if (!username) {
+      console.warn('Cannot save favorites: no user logged in');
+      return;
+    }
+
     try {
-      await setItem(STORAGE_KEYS[type], JSON.stringify(items));
+      await setItem(getStorageKey(type, username), JSON.stringify(items));
       
       // Update state based on type using functional updates to ensure we have latest state
       switch (type) {
@@ -89,7 +123,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       console.error(`Error saving favorites for ${type}:`, error);
       throw error;
     }
-  }, []);
+  }, [username]);
 
   const getCurrentFavorites = useCallback((type: FavoriteType, currentState?: {
     matches: FavoriteItem[];
@@ -115,8 +149,14 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
   const addFavorite = useCallback(
     async (type: FavoriteType, item: FavoriteItem) => {
+      if (!username) {
+        console.warn('Cannot add favorite: no user logged in');
+        return;
+      }
+
       // Use functional state updates to get the latest state
       let currentFavorites: FavoriteItem[] = [];
+      const storageKey = getStorageKey(type, username);
       
       switch (type) {
         case 'match':
@@ -130,7 +170,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
             // Add new favorite
             const updated = [...prev, item];
             // Save to storage asynchronously
-            setItem(STORAGE_KEYS[type], JSON.stringify(updated)).catch(console.error);
+            setItem(storageKey, JSON.stringify(updated)).catch(console.error);
             return updated;
           });
           break;
@@ -142,7 +182,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
               return prev;
             }
             const updated = [...prev, item];
-            setItem(STORAGE_KEYS[type], JSON.stringify(updated)).catch(console.error);
+            setItem(storageKey, JSON.stringify(updated)).catch(console.error);
             return updated;
           });
           break;
@@ -154,7 +194,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
               return prev;
             }
             const updated = [...prev, item];
-            setItem(STORAGE_KEYS[type], JSON.stringify(updated)).catch(console.error);
+            setItem(storageKey, JSON.stringify(updated)).catch(console.error);
             return updated;
           });
           break;
@@ -166,52 +206,58 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
               return prev;
             }
             const updated = [...prev, item];
-            setItem(STORAGE_KEYS[type], JSON.stringify(updated)).catch(console.error);
+            setItem(storageKey, JSON.stringify(updated)).catch(console.error);
             return updated;
           });
           break;
       }
     },
-    []
+    [username]
   );
 
   const removeFavorite = useCallback(
     async (type: FavoriteType, id: string | number) => {
+      if (!username) {
+        console.warn('Cannot remove favorite: no user logged in');
+        return;
+      }
+
       const itemId = String(id);
+      const storageKey = getStorageKey(type, username);
       
       // Use functional state updates to get the latest state
       switch (type) {
         case 'match':
           setMatches((prev) => {
             const updated = prev.filter((fav) => String(fav.id) !== itemId);
-            setItem(STORAGE_KEYS[type], JSON.stringify(updated)).catch(console.error);
+            setItem(storageKey, JSON.stringify(updated)).catch(console.error);
             return updated;
           });
           break;
         case 'player':
           setPlayers((prev) => {
             const updated = prev.filter((fav) => String(fav.id) !== itemId);
-            setItem(STORAGE_KEYS[type], JSON.stringify(updated)).catch(console.error);
+            setItem(storageKey, JSON.stringify(updated)).catch(console.error);
             return updated;
           });
           break;
         case 'team':
           setTeams((prev) => {
             const updated = prev.filter((fav) => String(fav.id) !== itemId);
-            setItem(STORAGE_KEYS[type], JSON.stringify(updated)).catch(console.error);
+            setItem(storageKey, JSON.stringify(updated)).catch(console.error);
             return updated;
           });
           break;
         case 'competition':
           setCompetitions((prev) => {
             const updated = prev.filter((fav) => String(fav.id) !== itemId);
-            setItem(STORAGE_KEYS[type], JSON.stringify(updated)).catch(console.error);
+            setItem(storageKey, JSON.stringify(updated)).catch(console.error);
             return updated;
           });
           break;
       }
     },
-    []
+    [username]
   );
 
   const isFavorite = useCallback(

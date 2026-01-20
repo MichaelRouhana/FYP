@@ -6,8 +6,11 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
+  Dimensions,
   FlatList,
   ImageBackground,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -19,6 +22,8 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function Register() {
   const insets = useSafeAreaInsets();
@@ -35,12 +40,15 @@ export default function Register() {
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const slideAnim = React.useRef(new Animated.Value(0)).current;
   
   const [errors, setErrors] = useState<{
     username?: string;
     email?: string;
     password?: string;
     confirmPassword?: string;
+    country?: string;
   }>({});
 
   const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -62,6 +70,9 @@ export default function Register() {
     
     // 4. Validate Confirm
     if (password !== confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
+    
+    // 5. Validate Country (Required)
+    if (!country.trim()) newErrors.country = 'Country is required';
 
     setErrors(newErrors);
     if (Object.keys(newErrors).length > 0) return;
@@ -70,9 +81,9 @@ export default function Register() {
     try {
       console.log("Sending Register Request:", { username, email, password }); // Debug Log
 
-      // API Call - Send country name if selected
+      // API Call - Send country name (required)
       const selectedCountryObj = countries.find((c) => c.code === country);
-      const countryName = selectedCountryObj ? selectedCountryObj.name : null;
+      const countryName = selectedCountryObj ? selectedCountryObj.name : '';
       console.log('🌍 Signup - Selected country code:', country);
       console.log('🌍 Signup - Selected country name:', countryName);
       
@@ -80,7 +91,7 @@ export default function Register() {
         username: username,
         email: email,
         password: password, // Matches SignUpRequestDTO.java
-        country: countryName, // Send country name if selected (optional)
+        country: countryName, // Send country name (required)
       };
       
       console.log('📤 Signup - Sending payload:', JSON.stringify({ ...signupPayload, password: '***' }));
@@ -107,6 +118,41 @@ export default function Register() {
     c.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
   const selectedCountry = countries.find((c) => c.code === country);
+
+  // Listen to keyboard events for bottom sheet positioning
+  React.useEffect(() => {
+    const keyboardWillShow = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+      }
+    );
+    const keyboardWillHide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      keyboardWillShow.remove();
+      keyboardWillHide.remove();
+    };
+  }, []);
+
+  // Animate modal content slide up when opening
+  React.useEffect(() => {
+    if (showCountryPicker) {
+      Animated.spring(slideAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        tension: 65,
+        friction: 11,
+      }).start();
+    } else {
+      slideAnim.setValue(0);
+    }
+  }, [showCountryPicker]);
 
   return (
     <ImageBackground source={require('@/images/Loginimage.jpg')} style={styles.backgroundImage} resizeMode="cover">
@@ -189,13 +235,21 @@ export default function Register() {
             </View>
 
             {/* Country Picker */}
-            <TouchableOpacity style={styles.countryButton} onPress={() => setShowCountryPicker(true)} activeOpacity={0.8}>
-              <MaterialCommunityIcons name="soccer" size={24} color="#9ca3af" />
-              <Text style={[styles.countryButtonText, selectedCountry && styles.countrySelected]}>
-                {selectedCountry ? selectedCountry.name : 'Country (optional)'}
-              </Text>
-              <MaterialCommunityIcons name="chevron-down" size={24} color="#9ca3af" />
-            </TouchableOpacity>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Country</Text>
+              <TouchableOpacity 
+                style={[styles.countryButton, errors.country && styles.inputError]} 
+                onPress={() => setShowCountryPicker(true)} 
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="soccer" size={24} color="#9ca3af" />
+                <Text style={[styles.countryButtonText, selectedCountry && styles.countrySelected]}>
+                  {selectedCountry ? selectedCountry.name : 'Select Country'}
+                </Text>
+                <MaterialCommunityIcons name="chevron-down" size={24} color="#9ca3af" />
+              </TouchableOpacity>
+              {errors.country && <Text style={styles.errorText}>{errors.country}</Text>}
+            </View>
 
             {/* Signup Button */}
             <TouchableOpacity style={styles.signupButton} onPress={handleSignup} activeOpacity={0.8} disabled={loading}>
@@ -213,31 +267,68 @@ export default function Register() {
       </KeyboardAvoidingView>
 
       {/* Country Modal */}
-      <Modal visible={showCountryPicker} animationType="slide" transparent={true} onRequestClose={() => setShowCountryPicker(false)}>
+      <Modal visible={showCountryPicker} animationType="fade" transparent={true} onRequestClose={() => setShowCountryPicker(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { paddingBottom: insets.bottom + 20 }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Country</Text>
-              <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
-                <MaterialCommunityIcons name="close" size={24} color="#ffffff" />
-              </TouchableOpacity>
-            </View>
-            <TextInput style={styles.searchInput} placeholder="Search countries..." placeholderTextColor="#9ca3af" value={searchQuery} onChangeText={setSearchQuery} />
-            <FlatList
-              data={filteredCountries}
-              keyExtractor={(item) => item.code}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.countryItem, country === item.code && styles.countryItemSelected]}
-                  onPress={() => { setCountry(item.code); setShowCountryPicker(false); setSearchQuery(''); }}
-                >
-                  <Text style={[styles.countryItemText, country === item.code && styles.countryItemTextSelected]}>{item.name}</Text>
-                  {country === item.code && <MaterialCommunityIcons name="check" size={20} color="#23C55E" />}
+          <TouchableOpacity 
+            style={StyleSheet.absoluteFill} 
+            activeOpacity={1} 
+            onPress={() => setShowCountryPicker(false)}
+          />
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={0}
+            style={styles.keyboardAvoidingContainer}
+          >
+            <Animated.View 
+              style={[
+                styles.modalContent, 
+                { 
+                  maxHeight: keyboardHeight > 0 
+                    ? SCREEN_HEIGHT - keyboardHeight - insets.bottom - 20
+                    : SCREEN_HEIGHT * 0.7,
+                  paddingBottom: insets.bottom + 20,
+                  transform: [{
+                    translateY: slideAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [400, 0], // Slide up from 400px below
+                    }),
+                  }],
+                }
+              ]}
+            >
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Country</Text>
+                <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
+                  <MaterialCommunityIcons name="close" size={24} color="#ffffff" />
                 </TouchableOpacity>
-              )}
-              showsVerticalScrollIndicator={false}
-            />
-          </View>
+              </View>
+              <TextInput 
+                style={styles.searchInput} 
+                placeholder="Search countries..." 
+                placeholderTextColor="#9ca3af" 
+                value={searchQuery} 
+                onChangeText={setSearchQuery}
+                autoFocus={false}
+              />
+              <View style={styles.countryListContainer}>
+                <FlatList
+                  data={filteredCountries}
+                  keyExtractor={(item) => item.code}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[styles.countryItem, country === item.code && styles.countryItemSelected]}
+                      onPress={() => { setCountry(item.code); setShowCountryPicker(false); setSearchQuery(''); }}
+                    >
+                      <Text style={[styles.countryItemText, country === item.code && styles.countryItemTextSelected]}>{item.name}</Text>
+                      {country === item.code && <MaterialCommunityIcons name="check" size={20} color="#23C55E" />}
+                    </TouchableOpacity>
+                  )}
+                  showsVerticalScrollIndicator={true}
+                  keyboardShouldPersistTaps="handled"
+                />
+                </View>
+            </Animated.View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </ImageBackground>
@@ -269,7 +360,21 @@ const styles = StyleSheet.create({
   loginText: { color: '#ffffff', fontSize: 14, fontFamily: 'Montserrat_400Regular' },
   loginLink: { color: '#23C55E', fontSize: 14, fontFamily: 'Montserrat_600SemiBold' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.7)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#1f2937', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 20, paddingHorizontal: 24, maxHeight: '70%' },
+  keyboardAvoidingContainer: {
+    justifyContent: 'flex-end',
+  },
+  modalContent: { 
+    backgroundColor: '#1f2937', 
+    borderTopLeftRadius: 24, 
+    borderTopRightRadius: 24, 
+    paddingTop: 20, 
+    paddingHorizontal: 24,
+    minHeight: 400,
+  },
+  countryListContainer: {
+    flex: 1,
+    minHeight: 200,
+  },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 20, fontFamily: 'Montserrat_700Bold', color: '#ffffff' },
   searchInput: { backgroundColor: 'rgba(17, 24, 40, 0.73)', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 15, fontFamily: 'Montserrat_400Regular', color: '#ffffff', marginBottom: 16 },

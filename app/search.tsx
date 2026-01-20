@@ -221,8 +221,7 @@ export default function SearchScreen() {
     } else if (item.type === 'team') {
       router.push(`/team/${item.id}`);
     } else if (item.type === 'league') {
-      // Handle league navigation if needed
-      console.log('Navigate to league:', item.id);
+      router.push(`/competition/${item.id}`);
     }
   };
 

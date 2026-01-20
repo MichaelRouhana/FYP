@@ -58,12 +58,14 @@ export function useProfile() {
       setUser(mappedUser);
 
       // Map betting stats to predictions
+      // Use totalLost from backend (excludes pending bets) instead of calculating totalBets - totalWins
       const totalBets = profileData.totalBets || 0;
       const totalWins = profileData.totalWins || 0;
+      const totalLost = profileData.totalLost || 0; // Only lost bets, excludes pending
       setPredictions({
         total: totalBets,
         correct: totalWins,
-        incorrect: totalBets - totalWins,
+        incorrect: totalLost, // Use totalLost instead of totalBets - totalWins to exclude pending
       });
 
       // TODO: Fetch favorite teams and communities from separate endpoints if available

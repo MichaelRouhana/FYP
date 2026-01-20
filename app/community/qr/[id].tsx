@@ -92,19 +92,6 @@ export default function QRCodeScreen() {
             )}
           </View>
 
-          {/* Invite Code Display */}
-          {inviteCode && inviteCode !== 'null' && inviteCode !== 'undefined' && (
-            <View style={styles.codeDisplayContainer}>
-              <Text style={styles.codeLabel}>Code:</Text>
-              <Text 
-                style={styles.codeText}
-                selectable={true}
-              >
-                {inviteCode}
-              </Text>
-            </View>
-          )}
-
           {/* Instruction Text */}
           {inviteCode && inviteCode !== 'null' && inviteCode !== 'undefined' ? (
             <Text style={styles.instructionText}>
@@ -170,24 +157,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-  },
-  codeDisplayContainer: {
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  codeLabel: {
-    fontSize: 14,
-    fontFamily: 'Montserrat_500Medium',
-    color: '#9ca3af',
-    marginBottom: 8,
-    letterSpacing: 0.5,
-  },
-  codeText: {
-    fontSize: 28,
-    fontFamily: 'Montserrat_700Bold',
-    color: '#F9FAFB',
-    letterSpacing: 2,
-    textAlign: 'center',
   },
   instructionText: {
     fontSize: 16,

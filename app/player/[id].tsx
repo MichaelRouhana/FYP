@@ -2,7 +2,6 @@ import { InfoCard, StatRow, StatSection } from '@/components/player';
 import { useTheme } from '@/context/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
 import api from '@/services/api';
-import { getPlayerStats, PlayerDetailedStatsDTO } from '@/services/playerApi';
 import { PlayerStats } from '@/types/player';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -19,8 +18,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type TabType = 'DETAILS' | 'STATS';
-
 export default function PlayerDetailsScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
@@ -30,9 +27,6 @@ export default function PlayerDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [playerData, setPlayerData] = useState<PlayerStats | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabType>('DETAILS');
-  const [detailedStats, setDetailedStats] = useState<PlayerDetailedStatsDTO | null>(null);
-  const [statsLoading, setStatsLoading] = useState(false);
 
   useEffect(() => {
     const fetchPlayerData = async () => {
@@ -83,6 +77,10 @@ export default function PlayerDetailsScreen() {
         }
 
         // Map API response to PlayerStats type
+        // Position is in statistics[0].games.position, not in playerInfo
+        const positionFromStats = statisticsArray[0]?.games?.position || statisticsArray[0]?.position;
+        const finalPosition = playerInfo.position || positionFromStats || 'N/A';
+        
         const mappedData: PlayerStats = {
           player: {
             id: playerInfo.id ?? 0,
@@ -99,7 +97,7 @@ export default function PlayerDetailsScreen() {
             height: playerInfo.height ?? 'N/A',
             weight: playerInfo.weight ?? 'N/A',
             photo: playerInfo.photo ?? '',
-            position: playerInfo.position ?? 'N/A',
+            position: finalPosition,
           },
           statistics: statisticsArray.map((stat: any) => ({
             team: {
@@ -118,36 +116,36 @@ export default function PlayerDetailsScreen() {
               rating: stat.games?.rating ?? '0.0',
             },
             shots: {
-              total: stat.shots?.total ?? 0,
-              on: stat.shots?.on ?? 0,
+              total: stat.shots?.total ?? null,
+              on: stat.shots?.on ?? null,
             },
             goals: {
               total: stat.goals?.total ?? 0,
               assists: stat.goals?.assists ?? 0,
-              saves: stat.goals?.saves ?? 0,
-              conceded: stat.goals?.conceded ?? 0,
+              saves: stat.goals?.saves ?? null,
+              conceded: stat.goals?.conceded ?? null,
             },
             passes: {
-              total: stat.passes?.total ?? 0,
-              key: stat.passes?.key ?? 0,
-              accuracy: stat.passes?.accuracy ?? 0,
+              total: stat.passes?.total ?? null,
+              key: stat.passes?.key ?? null,
+              accuracy: stat.passes?.accuracy ?? null,
             },
             tackles: {
-              total: stat.tackles?.total ?? 0,
-              blocks: stat.tackles?.blocks ?? 0,
-              interceptions: stat.tackles?.interceptions ?? 0,
+              total: stat.tackles?.total ?? null,
+              blocks: stat.tackles?.blocks ?? null,
+              interceptions: stat.tackles?.interceptions ?? null,
             },
             duels: {
-              total: stat.duels?.total ?? 0,
-              won: stat.duels?.won ?? 0,
+              total: stat.duels?.total ?? null,
+              won: stat.duels?.won ?? null,
             },
             dribbles: {
-              attempts: stat.dribbles?.attempts ?? 0,
-              success: stat.dribbles?.success ?? 0,
+              attempts: stat.dribbles?.attempts ?? null,
+              success: stat.dribbles?.success ?? null,
             },
             fouls: {
-              drawn: stat.fouls?.drawn ?? 0,
-              committed: stat.fouls?.committed ?? 0,
+              drawn: stat.fouls?.drawn ?? null,
+              committed: stat.fouls?.committed ?? null,
             },
             cards: {
               yellow: stat.cards?.yellow ?? 0,
@@ -155,8 +153,8 @@ export default function PlayerDetailsScreen() {
               red: stat.cards?.red ?? 0,
             },
             penalty: {
-              won: stat.penalty?.won ?? 0,
-              commited: stat.penalty?.commited ?? 0,
+              won: stat.penalty?.won ?? null,
+              commited: stat.penalty?.commited ?? null,
               scored: stat.penalty?.scored ?? 0,
               missed: stat.penalty?.missed ?? 0,
               saved: stat.penalty?.saved ?? 0,
@@ -180,25 +178,6 @@ export default function PlayerDetailsScreen() {
 
     fetchPlayerData();
   }, [playerId]);
-
-  // Fetch detailed stats when STATS tab is active
-  useEffect(() => {
-    const fetchDetailedStats = async () => {
-      if (activeTab === 'STATS' && playerId && playerId !== 'default' && !detailedStats) {
-        try {
-          setStatsLoading(true);
-          const stats = await getPlayerStats(Number(playerId), 2023);
-          setDetailedStats(stats);
-        } catch (err: any) {
-          console.error('Error fetching detailed stats:', err);
-        } finally {
-          setStatsLoading(false);
-        }
-      }
-    };
-
-    fetchDetailedStats();
-  }, [activeTab, playerId, detailedStats]);
 
   // Show loading indicator
   if (loading) {
@@ -281,84 +260,6 @@ export default function PlayerDetailsScreen() {
   }
 
   const renderContent = () => {
-    if (activeTab === 'STATS') {
-      return (
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Player Avatar & Name */}
-          <View style={styles.playerHeader}>
-            <Image
-              source={{ uri: player.photo }}
-              style={[styles.playerPhoto, { backgroundColor: isDark ? '#1A253D' : '#E5E7EB' }]}
-              defaultSource={require('@/images/SerieA.jpg')}
-            />
-            <Text style={[styles.playerName, { color: theme.colors.text }]}>{player.name.toUpperCase()}</Text>
-            <View style={styles.teamBadge}>
-              <Image
-                source={{ uri: stats.team.logo }}
-                style={styles.teamLogo}
-                defaultSource={require('@/images/SerieA.jpg')}
-              />
-              <Text style={[styles.teamName, { color: theme.colors.textSecondary }]}>{stats.team.name}</Text>
-            </View>
-          </View>
-
-          {statsLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
-              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading stats...</Text>
-            </View>
-          ) : detailedStats ? (
-            <>
-              {/* SUMMARY Container */}
-              <StatSection title="SUMMARY" isDark={isDark} theme={theme}>
-                <StatRow label="Matches" value={detailedStats.summary.matchesPlayed ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Minutes" value={detailedStats.summary.minutesPlayed ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Goals" value={detailedStats.summary.goals ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Assists" value={detailedStats.summary.assists ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Rating" value={detailedStats.summary.rating ?? '-'} isLast isDark={isDark} theme={theme} />
-              </StatSection>
-
-              {/* ATTACKING Container */}
-              <StatSection title="ATTACKING" isDark={isDark} theme={theme}>
-                <StatRow label="Shots" value={detailedStats.attacking.shotsTotal ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="On Target" value={detailedStats.attacking.shotsOnTarget ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Dribbles (Succ/Att)" value={`${detailedStats.attacking.dribblesSuccess ?? 0}/${detailedStats.attacking.dribblesAttempted ?? 0}`} isDark={isDark} theme={theme} />
-                <StatRow label="Penalties" value={`${detailedStats.attacking.penaltiesScored ?? 0}/${(detailedStats.attacking.penaltiesScored ?? 0) + (detailedStats.attacking.penaltiesMissed ?? 0)}`} isLast isDark={isDark} theme={theme} />
-              </StatSection>
-
-              {/* PASSING Container */}
-              <StatSection title="PASSING" isDark={isDark} theme={theme}>
-                <StatRow label="Key Passes" value={detailedStats.passing.keyPasses ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Total Passes" value={detailedStats.passing.totalPasses ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Accuracy" value={detailedStats.passing.passAccuracy !== null ? `${detailedStats.passing.passAccuracy}%` : '-'} isLast isDark={isDark} theme={theme} />
-              </StatSection>
-
-              {/* DEFENDING Container */}
-              <StatSection title="DEFENDING" isDark={isDark} theme={theme}>
-                <StatRow label="Tackles" value={detailedStats.defending.tacklesTotal ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Interceptions" value={detailedStats.defending.interceptions ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Blocks" value={detailedStats.defending.blocks ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Duels Won" value={detailedStats.defending.duelsWon ?? 0} isLast isDark={isDark} theme={theme} />
-              </StatSection>
-
-              {/* DISCIPLINE Container */}
-              <StatSection title="DISCIPLINE" isDark={isDark} theme={theme}>
-                <StatRow label="Yellow Cards" value={detailedStats.discipline.yellowCards ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Red Cards" value={detailedStats.discipline.redCards ?? 0} isDark={isDark} theme={theme} />
-                <StatRow label="Fouls" value={detailedStats.discipline.foulsCommitted ?? 0} isLast isDark={isDark} theme={theme} />
-              </StatSection>
-
-              <View style={styles.bottomSpacer} />
-            </>
-          ) : (
-            <View style={styles.loadingContainer}>
-              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>No stats available</Text>
-            </View>
-          )}
-        </ScrollView>
-      );
-    }
-
     // DETAILS Tab - Original content
     return (
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -479,16 +380,8 @@ export default function PlayerDetailsScreen() {
           <StatRow label="Second Yellow" value={stats.cards.yellowred} isLast isDark={isDark} theme={theme} />
         </StatSection>
 
-        {/* Duels Section */}
-        <StatSection title="DUELS" isDark={isDark} theme={theme}>
-          <StatRow label="Total Duels" value={stats.duels.total} isDark={isDark} theme={theme} />
-          <StatRow label="Duels Won" value={stats.duels.won} isLast isDark={isDark} theme={theme} />
-        </StatSection>
-
         {/* Fouls Section */}
         <StatSection title="FOULS" isDark={isDark} theme={theme}>
-          <StatRow label="Fouls Commited" value={stats.fouls.committed} isDark={isDark} theme={theme} />
-          <StatRow label="Fouls Drawn" value={stats.fouls.drawn} isDark={isDark} theme={theme} />
           <StatRow label="Line Ups" value={stats.games.lineups} isDark={isDark} theme={theme} />
           <StatRow label="Total Minutes" value={stats.games.minutes} isLast isDark={isDark} theme={theme} />
         </StatSection>
@@ -520,11 +413,6 @@ export default function PlayerDetailsScreen() {
           <StatRow label="In" value={stats.substitutes.in} isLast isDark={isDark} theme={theme} />
         </StatSection>
 
-        {/* Tackles Section */}
-        <StatSection title="TACKLES" isDark={isDark} theme={theme}>
-          <StatRow label="Total Tackles" value={stats.tackles.total} isLast isDark={isDark} theme={theme} />
-        </StatSection>
-
         <View style={styles.bottomSpacer} />
       </ScrollView>
     );
@@ -550,42 +438,6 @@ export default function PlayerDetailsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Custom Segmented Control Tabs */}
-      <View style={[styles.tabBar, { 
-        backgroundColor: isDark ? 'transparent' : theme.colors.headerBackground,
-        borderBottomColor: theme.colors.separator,
-      }]}>
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          contentContainerStyle={styles.tabScrollContent}
-        >
-          {(['DETAILS', 'STATS'] as TabType[]).map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={styles.tabButton}
-              onPress={() => setActiveTab(tab)}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.tabLabel,
-                  { 
-                    color: activeTab === tab 
-                      ? theme.colors.text 
-                      : theme.colors.textSecondary + '99',
-                  },
-                ]}
-              >
-                {tab}
-              </Text>
-              {activeTab === tab && (
-                <View style={[styles.tabIndicator, { backgroundColor: theme.colors.primary }]} />
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
 
       {renderContent()}
     </SafeAreaView>

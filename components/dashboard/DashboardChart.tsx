@@ -5,6 +5,7 @@ import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
 import { LineChart } from 'react-native-gifted-charts';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '@/context/ThemeContext';
 
 interface DashboardChartProps {
   title: string;
@@ -21,6 +22,7 @@ export default function DashboardChart({
   badgeValue,
   bigNumber,
 }: DashboardChartProps) {
+  const { theme, isDark } = useTheme();
   const screenWidth = Dimensions.get('window').width;
   const chartWidth = screenWidth - 80; // Account for padding
 
@@ -30,18 +32,18 @@ export default function DashboardChart({
   const chartCeiling = Math.ceil(maxDataValue + (maxDataValue * 0.2));
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.border }]}>
       <View style={styles.cardHeader}>
         <View>
-          <Text style={styles.cardTitle}>{title}</Text>
+          <Text style={[styles.cardTitle, { color: theme.colors.text }]}>{title}</Text>
           {bigNumber !== undefined && (
-            <Text style={styles.bigNumber}>{bigNumber.toLocaleString()}</Text>
+            <Text style={[styles.bigNumber, { color: theme.colors.text }]}>{bigNumber.toLocaleString()}</Text>
           )}
         </View>
         {badgeValue && (
           <View style={styles.badgeContainer}>
             <Ionicons name="ellipse" size={6} color={color} />
-            <Text style={styles.badgeText}>{badgeValue}</Text>
+            <Text style={[styles.badgeText, { color: theme.colors.text }]}>{badgeValue}</Text>
           </View>
         )}
       </View>
@@ -60,18 +62,18 @@ export default function DashboardChart({
           thickness={2}
           hideDataPoints={true}
           startFillColor={color}
-          endFillColor="#1F2937"
+          endFillColor={isDark ? '#1F2937' : '#F3F4F6'}
           startOpacity={0.4}
           endOpacity={0.0}
           yAxisColor="transparent"
           xAxisColor="transparent"
-          yAxisTextStyle={{ color: '#9CA3AF', fontSize: 10 }}
-          xAxisLabelTextStyle={{ color: '#4B5563', fontSize: 10, marginTop: 6 }}
+          yAxisTextStyle={{ color: theme.colors.textSecondary, fontSize: 10 }}
+          xAxisLabelTextStyle={{ color: theme.colors.textSecondary, fontSize: 10, marginTop: 6 }}
           rulesType="dashed"
-          rulesColor="#374151"
+          rulesColor={theme.colors.separator}
           hideRules={false}
           showVerticalLines={true}
-          verticalLinesColor="#374151"
+          verticalLinesColor={theme.colors.separator}
         />
       </View>
     </View>
@@ -80,13 +82,11 @@ export default function DashboardChart({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#111827',
     borderRadius: 16,
     padding: 16,
     marginHorizontal: 16,
     marginVertical: 10,
     borderWidth: 1,
-    borderColor: '#1F2937',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -103,7 +103,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   cardTitle: {
-    color: '#F9FAFB',
     fontSize: 14,
     fontFamily: 'Montserrat_700Bold',
     letterSpacing: 0.5,
@@ -111,7 +110,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   bigNumber: {
-    color: '#F9FAFB',
     fontSize: 28,
     fontFamily: 'Montserrat_700Bold',
   },
@@ -123,7 +121,6 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 11,
     fontFamily: 'Montserrat_600SemiBold',
-    color: '#F9FAFB',
   },
   chartWrapper: {
     marginLeft: -10,

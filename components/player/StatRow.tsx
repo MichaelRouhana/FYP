@@ -4,7 +4,7 @@ import { ThemeColors } from '@/context/ThemeContext';
 
 interface StatRowProps {
   label: string;
-  value: string | number;
+  value: string | number | null;
   isLast?: boolean;
   isDark?: boolean;
   theme?: { colors: ThemeColors };
@@ -13,11 +13,14 @@ interface StatRowProps {
 export const StatRow: React.FC<StatRowProps> = ({ label, value, isLast = false, isDark = true, theme }) => {
   const borderColor = theme?.colors?.separator || '#222F4E';
   const textColor = theme?.colors?.text || '#ffffff';
+  
+  // Display "-" for null values, otherwise display the value
+  const displayValue = value === null || value === undefined ? '-' : value;
 
   return (
     <View style={[styles.container, !isLast && [styles.withBorder, { borderBottomColor: borderColor }]]}>
       <Text style={[styles.label, { color: textColor }]}>{label}</Text>
-      <Text style={[styles.value, { color: textColor }]}>{value}</Text>
+      <Text style={[styles.value, { color: textColor }]}>{displayValue}</Text>
     </View>
   );
 };

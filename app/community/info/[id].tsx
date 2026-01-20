@@ -610,9 +610,12 @@ function LeaderboardTab({ communityId }: { communityId: string }) {
           renderItem={renderLeaderboardEntry}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={
-            <TouchableOpacity style={[styles.viewAllButton, { borderTopColor: theme.colors.separator }]}>
-              <Text style={[styles.viewAllText, { color: theme.colors.textSecondary }]}>View all</Text>
-            </TouchableOpacity>
+            // Only show "View all" if there are more than 5 entries (enough to fill the screen)
+            communityInfo.leaderboard.length > 5 ? (
+              <TouchableOpacity style={[styles.viewAllButton, { borderTopColor: theme.colors.separator }]}>
+                <Text style={[styles.viewAllText, { color: theme.colors.textSecondary }]}>View all</Text>
+              </TouchableOpacity>
+            ) : null
           }
         />
       </View>

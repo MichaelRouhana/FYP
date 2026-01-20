@@ -136,9 +136,9 @@ export default function CreateCommunityScreen() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={[styles.container, { paddingTop: insets.top, backgroundColor: isDark ? '#030712' : '#F3F4F6' }]}>
+      <View style={[styles.container, { paddingTop: Math.max(insets.top, 0), backgroundColor: isDark ? '#030712' : '#F3F4F6' }]}>
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
+        <View style={[styles.header, { borderBottomColor: isDark ? '#1f2937' : '#E5E7EB', paddingTop: 0, marginTop: 0 }]}>
           <TouchableOpacity
             style={styles.closeButton}
             onPress={() => router.back()}
@@ -334,7 +334,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 0,
+    paddingBottom: 12,
+    marginTop: 0,
+    marginBottom: 0,
     borderBottomWidth: 1,
   },
   closeButton: {

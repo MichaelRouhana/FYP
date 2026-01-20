@@ -11,7 +11,6 @@ import { useProfile } from '@/hooks/useProfile';
 import { useFavorites } from '@/hooks/useFavorites';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   RefreshControl,
   ScrollView,
@@ -39,7 +38,6 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [leagues, setLeagues] = useState<UILeague[]>([]);
-  const [debugAlertShown, setDebugAlertShown] = useState(false);
 
   const dates = useMemo(() => generateDates(), []);
 
@@ -62,10 +60,6 @@ export default function HomeScreen() {
     }, [leagues.length])
   );
 
-  // Reset debug alert when date/filter changes
-  useEffect(() => {
-    setDebugAlertShown(false);
-  }, [selectedDate, selectedFilter]);
 
   const fetchFixtures = async (silent = false) => {
     try {
@@ -76,7 +70,6 @@ export default function HomeScreen() {
       const response = await api.get<FixtureViewDTO[]>('/fixtures/public');
       const fixtures = response.data;
       
-      console.log(`[HomeScreen] Fetched ${fixtures.length} fixtures`);
       
       // Transform backend data to UI format
       const transformedLeagues = transformFixturesToLeagues(fixtures);
@@ -167,32 +160,6 @@ export default function HomeScreen() {
         matchSettings: fixture.matchSettings, // Include match settings for admin visibility checks
       };
       
-      // Debug: Log finished matches to verify they're being processed
-      if (statusShort === 'FT' || status === 'finished') {
-        console.log('[HomeScreen] ✅ Processed finished match:', {
-          id: match.id,
-          home: match.homeTeam.name,
-          away: match.awayTeam.name,
-          statusShort,
-          status,
-          date: match.date,
-          dateFormatted: new Date(match.date).toLocaleDateString(),
-        });
-      }
-      
-      // Also log if we see Ivory Coast or Cameroon (the known finished match)
-      if (match.homeTeam.name.includes('Ivory') || match.awayTeam.name.includes('Ivory') || 
-          match.homeTeam.name.includes('Cameroon') || match.awayTeam.name.includes('Cameroon')) {
-        console.log('[HomeScreen] 🔍 Found Ivory Coast/Cameroon match:', {
-          id: match.id,
-          home: match.homeTeam.name,
-          away: match.awayTeam.name,
-          statusShort,
-          status,
-          date: match.date,
-          dateFormatted: new Date(match.date).toLocaleDateString(),
-        });
-      }
 
       // Group by league
       if (!leagueMap.has(leagueId)) {
@@ -256,147 +223,6 @@ export default function HomeScreen() {
     const isPast = selectedDateOption ? isPastDate(selectedDateOption.fullDate) : false;
     const isFuture = selectedDateOption ? isFutureDate(selectedDateOption.fullDate) : false;
     
-    // Debug: Collect info for past dates (only show alert once)
-    if (isPast && !debugAlertShown) {
-      let allMatchesOnDate: any[] = [];
-      let finishedMatchesOnDate: any[] = [];
-      let otherMatchesOnDate: any[] = [];
-      let allFinishedMatches: any[] = []; // All finished matches regardless of date
-      
-      // First, collect ALL finished matches to see if they exist
-      leagues.forEach(league => {
-        league.matches.forEach(match => {
-          const statusShort = match.statusShort || '';
-          if (statusShort === 'FT' || match.status === 'finished') {
-            allFinishedMatches.push({
-              id: match.id,
-              home: match.homeTeam.name,
-              away: match.awayTeam.name,
-              statusShort,
-              status: match.status,
-              matchDate: match.date,
-              dateFormatted: new Date(match.date).toLocaleDateString(),
-            });
-          }
-        });
-      });
-      
-      // Check ALL matches for the selected date
-      leagues.forEach(league => {
-        league.matches.forEach(match => {
-          const statusShort = match.statusShort || '';
-          const matchesDate = isSameDay(match.date, selectedDateObj);
-          
-          if (matchesDate) {
-            allMatchesOnDate.push({
-              id: match.id,
-              home: match.homeTeam.name,
-              away: match.awayTeam.name,
-              statusShort,
-              status: match.status,
-              matchDate: match.date,
-            });
-            
-            const isFinished = ['FT', 'AET', 'PEN', 'WO', 'ABD', 'AWD'].includes(statusShort) || match.status === 'finished';
-            if (isFinished) {
-              finishedMatchesOnDate.push({
-                id: match.id,
-                home: match.homeTeam.name,
-                away: match.awayTeam.name,
-                statusShort,
-                status: match.status,
-              });
-            } else {
-              otherMatchesOnDate.push({
-                id: match.id,
-                home: match.homeTeam.name,
-                away: match.awayTeam.name,
-                statusShort,
-                status: match.status,
-              });
-            }
-          }
-        });
-      });
-      
-      // Show alert with debug info
-      setTimeout(() => {
-        const matchList = allMatchesOnDate.map(m => 
-          `${m.home} vs ${m.away}\n  Status: ${m.statusShort} (${m.status})`
-        ).join('\n\n');
-        
-        const finishedList = allFinishedMatches.map(m => 
-          `${m.home} vs ${m.away}\n  Date: ${m.dateFormatted}\n  Status: ${m.statusShort}`
-        ).join('\n\n');
-        
-        Alert.alert(
-          'Past Date Debug',
-          `Selected: ${selectedDateOption?.fullDate}\n\nOn this date:\nTotal: ${allMatchesOnDate.length}\nFinished: ${finishedMatchesOnDate.length}\nOther: ${otherMatchesOnDate.length}\n\nAll finished matches in data (${allFinishedMatches.length}):\n${finishedList || 'None'}\n\nMatches on selected date:\n${matchList || 'None'}`,
-          [{ text: 'OK', onPress: () => setDebugAlertShown(true) }]
-        );
-      }, 300);
-    }
-    
-    // Debug: Collect info for finished filter debugging (only show alert once)
-    if (selectedFilter === 'finished' && !debugAlertShown && !isPast) {
-      let finishedMatchesInfo: any[] = [];
-      let allMatchesWithFT: any[] = [];
-      
-      // Check ALL matches, not just filtered ones
-      leagues.forEach(league => {
-        league.matches.forEach(match => {
-          const statusShort = match.statusShort || '';
-          const matchesDate = isSameDay(match.date, selectedDateObj);
-          
-          // Collect all FT matches
-          if (statusShort === 'FT' || match.status === 'finished') {
-            allMatchesWithFT.push({
-              id: match.id,
-              home: match.homeTeam.name,
-              away: match.awayTeam.name,
-              statusShort,
-              status: match.status,
-              matchDate: match.date,
-              matchesDate,
-            });
-            
-            // Only include if date matches
-            if (matchesDate) {
-              finishedMatchesInfo.push({
-                id: match.id,
-                home: match.homeTeam.name,
-                away: match.awayTeam.name,
-                statusShort,
-                status: match.status,
-              });
-            }
-          }
-        });
-      });
-      
-      // Show alert with debug info
-      setTimeout(() => {
-        if (allMatchesWithFT.length > 0) {
-          const dateMatchInfo = allMatchesWithFT.map(m => 
-            `${m.home} vs ${m.away}\n  Status: ${m.statusShort}\n  Date matches: ${m.matchesDate}\n  Match date: ${new Date(m.matchDate).toLocaleDateString()}\n  Selected: ${selectedDateObj.toLocaleDateString()}`
-          ).join('\n\n');
-          
-          Alert.alert(
-            'Finished Matches Debug',
-            `Total FT matches found: ${allMatchesWithFT.length}\nMatches with date match: ${finishedMatchesInfo.length}\n\nSelected date: ${selectedDateOption?.fullDate}\n\nDetails:\n${dateMatchInfo}`,
-            [{ text: 'OK', onPress: () => setDebugAlertShown(true) }]
-      );
-        } else {
-          const totalMatches = leagues.reduce((sum, league) => sum + league.matches.length, 0);
-          Alert.alert(
-            'No Finished Matches Found',
-            `Total matches in data: ${totalMatches}\nSelected date: ${selectedDateOption?.fullDate}\n\nNo matches with FT status found in the data.`,
-            [{ text: 'OK', onPress: () => setDebugAlertShown(true) }]
-          );
-        }
-      }, 300);
-    }
-    
 
     // 2. Filter by top leagues if toggle is enabled
     let filteredLeaguesList = leagues;
@@ -409,39 +235,13 @@ export default function HomeScreen() {
       .map((league) => ({
         ...league,
         matches: league.matches.filter((match) => {
-          // Extract match status - ensure we have the statusShort (do this BEFORE date filter for debugging)
+          // Extract match status
           const statusShort = match.statusShort || '';
           
           // First filter by date
           const matchesDate = isSameDay(match.date, selectedDateObj);
           
-          // Debug: Log all finished matches to see what's being filtered
-          if (selectedFilter === 'finished' && (statusShort === 'FT' || match.status === 'finished')) {
-            console.log('[HomeScreen] Checking finished match:', {
-              id: match.id,
-              home: match.homeTeam.name,
-              away: match.awayTeam.name,
-              statusShort,
-              status: match.status,
-              matchDate: match.date,
-              selectedDate: selectedDateObj.toISOString(),
-              matchesDate,
-              isPast,
-              isFuture,
-            });
-          }
-          
           if (!matchesDate) {
-            // Debug: Log why finished matches are being filtered out
-            if (selectedFilter === 'finished' && (statusShort === 'FT' || match.status === 'finished')) {
-              console.warn('[HomeScreen] Finished match filtered out by date:', {
-                id: match.id,
-                matchDate: match.date,
-                selectedDate: selectedDateObj.toISOString(),
-                matchLocal: new Date(match.date).toLocaleDateString(),
-                selectedLocal: selectedDateObj.toLocaleDateString(),
-              });
-            }
             return false;
           }
           
@@ -469,15 +269,6 @@ export default function HomeScreen() {
           if (selectedFilter === 'finished') {
             // FIX: Expanded Finished Statuses - check both statusShort and status
             const isFinished = ['FT', 'AET', 'PEN', 'WO', 'ABD', 'AWD'].includes(statusShort) || match.status === 'finished';
-            if (isFinished) {
-              console.log('[HomeScreen] ✅ Including finished match:', {
-                id: match.id,
-                home: match.homeTeam.name,
-                away: match.awayTeam.name,
-                statusShort,
-                status: match.status,
-              });
-            }
             return isFinished;
           }
           
@@ -666,41 +457,67 @@ export default function HomeScreen() {
 
   const renderLeagueCard = (league: UILeague) => {
     const isExpanded = expandedLeagues.has(String(league.id));
+    const isLeagueFavorite = isFavorite('competition', league.id);
+
+    const handleToggleFavorite = (e: any) => {
+      e.stopPropagation();
+      toggleFavorite('competition', {
+        id: league.id,
+        name: league.name,
+        logo: league.logo,
+        country: league.country,
+        type: 'competition',
+      });
+    };
 
     return (
       <View key={league.id} style={[styles.leagueCard, { backgroundColor: theme.colors.cardBackground, borderWidth: isDark ? 0 : 1, borderColor: theme.colors.border }]}>
         {/* League Header */}
-        <TouchableOpacity
-          style={styles.leagueHeader}
-          onPress={() => toggleLeague(league.id)}
-          activeOpacity={0.7}
-        >
-          {league.logo ? (
-            <Image source={{ uri: league.logo }} style={styles.leagueLogo} />
-          ) : (
-            <View style={[styles.leagueLogo, { backgroundColor: theme.colors.textMuted }]} />
-          )}
-          <View style={styles.leagueInfo}>
-            <Text style={[styles.leagueName, { color: theme.colors.text }]} numberOfLines={1}>
-              {league.name}
-            </Text>
-            <Text style={[styles.leagueCountry, { color: theme.colors.textMuted }]}>
-              {league.country}
-            </Text>
-          </View>
-          <View style={[styles.leagueSeparator, { backgroundColor: theme.colors.separator }]} />
-          <View style={styles.matchCountContainer}>
-            <Text style={[styles.matchCountDot, { color: theme.colors.primary }]}>•</Text>
-            <Text style={[styles.matchCountText, { color: theme.colors.textMuted }]}>
-              {league.matches.length} {league.matches.length === 1 ? 'match' : 'matches'}
-            </Text>
-          </View>
-          <MaterialCommunityIcons
-            name={isExpanded ? 'chevron-up' : 'chevron-down'}
-            size={24}
-            color={theme.colors.iconMuted}
-          />
-        </TouchableOpacity>
+        <View style={styles.leagueHeader}>
+          <TouchableOpacity
+            style={styles.leagueHeaderContent}
+            onPress={() => toggleLeague(league.id)}
+            activeOpacity={0.7}
+          >
+            {league.logo ? (
+              <Image source={{ uri: league.logo }} style={styles.leagueLogo} />
+            ) : (
+              <View style={[styles.leagueLogo, { backgroundColor: theme.colors.textMuted }]} />
+            )}
+            <View style={styles.leagueInfo}>
+              <Text style={[styles.leagueName, { color: theme.colors.text }]} numberOfLines={1} ellipsizeMode="tail">
+                {league.name}
+              </Text>
+              <Text style={[styles.leagueCountry, { color: theme.colors.textMuted }]} numberOfLines={1} ellipsizeMode="tail">
+                {league.country}
+              </Text>
+            </View>
+            <View style={[styles.leagueSeparator, { backgroundColor: theme.colors.separator }]} />
+            <View style={styles.matchCountContainer}>
+              <Text style={[styles.matchCountDot, { color: theme.colors.primary }]}>•</Text>
+              <Text style={[styles.matchCountText, { color: theme.colors.textMuted }]}>
+                {league.matches.length} {league.matches.length === 1 ? 'match' : 'matches'}
+              </Text>
+            </View>
+            <MaterialCommunityIcons
+              name={isExpanded ? 'chevron-up' : 'chevron-down'}
+              size={24}
+              color={theme.colors.iconMuted}
+              style={styles.chevronIcon}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleToggleFavorite}
+            style={styles.leagueFavoriteButton}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name={isLeagueFavorite ? 'star' : 'star-outline'}
+              size={24}
+              color={isLeagueFavorite ? theme.colors.primary : theme.colors.iconMuted}
+            />
+          </TouchableOpacity>
+        </View>
 
         {/* Matches */}
         {isExpanded && (
@@ -1040,13 +857,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
   },
+  leagueHeaderContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  leagueFavoriteButton: {
+    padding: 4,
+    marginLeft: 8,
+  },
   leagueLogo: {
     width: 40,
     height: 40,
     borderRadius: 8,
   },
   leagueInfo: {
+    flex: 1,
+    minWidth: 0,
     marginLeft: 12,
+    marginRight: 12,
   },
   leagueName: {
     fontSize: 13,
@@ -1062,12 +891,15 @@ const styles = StyleSheet.create({
     width: 1,
     height: 30,
     backgroundColor: '#374151',
-    marginHorizontal: 16,
+    marginRight: 12,
   },
   matchCountContainer: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    marginRight: 8,
+  },
+  chevronIcon: {
+    marginLeft: 0,
   },
   matchCountDot: {
     fontSize: 20,

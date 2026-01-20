@@ -273,31 +273,49 @@ export default function FavoritesScreen() {
     );
   };
 
-  const renderCompetitionItem = (item: any) => (
-    <TouchableOpacity
-      key={item.id}
-      style={[styles.itemCard, { backgroundColor: theme.colors.cardBackground }]}
-    >
-      <View style={styles.itemContent}>
-        <View style={styles.competitionInfo}>
-          {item.logo && (
-            <Image source={{ uri: item.logo }} style={styles.competitionLogo} />
-          )}
-          <View style={styles.competitionDetails}>
-            <Text style={[styles.competitionName, { color: theme.colors.text }]}>
-              {item.name || 'Unknown Competition'}
-            </Text>
-            {item.country && (
-              <Text style={[styles.competitionCountry, { color: theme.colors.textSecondary }]}>
-                {item.country}
-            </Text>
+  const renderCompetitionItem = (item: any) => {
+    const isFav = isFavorite('competition', item.id);
+    
+    return (
+      <TouchableOpacity
+        key={item.id}
+        style={[styles.itemCard, { backgroundColor: theme.colors.cardBackground }]}
+        onPress={() => router.push(`/competition/${item.id}`)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.itemContent}>
+          <View style={styles.competitionInfo}>
+            {(item.logo || item.imageUrl) && (
+              <Image source={{ uri: item.logo || item.imageUrl }} style={styles.competitionLogo} />
             )}
+            <View style={styles.competitionDetails}>
+              <Text style={[styles.competitionName, { color: theme.colors.text }]}>
+                {item.name || 'Unknown Competition'}
+              </Text>
+              {item.country && (
+                <Text style={[styles.competitionCountry, { color: theme.colors.textSecondary }]}>
+                  {item.country}
+                </Text>
+              )}
+            </View>
           </View>
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation();
+              toggleFavorite('competition', item);
+            }}
+            style={styles.favoriteButton}
+          >
+            <MaterialCommunityIcons
+              name={isFav ? 'star' : 'star-outline'}
+              size={24}
+              color={isFav ? theme.colors.primary : theme.colors.iconMuted}
+            />
+          </TouchableOpacity>
         </View>
-        <Ionicons name="star" size={24} color="#16a34a" />
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   const renderContent = () => {
     if (loading) {

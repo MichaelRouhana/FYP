@@ -9,8 +9,8 @@ interface StatRowProps {
 }
 
 export const StatRow: React.FC<StatRowProps> = ({ label, value, theme }) => {
-  const labelColor = theme?.colors?.textSecondary || '#9ca3af';
-  const valueColor = theme?.colors?.text || '#ffffff';
+  const labelColor = theme?.colors?.textSecondary || '#6B7280';
+  const valueColor = theme?.colors?.text || '#18223A';
 
   return (
     <View style={styles.container}>

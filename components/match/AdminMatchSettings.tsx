@@ -350,7 +350,6 @@ const styles = StyleSheet.create({
   },
   subNav: {
     flexDirection: 'row',
-    backgroundColor: '#030712',
     paddingHorizontal: 16,
     paddingVertical: 8,
     gap: 8,

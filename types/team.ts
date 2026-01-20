@@ -18,28 +18,14 @@ export interface TeamStats {
     goalsScored: number;
     penaltiesScored: number;
     penaltiesMissed: number;
-    shotsOnGoal: number;
-    shotsOffGoal: number;
-    totalShots?: number;
-  };
-  passing: {
-    totalPasses?: number;
-    passesAccurate?: number;
-    passAccuracyPercentage?: number | string;
   };
   defending: {
     goalsConceded: number;
     cleanSheets: number;
-    saves?: number;
-    tackles?: number;
-    interceptions?: number;
   };
   other: {
     yellowCards: number;
     redCards: number;
-    fouls?: number;
-    corners?: number;
-    offsides?: number;
   };
 }
 

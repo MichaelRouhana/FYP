@@ -180,6 +180,7 @@ export const fetchTeamStats = async (
     }
     
     const response = await api.get(`/team/${teamId}/statistics`, { params });
+    console.log('Team Stats API Response:', JSON.stringify(response.data, null, 2));
     return response.data as TeamStats;
   } catch (error: any) {
     console.error('Error fetching team stats:', error);

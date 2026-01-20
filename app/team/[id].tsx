@@ -230,7 +230,11 @@ export default function TeamDetails() {
       if (activeTab === 'STATS' && teamId && !stats && !statsLoading) {
         try {
           setStatsLoading(true);
-          const teamStats = await fetchTeamStats(teamId, selectedLeagueId);
+          // Use 2025 season (current season with data)
+          const currentSeason = 2025;
+          console.log(`[Team Stats] Fetching for teamId: ${teamId}, leagueId: ${selectedLeagueId}, season: ${currentSeason}`);
+          const teamStats = await fetchTeamStats(teamId, selectedLeagueId, currentSeason);
+          console.log('[Team Stats] Fetched:', JSON.stringify(teamStats, null, 2));
           setStats(teamStats);
         } catch (error) {
           console.error('Error fetching team stats:', error);
@@ -291,6 +295,7 @@ export default function TeamDetails() {
         { 
           backgroundColor: theme.colors.headerBackground,
           paddingTop: insets.top,
+          borderBottomColor: theme.colors.separator,
         }
       ]}>
         {/* Back Button */}
@@ -428,7 +433,7 @@ export default function TeamDetails() {
                 <View style={styles.infoList}>
                   {/* Stadium Name */}
                   {details.stadiumName && (
-                    <View style={styles.infoRow}>
+                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
                       <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
                         <MaterialCommunityIcons name="stadium" size={24} color={theme.colors.primary} />
                       </View>
@@ -441,7 +446,7 @@ export default function TeamDetails() {
 
                   {/* City */}
                   {details.city && (
-                    <View style={styles.infoRow}>
+                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
                       <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
                         <Ionicons name="location" size={24} color={theme.colors.primary} />
                       </View>
@@ -454,7 +459,7 @@ export default function TeamDetails() {
 
                   {/* Capacity */}
                   {details.capacity && details.capacity > 0 && (
-                    <View style={styles.infoRow}>
+                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
                       <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
                         <Ionicons name="people" size={24} color={theme.colors.primary} />
                       </View>
@@ -469,7 +474,7 @@ export default function TeamDetails() {
 
                   {/* Founded Year */}
                   {details.foundedYear && details.foundedYear > 0 && (
-                    <View style={styles.infoRow}>
+                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
                       <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
                         <Ionicons name="calendar" size={24} color={theme.colors.primary} />
                       </View>
@@ -502,7 +507,7 @@ export default function TeamDetails() {
             <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Team Information</Text>
             <View style={styles.infoList}>
               {/* Coach */}
-              <View style={styles.infoRow}>
+              <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
                 <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border, overflow: 'hidden' }]}>
                   {teamData.coachImageUrl ? (
                     <Image 
@@ -521,7 +526,7 @@ export default function TeamDetails() {
               </View>
 
               {/* Country */}
-              <View style={styles.infoRow}>
+              <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
                 <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
                   {teamData.countryFlag ? (
                     <Text style={styles.infoFlagIcon}>{teamData.countryFlag}</Text>
@@ -536,7 +541,7 @@ export default function TeamDetails() {
               </View>
 
               {/* Founded */}
-              <View style={styles.infoRow}>
+              <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
                 <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
                   <Ionicons name="calendar" size={24} color={theme.colors.primary} />
                 </View>
@@ -547,7 +552,7 @@ export default function TeamDetails() {
               </View>
 
               {/* UEFA Ranking */}
-              <View style={styles.infoRow}>
+              <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
                 <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.border }]}>
                   <MaterialCommunityIcons name="trophy" size={24} color={theme.colors.primary} />
                 </View>
@@ -632,8 +637,8 @@ export default function TeamDetails() {
               <ActivityIndicator size="large" color={theme.colors.primary} />
               <Text style={[styles.loadingText, { color: theme.colors.textSecondary, marginTop: 12 }]}>
                 Loading standings...
-              </Text>
-            </View>
+                    </Text>
+          </View>
           ) : currentStandings.length > 0 ? (
             <View style={[styles.standingsCard, { 
               backgroundColor: theme.colors.cardBackground,
@@ -670,6 +675,7 @@ export default function TeamDetails() {
                     row.isCurrent && styles.tableRowHighlighted,
                     {
                       borderBottomColor: theme.colors.separator,
+                      backgroundColor: row.isCurrent ? theme.colors.primary : 'transparent',
                     },
                   ]}
                 >
@@ -1006,9 +1012,6 @@ export default function TeamDetails() {
               {/* Attacking Group */}
               <StatsGroup title="Attacking" data={stats.attacking} theme={theme} />
 
-              {/* Passing Group */}
-              <StatsGroup title="Passing" data={stats.passing} theme={theme} />
-
               {/* Defending Group */}
               <StatsGroup title="Defending" data={stats.defending} theme={theme} />
 
@@ -1065,7 +1068,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
   },
   headerBackButton: {
     padding: 8,
@@ -1165,7 +1167,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   infoIconCircle: {
     width: 48,
@@ -1386,7 +1387,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   tableRowHighlighted: {
-    backgroundColor: '#3FAC66',
     marginHorizontal: -16,
     paddingHorizontal: 24,
   },

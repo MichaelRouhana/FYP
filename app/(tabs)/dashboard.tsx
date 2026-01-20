@@ -20,10 +20,12 @@ import { router } from 'expo-router';
 import { useDashboardUsers } from '@/hooks/useDashboardUsers';
 import DashboardBets from '@/components/dashboard/DashboardBets';
 import Colors from '@/constants/Colors';
+import { useTheme } from '@/context/ThemeContext';
 
-type TabType = 'USERS' | 'BETS' | 'MATCHES';
+type TabType = 'USERS' | 'BETS';
 
 export default function DashboardScreen() {
+  const { theme, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('USERS');
   const [refreshing, setRefreshing] = useState(false);
   const { totalUsers, totalActiveUsers, users, logs, loading, error, refetch } = useDashboardUsers();
@@ -107,18 +109,18 @@ export default function DashboardScreen() {
           thickness={2}
           hideDataPoints={true}
           startFillColor={color}
-          endFillColor="#1F2937"
+          endFillColor={isDark ? '#1F2937' : '#F3F4F6'}
           startOpacity={0.4}
           endOpacity={0.0}
           yAxisColor="transparent"
           xAxisColor="transparent"
-          yAxisTextStyle={{ color: '#9CA3AF', fontSize: 10 }}
-          xAxisLabelTextStyle={{ color: '#4B5563', fontSize: 10, marginTop: 6 }}
+          yAxisTextStyle={{ color: theme.colors.textSecondary, fontSize: 10 }}
+          xAxisLabelTextStyle={{ color: theme.colors.textSecondary, fontSize: 10, marginTop: 6 }}
           rulesType="dashed"
-          rulesColor="#374151"
+          rulesColor={theme.colors.separator}
           hideRules={false}
           showVerticalLines={true}
-          verticalLinesColor="#374151"
+          verticalLinesColor={theme.colors.separator}
         />
       </View>
     );
@@ -126,73 +128,64 @@ export default function DashboardScreen() {
 
   if (loading && !refreshing) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Dashboard</Text>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
+        <View style={[styles.header, { borderBottomColor: theme.colors.separator }]}>
+          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Dashboard</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={Colors.dark.tint} />
+          <ActivityIndicator size="large" color={theme.colors.primary} />
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.colors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Dashboard</Text>
+      <View style={[styles.header, { borderBottomColor: theme.colors.separator }]}>
+        <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Dashboard</Text>
       </View>
 
       {/* Top Tabs */}
-      <View style={styles.tabsContainer}>
+      <View style={[styles.tabsContainer, { backgroundColor: theme.colors.headerBackground, borderBottomColor: theme.colors.separator }]}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'USERS' && styles.tabActive]}
           onPress={() => setActiveTab('USERS')}
         >
-          <Text style={[styles.tabText, activeTab === 'USERS' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, { color: activeTab === 'USERS' ? theme.colors.text : theme.colors.textSecondary }, activeTab === 'USERS' && styles.tabTextActive]}>
             USERS
           </Text>
-          {activeTab === 'USERS' && <View style={styles.tabIndicator} />}
+          {activeTab === 'USERS' && <View style={[styles.tabIndicator, { backgroundColor: theme.colors.primary }]} />}
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'BETS' && styles.tabActive]}
           onPress={() => setActiveTab('BETS')}
         >
-          <Text style={[styles.tabText, activeTab === 'BETS' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, { color: activeTab === 'BETS' ? theme.colors.text : theme.colors.textSecondary }, activeTab === 'BETS' && styles.tabTextActive]}>
             BETS
           </Text>
-          {activeTab === 'BETS' && <View style={styles.tabIndicator} />}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'MATCHES' && styles.tabActive]}
-          onPress={() => setActiveTab('MATCHES')}
-        >
-          <Text style={[styles.tabText, activeTab === 'MATCHES' && styles.tabTextActive]}>
-            MATCHES
-          </Text>
-          {activeTab === 'MATCHES' && <View style={styles.tabIndicator} />}
+          {activeTab === 'BETS' && <View style={[styles.tabIndicator, { backgroundColor: theme.colors.primary }]} />}
         </TouchableOpacity>
       </View>
 
       <ScrollView
-        style={styles.scrollView}
+        style={[styles.scrollView, { backgroundColor: theme.colors.background }]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.dark.tint} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />}
       >
         {activeTab === 'USERS' && (
           <>
             {/* Total Users Card - Full Width */}
-            <View style={styles.statCard}>
-              <Text style={styles.cardTitle}>TOTAL USERS</Text>
+            <View style={[styles.statCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.border }]}>
+              <Text style={[styles.cardTitle, { color: theme.colors.text }]}>TOTAL USERS</Text>
               {renderChart(totalUsersData, '#818CF8')}
             </View>
 
             {/* Active Users Card - Full Width */}
-            <View style={styles.statCard}>
+            <View style={[styles.statCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.border }]}>
               <View style={styles.statCardHeader}>
-                <Text style={styles.cardTitle}>TOTAL ACTIVE USERS</Text>
+                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>TOTAL ACTIVE USERS</Text>
                 <View style={styles.percentageBadge}>
                   <Ionicons name="ellipse" size={6} color="#22c55e" />
                   <Text style={styles.percentageText}>{activeUsersPercentage}%</Text>
@@ -202,23 +195,23 @@ export default function DashboardScreen() {
             </View>
 
             {/* Users Section */}
-            <View style={styles.section}>
+            <View style={[styles.section, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.border }]}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Users</Text>
-                <Text style={styles.sectionSubtitle}>{users.length} results</Text>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Users</Text>
+                <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>{users.length} results</Text>
               </View>
               {topUsers.map((user, index) => (
-                <View key={user.id || index} style={styles.listRow}>
+                <View key={user.id || index} style={[styles.listRow, { borderBottomColor: theme.colors.separator }]}>
                   <Image
                     source={{
                       uri: user.pfp || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username || 'User')}&background=3b82f6&color=fff&size=200`,
                     }}
-                    style={styles.avatar}
+                    style={[styles.avatar, { backgroundColor: theme.colors.border }]}
                     defaultSource={require('@/assets/images/icon.png')}
                   />
                   <View style={styles.listRowContent}>
-                    <Text style={styles.listRowTitle}>{user.username}</Text>
-                    <Text style={styles.listRowSubtitle}>
+                    <Text style={[styles.listRowTitle, { color: theme.colors.text }]}>{user.username}</Text>
+                    <Text style={[styles.listRowSubtitle, { color: theme.colors.textSecondary }]}>
                       {((user as any).displayPoints ?? user.totalPoints ?? user.points ?? 0).toLocaleString()} POINTS
                     </Text>
                   </View>
@@ -233,10 +226,10 @@ export default function DashboardScreen() {
             </View>
 
             {/* System Logs Section */}
-            <View style={styles.section}>
+            <View style={[styles.section, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.border }]}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>System Logs</Text>
-                <Text style={styles.sectionSubtitle}>{logs.length} rows</Text>
+                <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>System Logs</Text>
+                <Text style={[styles.sectionSubtitle, { color: theme.colors.textSecondary }]}>{logs.length} rows</Text>
               </View>
               {logs.length > 0 ? (
                 logs.slice(0, 8).map((log, index) => {
@@ -251,16 +244,16 @@ export default function DashboardScreen() {
                     : 'N/A';
 
                   return (
-                    <View key={log.id || index} style={styles.logRow}>
-                      <Text style={styles.logText}>
+                    <View key={log.id || index} style={[styles.logRow, { borderBottomColor: theme.colors.separator }]}>
+                      <Text style={[styles.logText, { color: theme.colors.textSecondary }]}>
                         {index + 1} {timestamp} INFO {log.username} {log.action} - {log.details}
                       </Text>
                     </View>
                   );
                 })
               ) : (
-                <View style={styles.logRow}>
-                  <Text style={styles.logText}>No logs available</Text>
+                <View style={[styles.logRow, { borderBottomColor: theme.colors.separator }]}>
+                  <Text style={[styles.logText, { color: theme.colors.textSecondary }]}>No logs available</Text>
                 </View>
               )}
               <TouchableOpacity style={styles.viewAllButton}>
@@ -271,12 +264,6 @@ export default function DashboardScreen() {
         )}
 
         {activeTab === 'BETS' && <DashboardBets />}
-
-        {activeTab === 'MATCHES' && (
-          <View style={styles.placeholderContainer}>
-            <Text style={styles.placeholderText}>MATCHES tab coming soon</Text>
-          </View>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -285,25 +272,20 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#030712',
   },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
   },
   headerTitle: {
     fontSize: 28,
     fontFamily: 'Montserrat_700Bold',
-    color: '#F9FAFB',
     letterSpacing: 0.5,
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#030712',
     borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
   },
   tab: {
     flex: 1,
@@ -317,10 +299,8 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     fontFamily: 'Montserrat_500Medium',
-    color: '#6b7280',
   },
   tabTextActive: {
-    color: '#F9FAFB',
     fontFamily: 'Montserrat_600SemiBold',
   },
   tabIndicator: {
@@ -329,7 +309,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2,
-    backgroundColor: '#22c55e',
   },
   scrollView: {
     flex: 1,
@@ -339,13 +318,11 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   statCard: {
-    backgroundColor: '#111827',
     borderRadius: 16,
     padding: 16,
     marginHorizontal: 16,
     marginVertical: 10,
     borderWidth: 1,
-    borderColor: '#1F2937',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -362,7 +339,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   cardTitle: {
-    color: '#F9FAFB',
     fontSize: 14,
     fontFamily: 'Montserrat_700Bold',
     marginBottom: 20,
@@ -384,13 +360,11 @@ const styles = StyleSheet.create({
     color: '#22c55e',
   },
   section: {
-    backgroundColor: '#111827',
     borderRadius: 16,
     padding: 16,
     marginHorizontal: 16,
     marginVertical: 10,
     borderWidth: 1,
-    borderColor: '#1F2937',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -409,14 +383,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontFamily: 'Montserrat_700Bold',
-    color: '#F9FAFB',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   sectionSubtitle: {
     fontSize: 13,
     fontFamily: 'Montserrat_400Regular',
-    color: '#9CA3AF',
   },
   listRow: {
     flexDirection: 'row',
@@ -424,14 +396,12 @@ const styles = StyleSheet.create({
     height: 72,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
   },
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
     marginRight: 12,
-    backgroundColor: '#1F2937',
   },
   listRowContent: {
     flex: 1,
@@ -440,13 +410,11 @@ const styles = StyleSheet.create({
   listRowTitle: {
     fontSize: 15,
     fontFamily: 'Montserrat_600SemiBold',
-    color: '#F9FAFB',
     marginBottom: 4,
   },
   listRowSubtitle: {
     fontSize: 13,
     fontFamily: 'Montserrat_400Regular',
-    color: '#9CA3AF',
   },
   viewAllButton: {
     paddingVertical: 16,
@@ -462,12 +430,10 @@ const styles = StyleSheet.create({
   logRow: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#1F2937',
   },
   logText: {
     fontSize: 12,
     fontFamily: 'monospace',
-    color: '#9CA3AF',
     lineHeight: 16,
   },
   loadingContainer: {

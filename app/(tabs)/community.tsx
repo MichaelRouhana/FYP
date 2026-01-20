@@ -51,10 +51,7 @@ export default function CommunityScreen() {
   };
 
   const handleQRPress = () => {
-    router.push({
-      pathname: '/community/qr/[id]',
-      params: { id: 'browse', name: 'Browse Communities' },
-    });
+    router.push('/community/scan');
   };
 
   const handleScanPress = () => {
@@ -218,6 +215,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
+    marginTop: 16,
     marginBottom: 20,
   },
   searchIcon: {
