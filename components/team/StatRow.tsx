@@ -9,9 +9,14 @@ interface StatRowProps {
 }
 
 export const StatRow: React.FC<StatRowProps> = ({ label, value, theme }) => {
-  // Use theme colors with light mode friendly fallbacks
-  const labelColor = theme?.colors?.textSecondary || '#6B7280';
-  const valueColor = theme?.colors?.text || '#18223A';
+  // Use theme colors - require theme to be passed
+  if (!theme?.colors) {
+    console.warn('StatRow: theme prop is required');
+    return null;
+  }
+  
+  const labelColor = theme.colors.textSecondary;
+  const valueColor = theme.colors.text;
 
   return (
     <View style={styles.container}>

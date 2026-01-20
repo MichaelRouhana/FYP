@@ -1,18 +1,14 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 import { getItem } from '@/utils/storage';
+import { getApiBaseUrl } from '@/config';
 
 // ----------------------------------------------------------------------
 // 1. CONFIGURATION
 // ----------------------------------------------------------------------
-// Use localhost for web, local IP for native devices
-const IP_ADDRESS = '192.168.10.249'; 
-const PORT = '8080';
-
-// On web, use localhost. On native, use the local IP address
-const BASE_URL = Platform.OS === 'web' 
-  ? `http://localhost:${PORT}/api/v1`
-  : `http://${IP_ADDRESS}:${PORT}/api/v1`;
+// API base URL is now configured via environment variables
+// See config.ts and .env.example for configuration options
+const BASE_URL = getApiBaseUrl(Platform.OS);
 
 console.log(`🔌 API Initialized connecting to: ${BASE_URL} (Platform: ${Platform.OS})`);
 

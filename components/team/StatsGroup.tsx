@@ -26,10 +26,15 @@ export const StatsGroup: React.FC<StatsGroupProps> = ({ title, data, theme }) =>
     return null;
   }
 
-  // Use theme colors with light mode friendly fallbacks
-  const backgroundColor = theme?.colors?.cardBackground || '#FFFFFF';
-  const titleColor = theme?.colors?.text || '#18223A';
-  const borderColor = theme?.colors?.separator || '#E5E7EB';
+  // Use theme colors - require theme to be passed, no fallbacks that force colors
+  if (!theme?.colors) {
+    console.warn('StatsGroup: theme prop is required');
+    return null;
+  }
+  
+  const backgroundColor = theme.colors.cardBackground;
+  const titleColor = theme.colors.text;
+  const borderColor = theme.colors.separator;
 
   // Format values appropriately (e.g., percentages)
   const formatValue = (key: string, value: number | string | undefined): string | number => {
