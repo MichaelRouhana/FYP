@@ -1,7 +1,7 @@
 const green = '#16a34a'; // primary brand green
 const greenLight = '#22c55e';
 const darkBg = '#0f172a';
-const darkCard = '#111827';
+const darkCard = '#161d2f'; // Distinct but complementary to background
 
 export default {
   light: {

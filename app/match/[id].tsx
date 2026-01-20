@@ -1026,7 +1026,11 @@ export default function MatchDetailsScreen() {
           }
         ]}>
           <TextInput
-            style={[styles.stakeInput, { color: isDark ? '#ffffff' : '#18223A' }]}
+            style={[styles.stakeInput, { 
+              color: isDark ? '#ffffff' : '#18223A',
+              borderWidth: 0,
+              borderColor: 'transparent',
+            }]}
             placeholder="Enter your stake"
             placeholderTextColor={isDark ? '#6b7280' : '#9CA3AF'}
             value={stake}
@@ -3722,9 +3726,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     color: '#ffffff',
     paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
+    paddingHorizontal: 0,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   stakeUnit: {
     fontSize: 15,

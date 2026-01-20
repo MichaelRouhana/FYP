@@ -1,23 +1,23 @@
-import { Stack, useLocalSearchParams, router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import {
-  Image,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  Platform,
-} from 'react-native';
+import { StatsGroup } from '@/components/team/StatsGroup';
 import { Text, View } from '@/components/Themed';
 import { useTheme } from '@/context/ThemeContext';
 import { useFavorites } from '@/hooks/useFavorites';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getTeamDetails, TeamDetailsDTO, getTeamHeader, TeamHeader, getSquad, SquadMemberDTO, fetchTeamStats } from '@/services/teamApi';
-import { TeamStats } from '@/types/team';
-import { StatsGroup } from '@/components/team/StatsGroup';
 import { getStandings } from '@/services/matchApi';
+import { fetchTeamStats, getSquad, getTeamDetails, getTeamHeader, SquadMemberDTO, TeamDetailsDTO, TeamHeader } from '@/services/teamApi';
+import { TeamStats } from '@/types/team';
 import { mapStandingsToUI } from '@/utils/matchDataMapper';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type TabType = 'DETAILS' | 'STANDINGS' | 'SQUAD' | 'STATS';
 
@@ -295,7 +295,7 @@ export default function TeamDetails() {
         { 
           backgroundColor: theme.colors.headerBackground,
           paddingTop: insets.top,
-          borderBottomColor: theme.colors.muted,
+          borderBottomColor: theme.colors.separator,
         }
       ]}>
         {/* Back Button */}
@@ -325,14 +325,14 @@ export default function TeamDetails() {
 
         {/* Team Name and Country */}
         <View style={[styles.headerInfo, { backgroundColor: 'transparent' }]}>
-          <Text style={styles.headerTeamName} numberOfLines={1}>
+          <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.headerTeamName} numberOfLines={1}>
             {teamData.name}
           </Text>
           <View style={[styles.headerCountryRow, { backgroundColor: 'transparent' }]}>
             {teamData.countryFlag && (
               <Text style={styles.headerCountryFlag}>{teamData.countryFlag}</Text>
             )}
-            <Text style={styles.headerCountryName}>
+            <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.headerCountryName}>
               {teamData.country}
             </Text>
           </View>
@@ -354,7 +354,8 @@ export default function TeamDetails() {
       {/* Custom Segmented Control Tabs */}
       <View style={[styles.tabBar, { 
         backgroundColor: isDark ? 'transparent' : theme.colors.headerBackground,
-        borderBottomColor: theme.colors.muted,
+        borderTopWidth: 0,
+        borderBottomColor: theme.colors.separator,
       }]}>
         <ScrollView 
           horizontal 
@@ -415,58 +416,68 @@ export default function TeamDetails() {
           ) : details ? (
             <>
               {/* Stadium Information Card */}
-              <View style={[styles.card, { 
-                backgroundColor: theme.colors.card,
-                marginBottom: 16,
-                ...Platform.select({
-                  ios: {
-                    shadowColor: isDark ? '#000' : 'rgba(0, 0, 0, 0.05)',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: isDark ? 0.1 : 0.05,
-                    shadowRadius: 8,
-                  },
-                  android: {
-                    elevation: isDark ? 4 : 2,
-                  },
-                }),
-              }]}>
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Stadium Information</Text>
+              <View 
+                lightColor={theme.colors.card}
+                darkColor={theme.colors.card}
+                style={[styles.card, { 
+                  marginBottom: 16,
+                  borderWidth: isDark ? 0 : 1,
+                  borderColor: isDark ? 'transparent' : theme.colors.separator,
+                  ...Platform.select({
+                    ios: {
+                      shadowColor: isDark ? '#000' : 'rgba(0, 0, 0, 0.1)',
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: isDark ? 0.3 : 0.1,
+                      shadowRadius: 12,
+                    },
+                    android: {
+                      elevation: isDark ? 8 : 4,
+                    },
+                    web: {
+                      boxShadow: isDark 
+                        ? '0 4px 12px rgba(0, 0, 0, 0.3)' 
+                        : '0 2px 8px rgba(0, 0, 0, 0.1)',
+                    },
+                  }),
+                }]}
+              >
+                <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.cardTitle}>Stadium Information</Text>
                 <View style={styles.infoList}>
                   {/* Stadium Name */}
                   {details.stadiumName && (
-                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
-                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
+                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator, backgroundColor: theme.colors.card }]}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
                         <MaterialCommunityIcons name="stadium" size={24} color={theme.colors.tint} />
                       </View>
-                      <View style={styles.infoTextContainer}>
-                        <Text style={[styles.infoLabel, { color: theme.colors.muted }]}>STADIUM</Text>
-                        <Text style={[styles.infoValue, { color: theme.colors.text }]}>{details.stadiumName}</Text>
+                      <View style={[styles.infoTextContainer, { backgroundColor: theme.colors.card }]}>
+                        <Text darkColor={theme.colors.muted} lightColor={theme.colors.muted} style={styles.infoLabel}>STADIUM</Text>
+                        <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.infoValue}>{details.stadiumName}</Text>
                       </View>
                     </View>
                   )}
 
                   {/* City */}
                   {details.city && (
-                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
-                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
+                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator, backgroundColor: theme.colors.card }]}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
                         <Ionicons name="location" size={24} color={theme.colors.tint} />
                       </View>
-                      <View style={styles.infoTextContainer}>
-                        <Text style={[styles.infoLabel, { color: theme.colors.muted }]}>CITY</Text>
-                        <Text style={[styles.infoValue, { color: theme.colors.text }]}>{details.city}</Text>
+                      <View style={[styles.infoTextContainer, { backgroundColor: theme.colors.card }]}>
+                        <Text darkColor={theme.colors.muted} lightColor={theme.colors.muted} style={styles.infoLabel}>CITY</Text>
+                        <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.infoValue}>{details.city}</Text>
                       </View>
                     </View>
                   )}
 
                   {/* Capacity */}
                   {details.capacity && details.capacity > 0 && (
-                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
-                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
+                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator, backgroundColor: theme.colors.card }]}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
                         <Ionicons name="people" size={24} color={theme.colors.tint} />
                       </View>
-                      <View style={styles.infoTextContainer}>
-                        <Text style={[styles.infoLabel, { color: theme.colors.muted }]}>CAPACITY</Text>
-                        <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                      <View style={[styles.infoTextContainer, { backgroundColor: theme.colors.card }]}>
+                        <Text darkColor={theme.colors.muted} lightColor={theme.colors.muted} style={styles.infoLabel}>CAPACITY</Text>
+                        <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.infoValue}>
                           {details.capacity.toLocaleString()}
                         </Text>
                       </View>
@@ -475,13 +486,13 @@ export default function TeamDetails() {
 
                   {/* Founded Year */}
                   {details.foundedYear && details.foundedYear > 0 && (
-                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
-                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
+                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator, backgroundColor: theme.colors.card, borderBottomWidth: 0 }]}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
                         <Ionicons name="calendar" size={24} color={theme.colors.tint} />
                       </View>
-                      <View style={styles.infoTextContainer}>
-                        <Text style={[styles.infoLabel, { color: theme.colors.muted }]}>FOUNDED</Text>
-                        <Text style={[styles.infoValue, { color: theme.colors.text }]}>{details.foundedYear}</Text>
+                      <View style={[styles.infoTextContainer, { backgroundColor: theme.colors.card }]}>
+                        <Text darkColor={theme.colors.muted} lightColor={theme.colors.muted} style={styles.infoLabel}>FOUNDED</Text>
+                        <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.infoValue}>{details.foundedYear}</Text>
                       </View>
                     </View>
                   )}
@@ -491,25 +502,35 @@ export default function TeamDetails() {
           ) : null}
 
           {/* Section 1: Team Information Card */}
-          <View style={[styles.card, { 
-            backgroundColor: theme.colors.card,
-            ...Platform.select({
-              ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-              },
-              android: {
-                elevation: 4,
-              },
-            }),
-          }]}>
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Team Information</Text>
+          <View 
+            lightColor={theme.colors.card}
+            darkColor={theme.colors.card}
+            style={[styles.card, { 
+              borderWidth: isDark ? 0 : 1,
+              borderColor: isDark ? 'transparent' : theme.colors.separator,
+              ...Platform.select({
+                ios: {
+                  shadowColor: isDark ? '#000' : 'rgba(0, 0, 0, 0.1)',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: isDark ? 0.3 : 0.1,
+                  shadowRadius: 12,
+                },
+                android: {
+                  elevation: isDark ? 8 : 4,
+                },
+                web: {
+                  boxShadow: isDark 
+                    ? '0 4px 12px rgba(0, 0, 0, 0.3)' 
+                    : '0 2px 8px rgba(0, 0, 0, 0.1)',
+                },
+              }),
+            }]}
+          >
+            <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.cardTitle}>Team Information</Text>
             <View style={styles.infoList}>
               {/* Coach */}
-              <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
-                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background, overflow: 'hidden' }]}>
+              <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator, backgroundColor: theme.colors.card }]}>
+                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)', overflow: 'hidden' }]}>
                   {teamData.coachImageUrl ? (
                     <Image 
                       source={{ uri: teamData.coachImageUrl }} 
@@ -520,46 +541,46 @@ export default function TeamDetails() {
                     <Ionicons name="person" size={24} color={theme.colors.tint} />
                   )}
                 </View>
-                <View style={styles.infoTextContainer}>
-                  <Text style={[styles.infoLabel, { color: theme.colors.muted }]}>COACH</Text>
-                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>{teamData.coach}</Text>
+                <View style={[styles.infoTextContainer, { backgroundColor: theme.colors.card }]}>
+                  <Text darkColor={theme.colors.muted} lightColor={theme.colors.muted} style={styles.infoLabel}>COACH</Text>
+                  <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.infoValue}>{teamData.coach}</Text>
                 </View>
               </View>
 
               {/* Country */}
-              <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
-                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
+              <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator, backgroundColor: theme.colors.card }]}>
+                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
                   {teamData.countryFlag ? (
                     <Text style={styles.infoFlagIcon}>{teamData.countryFlag}</Text>
                   ) : (
                     <Ionicons name="flag" size={24} color={theme.colors.tint} />
                   )}
                 </View>
-                <View style={styles.infoTextContainer}>
-                  <Text style={[styles.infoLabel, { color: theme.colors.muted }]}>COUNTRY</Text>
-                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>{teamData.country}</Text>
+                <View style={[styles.infoTextContainer, { backgroundColor: theme.colors.card }]}>
+                  <Text darkColor={theme.colors.muted} lightColor={theme.colors.muted} style={styles.infoLabel}>COUNTRY</Text>
+                  <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.infoValue}>{teamData.country}</Text>
                 </View>
               </View>
 
               {/* Founded */}
-              <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
-                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
+              <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator, backgroundColor: theme.colors.card }]}>
+                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
                   <Ionicons name="calendar" size={24} color={theme.colors.tint} />
                 </View>
-                <View style={styles.infoTextContainer}>
-                  <Text style={[styles.infoLabel, { color: theme.colors.muted }]}>FOUNDED</Text>
-                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>{teamData.founded}</Text>
+                <View style={[styles.infoTextContainer, { backgroundColor: theme.colors.card }]}>
+                  <Text darkColor={theme.colors.muted} lightColor={theme.colors.muted} style={styles.infoLabel}>FOUNDED</Text>
+                  <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.infoValue}>{teamData.founded}</Text>
                 </View>
               </View>
 
               {/* UEFA Ranking */}
-              <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
-                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
+              <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator, backgroundColor: theme.colors.card, borderBottomWidth: 0 }]}>
+                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
                   <MaterialCommunityIcons name="trophy" size={24} color={theme.colors.tint} />
                 </View>
-                <View style={styles.infoTextContainer}>
-                  <Text style={[styles.infoLabel, { color: theme.colors.muted }]}>UEFA RANKING</Text>
-                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                <View style={[styles.infoTextContainer, { backgroundColor: theme.colors.card }]}>
+                  <Text darkColor={theme.colors.muted} lightColor={theme.colors.muted} style={styles.infoLabel}>UEFA RANKING</Text>
+                  <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.infoValue}>
                     {teamData.uefaRank ? `${teamData.uefaRank}st` : 'N/A'}
                   </Text>
                 </View>
@@ -569,44 +590,57 @@ export default function TeamDetails() {
 
           {/* Section 2: Tournaments */}
           {/* TODO: Fetch active tournaments from backend when endpoint is available */}
-          <View style={[styles.card, { 
-            backgroundColor: theme.colors.card,
-            ...Platform.select({
-              ios: {
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-              },
-              android: {
-                elevation: 4,
-              },
-            }),
-          }]}>
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Tournaments</Text>
-            <View style={styles.tournamentsList}>
-              {teamData.tournaments.map((tournament, index) => (
-                <View key={index} style={styles.tournamentRow}>
-                  {tournament.logo ? (
-                    <Image 
-                      source={{ uri: tournament.logo }} 
-                      style={styles.tournamentLogo} 
-                      resizeMode="contain" 
-                    />
-                  ) : (
-                    <View style={[styles.tournamentIconPlaceholder, { backgroundColor: theme.colors.background }]}>
-                      <MaterialCommunityIcons 
-                        name="soccer" 
-                        size={20} 
-                        color={theme.colors.muted} 
+          <View 
+            lightColor={theme.colors.card}
+            darkColor={theme.colors.card}
+            style={[styles.card, { 
+              borderWidth: isDark ? 0 : 1,
+              borderColor: isDark ? 'transparent' : theme.colors.separator,
+              ...Platform.select({
+                ios: {
+                  shadowColor: isDark ? '#000' : 'rgba(0, 0, 0, 0.1)',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: isDark ? 0.3 : 0.1,
+                  shadowRadius: 12,
+                },
+                android: {
+                  elevation: isDark ? 8 : 4,
+                },
+                web: {
+                  boxShadow: isDark 
+                    ? '0 4px 12px rgba(0, 0, 0, 0.3)' 
+                    : '0 2px 8px rgba(0, 0, 0, 0.1)',
+                },
+              }),
+            }]}
+          >
+            <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.cardTitle}>Tournaments</Text>
+            <View style={[styles.tournamentsList, { backgroundColor: theme.colors.card }]}>
+              {teamData.tournaments.map((tournament, index) => {
+                const isLast = index === teamData.tournaments.length - 1;
+                return (
+                  <View key={index} style={[styles.tournamentRow, { backgroundColor: theme.colors.card, borderBottomWidth: isLast ? 0 : 1, borderBottomColor: theme.colors.separator }]}>
+                    {tournament.logo ? (
+                      <Image 
+                        source={{ uri: tournament.logo }} 
+                        style={styles.tournamentLogo} 
+                        resizeMode="contain" 
                       />
-                    </View>
-                  )}
-                  <Text style={[styles.tournamentName, { color: theme.colors.text }]}>
-                    {tournament.name}
-                  </Text>
-                </View>
-              ))}
+                    ) : (
+                      <View style={[styles.tournamentIconPlaceholder, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
+                        <MaterialCommunityIcons 
+                          name="soccer" 
+                          size={20} 
+                          color={theme.colors.muted} 
+                        />
+                      </View>
+                    )}
+                    <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.tournamentName}>
+                      {tournament.name}
+                    </Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
         </ScrollView>
@@ -623,6 +657,8 @@ export default function TeamDetails() {
               alignItems: 'center',
               justifyContent: 'center',
               paddingVertical: 40,
+              borderWidth: isDark ? 0 : 1,
+              borderColor: isDark ? 'transparent' : theme.colors.separator,
               ...Platform.select({
                 ios: {
                   shadowColor: '#000',
@@ -632,6 +668,11 @@ export default function TeamDetails() {
                 },
                 android: {
                   elevation: 4,
+                },
+                web: {
+                  boxShadow: isDark 
+                    ? '0 4px 12px rgba(0, 0, 0, 0.3)' 
+                    : '0 2px 8px rgba(0, 0, 0, 0.1)',
                 },
               }),
             }]}>
@@ -643,6 +684,8 @@ export default function TeamDetails() {
           ) : currentStandings.length > 0 ? (
             <View style={[styles.standingsCard, { 
               backgroundColor: theme.colors.card,
+              borderWidth: isDark ? 0 : 1,
+              borderColor: isDark ? 'transparent' : theme.colors.separator,
               ...Platform.select({
                 ios: {
                   shadowColor: '#000',
@@ -653,12 +696,17 @@ export default function TeamDetails() {
                 android: {
                   elevation: 4,
                 },
+                web: {
+                  boxShadow: isDark 
+                    ? '0 4px 12px rgba(0, 0, 0, 0.3)' 
+                    : '0 2px 8px rgba(0, 0, 0, 0.1)',
+                },
               }),
             }]}>
               {/* Table Header */}
               <View style={[styles.tableHeader, { 
-                borderBottomColor: theme.colors.muted,
-                backgroundColor: isDark ? theme.colors.headerBackground : theme.colors.card,
+                borderBottomColor: theme.colors.separator,
+                backgroundColor: theme.colors.card,
               }]}>
                 <Text style={[styles.tableHeaderText, styles.tableCellRank, { color: theme.colors.muted }]}>#</Text>
                 <Text style={[styles.tableHeaderText, { color: theme.colors.muted, flex: 1, marginRight: 8 }]}>TEAM</Text>
@@ -678,7 +726,7 @@ export default function TeamDetails() {
                     styles.tableRow,
                     row.isCurrent && styles.tableRowHighlighted,
                     {
-                      borderBottomColor: theme.colors.muted,
+                      borderBottomColor: theme.colors.separator,
                       backgroundColor: row.isCurrent ? theme.colors.tint : theme.colors.card,
                     },
                   ]}
@@ -820,50 +868,38 @@ export default function TeamDetails() {
               <>
                 {/* Coach Section */}
                 {teamData?.coach && (
-                  <View style={styles.squadSection}>
-                    <View style={[
-                      styles.squadCard,
-                      { 
-                        backgroundColor: theme.colors.card,
-                        borderRadius: 24,
-                        ...Platform.select({
-                          ios: {
-                            shadowColor: '#000',
-                            shadowOffset: { width: 0, height: 2 },
-                            shadowOpacity: 0.1,
-                            shadowRadius: 8,
-                          },
-                          android: {
-                            elevation: 4,
-                          },
-                        }),
-                      }
-                    ]}>
-                      <View style={[styles.playerCard, {
-                        borderBottomWidth: 0,
-                        backgroundColor: 'transparent',
-                      }]}>
-                        <View style={[styles.playerPhotoContainer, { backgroundColor: theme.colors.background }]}>
-                          {teamData.coachImageUrl ? (
-                            <Image 
-                              source={{ uri: teamData.coachImageUrl }} 
-                              style={styles.playerPhoto}
-                              resizeMode="cover"
-                            />
-                          ) : (
-                            <View style={[styles.playerPhotoPlaceholder, { backgroundColor: theme.colors.background }]}>
-                              <Ionicons name="person" size={20} color={theme.colors.muted} />
-                            </View>
-                          )}
-                        </View>
-                        <View style={styles.playerInfoContainer}>
-                          <Text style={[styles.playerName, { color: theme.colors.text }]} numberOfLines={1}>
-                            {teamData.coach}
-                          </Text>
-                          <Text style={[styles.playerPosition, { color: theme.colors.muted }]}>
-                            Coach
-                          </Text>
-                        </View>
+                  <View 
+                    lightColor={theme.colors.card}
+                    darkColor={theme.colors.card}
+                    style={[styles.squadCard, {
+                      borderWidth: isDark ? 0 : 1,
+                      borderColor: isDark ? 'transparent' : theme.colors.separator,
+                    }]}
+                  >
+                    <View style={[styles.playerCard, {
+                      borderBottomWidth: 0,
+                      backgroundColor: theme.colors.card,
+                    }]}>
+                      <View style={[styles.playerPhotoContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
+                        {teamData.coachImageUrl ? (
+                          <Image 
+                            source={{ uri: teamData.coachImageUrl }} 
+                            style={styles.playerPhoto}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <View style={[styles.playerPhotoPlaceholder, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
+                            <Ionicons name="person" size={20} color={theme.colors.muted} />
+                          </View>
+                        )}
+                      </View>
+                      <View style={[styles.playerInfoContainer, { backgroundColor: theme.colors.card }]}>
+                        <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.playerName} numberOfLines={1}>
+                          {teamData.coach}
+                        </Text>
+                        <Text darkColor={theme.colors.muted} lightColor={theme.colors.muted} style={styles.playerPosition}>
+                          Coach
+                        </Text>
                       </View>
                     </View>
                   </View>
@@ -875,28 +911,19 @@ export default function TeamDetails() {
                   if (players.length === 0) return null;
 
                   return (
-                    <View key={positionKey} style={styles.squadSection}>
-                      <Text style={[styles.squadSectionTitle, { color: theme.colors.text }]}>
+                    <View key={positionKey} style={[styles.squadSection, { 
+                      backgroundColor: theme.colors.card,
+                      borderWidth: isDark ? 0 : 1,
+                      borderColor: isDark ? 'transparent' : theme.colors.separator,
+                    }]}>
+                      <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.squadSectionTitle}>
                         {positionLabels[positionKey]}
                       </Text>
-                      <View style={[
-                        styles.squadCard,
-                        { 
-                          backgroundColor: theme.colors.card,
-                          borderRadius: 24,
-                          ...Platform.select({
-                            ios: {
-                              shadowColor: '#000',
-                              shadowOffset: { width: 0, height: 2 },
-                              shadowOpacity: 0.1,
-                              shadowRadius: 8,
-                            },
-                            android: {
-                              elevation: 4,
-                            },
-                          }),
-                        }
-                      ]}>
+                      <View 
+                        lightColor={theme.colors.card}
+                        darkColor={theme.colors.card}
+                        style={styles.squadCard}
+                      >
                         {players.map((player, index) => {
                           // Map position code to readable text
                           const positionText: Record<string, string> = {
@@ -908,6 +935,7 @@ export default function TeamDetails() {
                           const readablePosition = positionText[player.position?.toUpperCase() || ''] || player.position || '';
                           const isPlayerFavorite = isFavorite('player', player.id);
                           const isLastPlayer = index === players.length - 1;
+                          const isFirstPlayer = index === 0;
 
                           const handleToggleFavorite = (e: any) => {
                             e.stopPropagation();
@@ -923,14 +951,16 @@ export default function TeamDetails() {
                             <TouchableOpacity
                               key={player.id}
                               style={[styles.playerCard, {
-                                borderBottomColor: isDark ? theme.colors.muted : `${theme.colors.muted}33`,
+                                borderTopWidth: 0,
+                                borderTopColor: 'transparent',
+                                borderBottomColor: theme.colors.separator,
                                 borderBottomWidth: isLastPlayer ? 0 : 1,
-                                backgroundColor: 'transparent',
+                                backgroundColor: theme.colors.card,
                               }]}
                               onPress={() => router.push(`/player/${player.id}`)}
                               activeOpacity={0.7}
                             >
-                              <View style={[styles.playerPhotoContainer, { backgroundColor: theme.colors.background }]}>
+                              <View style={[styles.playerPhotoContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
                                 {player.photoUrl ? (
                                   <Image 
                                     source={{ uri: player.photoUrl }} 
@@ -938,22 +968,22 @@ export default function TeamDetails() {
                                     resizeMode="cover"
                                   />
                                 ) : (
-                                  <View style={[styles.playerPhotoPlaceholder, { backgroundColor: theme.colors.background }]}>
+                                  <View style={[styles.playerPhotoPlaceholder, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
                                     <Ionicons name="person" size={20} color={theme.colors.muted} />
                                   </View>
                                 )}
                               </View>
-                              <View style={styles.playerInfoContainer}>
-                                <View style={styles.playerNameRow}>
-                                  <Text style={[styles.playerName, { color: theme.colors.text }]} numberOfLines={1}>
+                              <View style={[styles.playerInfoContainer, { backgroundColor: theme.colors.card }]}>
+                                <View style={[styles.playerNameRow, { backgroundColor: theme.colors.card }]}>
+                                  <Text darkColor={theme.colors.text} lightColor={theme.colors.text} style={styles.playerName} numberOfLines={1}>
                                     {player.name}
                                   </Text>
                                   {player.nationalityFlag && (
                                     <Text style={styles.playerFlag}>{player.nationalityFlag}</Text>
                                   )}
                                 </View>
-                                <View style={styles.playerDetailsRow}>
-                                  <Text style={[styles.playerPosition, { color: theme.colors.muted }]}>
+                                <View style={[styles.playerDetailsRow, { backgroundColor: theme.colors.card }]}>
+                                  <Text darkColor={theme.colors.muted} lightColor={theme.colors.muted} style={styles.playerPosition}>
                                     {readablePosition}
                                   </Text>
                                   {player.nationality && !player.nationalityFlag && (
@@ -968,7 +998,7 @@ export default function TeamDetails() {
                                   </Text>
                                 )}
                               </View>
-                              <View style={styles.playerRightSection}>
+                              <View style={[styles.playerRightSection, { backgroundColor: theme.colors.card }]}>
                                 {player.number !== undefined && player.number !== null && (
                                   <Text style={[styles.playerNumber, { color: theme.colors.tint }]}>
                                     {player.number}
@@ -976,7 +1006,7 @@ export default function TeamDetails() {
                                 )}
                                 <TouchableOpacity 
                                   onPress={handleToggleFavorite}
-                                  style={styles.favoriteButton}
+                                  style={[styles.favoriteButton, { backgroundColor: theme.colors.card }]}
                                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                                 >
                                   <Ionicons
@@ -1204,7 +1234,7 @@ const styles = StyleSheet.create({
   },
   // Tournaments
   tournamentsList: {
-    gap: 12,
+    gap: 0,
   },
   tournamentRow: {
     flexDirection: 'row',

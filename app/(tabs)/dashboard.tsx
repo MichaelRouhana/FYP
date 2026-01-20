@@ -1,26 +1,25 @@
 // app/(tabs)/dashboard.tsx
 // Admin Dashboard Screen - Clean Premium Implementation
 
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  RefreshControl,
-  StyleSheet,
-  ActivityIndicator,
-  Dimensions,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LineChart } from 'react-native-gifted-charts';
+import DashboardBets from '@/components/dashboard/DashboardBets';
+import { useTheme } from '@/context/ThemeContext';
+import { useDashboardUsers } from '@/hooks/useDashboardUsers';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useDashboardUsers } from '@/hooks/useDashboardUsers';
-import DashboardBets from '@/components/dashboard/DashboardBets';
-import Colors from '@/constants/Colors';
-import { useTheme } from '@/context/ThemeContext';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { LineChart } from 'react-native-gifted-charts';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type TabType = 'USERS' | 'BETS';
 
@@ -33,31 +32,32 @@ export default function DashboardScreen() {
   // Transform chart data for react-native-gifted-charts
   const transformChartData = (data: Array<{ x: string; y: number }>) => {
     if (!data || data.length === 0) {
-      // Return dummy data matching the reference pattern
-      return [
-        { value: 4000, label: 'MON' },
-        { value: 500, label: 'TUE' },
-        { value: 1000, label: 'WED' },
-        { value: 400, label: 'THU' },
-        { value: 2000, label: 'FRI' },
-        { value: 3000, label: 'SAT' },
-        { value: 2000, label: 'SUN' },
-      ];
+      // Return empty array instead of dummy data
+      return [];
     }
 
-    const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    return data.slice(-7).map((point, index) => ({
-      value: point.y,
-      label: days[index % 7],
-    }));
+    // Map day names
+    const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    
+    return data.slice(-7).map((point) => {
+      // Parse the date string (format: YYYY-MM-DD)
+      const date = new Date(point.x);
+      // Get day of week (0 = Sunday, 1 = Monday, etc.)
+      const dayOfWeek = date.getDay();
+      const dayLabel = dayNames[dayOfWeek];
+      
+      return {
+        value: point.y,
+        label: dayLabel,
+      };
+    });
   };
 
   const totalUsersData = transformChartData(totalUsers);
   const activeUsersData = transformChartData(totalActiveUsers);
   const maxChartValue = Math.max(
-    ...totalUsers.map(d => d.y),
-    ...totalActiveUsers.map(d => d.y),
-    4000,
+    ...(totalUsers.length > 0 ? totalUsers.map(d => d.y) : [0]),
+    ...(totalActiveUsers.length > 0 ? totalActiveUsers.map(d => d.y) : [0]),
     1
   );
 
@@ -87,6 +87,17 @@ export default function DashboardScreen() {
   const renderChart = (data: any[], color: string) => {
     const screenWidth = Dimensions.get('window').width;
     const chartWidth = screenWidth - 80; // Account for padding
+    
+    // Handle empty data
+    if (!data || data.length === 0) {
+      return (
+        <View style={[styles.chartWrapper, { height: 180, justifyContent: 'center', alignItems: 'center' }]}>
+          <Text style={{ color: theme.colors.textSecondary, fontSize: 12 }}>
+            No data available
+          </Text>
+        </View>
+      );
+    }
     
     // Calculate dynamic max value from actual data
     const maxDataValue = Math.max(...data.map(item => item.value), 1);

@@ -5,8 +5,6 @@ import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  FlatList,
-  Image,
   StyleSheet,
   Switch,
   Text,
@@ -19,9 +17,8 @@ import {
   updateMatchSettings,
   getPredictionSettings,
   updatePredictionSettings,
-  getMatchUsers,
 } from '@/services/matchApi';
-import { MatchSettings, MatchPredictionSettings, MatchUserStats } from '@/types/fixture';
+import { MatchSettings, MatchPredictionSettings } from '@/types/fixture';
 
 interface AdminMatchSettingsProps {
   fixtureId: number;
@@ -40,10 +37,9 @@ const SUPPORTED_BETS = [
 
 export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProps) {
   const { theme, isDark } = useTheme();
-  const [settingsSubTab, setSettingsSubTab] = useState<'details' | 'predictions' | 'users'>('details');
+  const [settingsSubTab, setSettingsSubTab] = useState<'details' | 'predictions'>('details');
   const [matchSettings, setMatchSettings] = useState<MatchSettings | null>(null);
   const [predictionSettings, setPredictionSettings] = useState<MatchPredictionSettings | null>(null);
-  const [matchUsers, setMatchUsers] = useState<MatchUserStats[]>([]);
   const [settingsLoading, setSettingsLoading] = useState(false);
   // Track which settings are currently being updated to prevent double-clicks and rate limiting
   const [updatingKeys, setUpdatingKeys] = useState<Set<string>>(new Set());
@@ -56,14 +52,12 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
   const fetchSettingsData = async () => {
     setSettingsLoading(true);
     try {
-      const [settings, predSettings, users] = await Promise.all([
+      const [settings, predSettings] = await Promise.all([
         getMatchSettings(fixtureId).catch(() => null),
         getPredictionSettings(fixtureId).catch(() => null),
-        getMatchUsers(fixtureId).catch(() => []),
       ]);
       setMatchSettings(settings);
       setPredictionSettings(predSettings);
-      setMatchUsers(users || []);
     } catch (error) {
       console.error('[AdminMatchSettings] Error fetching data:', error);
     } finally {
@@ -172,7 +166,7 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
     <View style={styles.container}>
       {/* Sub-tab Navigation */}
       <View style={styles.subNav}>
-        {(['details', 'predictions', 'users'] as const).map((tab) => (
+        {(['details', 'predictions'] as const).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[
@@ -297,38 +291,6 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
         </View>
       )}
 
-      {settingsSubTab === 'users' && (
-        <View style={styles.content}>
-          {matchUsers.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
-                No active bets on this match
-              </Text>
-            </View>
-          ) : (
-            <FlatList
-              data={matchUsers}
-              keyExtractor={(item) => item.userId.toString()}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
-                <View style={[styles.userRow, { backgroundColor: isDark ? '#111827' : '#FFFFFF', borderColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
-                  <Image
-                    source={{ uri: item.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.username)}&background=3b82f6&color=fff&size=200` }}
-                    style={styles.userAvatar}
-                  />
-                  <Text style={[styles.userName, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
-                    {item.username}
-                  </Text>
-                  <Text style={[styles.userWagered, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
-                    {item.totalWagered.toLocaleString()} pts
-                  </Text>
-                </View>
-              )}
-              ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }} />}
-            />
-          )}
-        </View>
-      )}
     </View>
   );
 }
@@ -409,31 +371,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     fontFamily: 'Montserrat_400Regular',
-  },
-  userRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  userAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-    backgroundColor: '#1f2937',
-  },
-  userName: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: 'Montserrat_600SemiBold',
-  },
-  userWagered: {
-    fontSize: 15,
-    fontFamily: 'Montserrat_700Bold',
   },
 });
 

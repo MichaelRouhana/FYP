@@ -2,6 +2,7 @@ import api from '@/services/api'; // Import your API client
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { setItem } from '@/utils/storage';
+import { API_CONFIG } from '@/config';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -9,6 +10,7 @@ import {
   ImageBackground,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -27,17 +29,27 @@ export default function Login() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const handleLogin = async () => {
+    console.log('🔵 handleLogin called');
+    console.log('🔵 Current state:', { email, password, loading });
+    
     // 1. Validation
     const newErrors: { email?: string; password?: string } = {};
     if (!email.trim()) newErrors.email = 'Email is required';
     if (!password) newErrors.password = 'Password is required';
     setErrors(newErrors);
 
-    if (Object.keys(newErrors).length > 0) return;
+    if (Object.keys(newErrors).length > 0) {
+      console.log('🔴 Validation failed:', newErrors);
+      return;
+    }
+    
+    console.log('✅ Validation passed');
 
     // 2. API Call
+    console.log('🔄 Setting loading to true');
     setLoading(true);
     try {
+      console.log('📡 Making API call to /users/login');
       // The backend expects "username" or "email". 
       // Based on LoginRequestDTO, check if it needs 'username' or 'email' key. 
       // Usually standard is { email, password } or { username, password }.
@@ -47,29 +59,60 @@ export default function Login() {
         password: password 
       });
 
-      console.log("Login Success:", response.data);
+      console.log("✅ Login Success:", response.data);
 
       // 3. Save Token
       // Adjust 'accessToken' based on what your Swagger says (e.g. 'token', 'accessToken', 'jwt')
       const token = response.data.accessToken || response.data.token;
+      console.log('🔑 Token received:', token ? 'Yes' : 'No');
       
       if (token) {
+        console.log('💾 Saving token to storage');
         await setItem('jwt_token', token);
         // Optional: Save user info if needed
         // await setItem('user_info', JSON.stringify(response.data));
         
+        console.log('🚀 Navigating to home');
         router.replace('/(tabs)/home');
       } else {
+        console.error('❌ No token in response');
         Alert.alert("Error", "Login failed: No token received");
       }
 
     } catch (error: any) {
-      console.error("Login Error:", error.response?.data || error.message);
-      Alert.alert(
-        "Login Failed", 
-        error.response?.data?.message || "Invalid credentials or server error"
-      );
+      console.error("❌ Login Error:", error.response?.data || error.message);
+      console.error("❌ Full error:", error);
+      
+      // Check for CORS errors specifically
+      const isCorsError = 
+        error.message === 'Network Error' || 
+        error.code === 'ERR_NETWORK' ||
+        (error.message && error.message.includes('CORS')) ||
+        (error.message && error.message.includes('Access-Control-Allow-Origin'));
+      
+      if (isCorsError && Platform.OS === 'web') {
+        const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8081';
+        console.error("🚫 CORS Error Detected - Backend needs to allow requests from:", origin);
+        Alert.alert(
+          "CORS Error", 
+          `The backend server at ${API_CONFIG.baseUrl} is not allowing requests from this origin.\n\n` +
+          `Please configure your backend to allow CORS from: ${origin}\n\n` +
+          `This is a backend configuration issue, not a frontend problem.`
+        );
+      } else if (isCorsError) {
+        Alert.alert(
+          "Network Error", 
+          `Unable to connect to the server at ${API_CONFIG.baseUrl}.\n\n` +
+          `Please check your network connection and ensure the backend server is running.`
+        );
+      } else {
+        Alert.alert(
+          "Login Failed", 
+          error.response?.data?.message || "Invalid credentials or server error"
+        );
+      }
     } finally {
+      console.log('🏁 Setting loading to false');
       setLoading(false);
     }
   };
@@ -149,18 +192,35 @@ export default function Login() {
             </View>
 
             {/* Login Button */}
-            <TouchableOpacity 
-              style={[styles.loginButton, loading && { opacity: 0.7 }]} 
-              onPress={handleLogin} 
+            <Pressable 
+              style={({ pressed }) => [
+                styles.loginButton, 
+                loading && { opacity: 0.7 },
+                pressed && { opacity: 0.8 }
+              ]} 
+              onPress={(e) => {
+                console.log('🟢 Pressable onPress triggered', { loading, disabled: loading });
+                console.log('🟢 Event:', e);
+                if (!loading) {
+                  handleLogin();
+                } else {
+                  console.log('⚠️ Button is disabled (loading)');
+                }
+              }}
+              onPressIn={() => {
+                console.log('🟡 Pressable onPressIn triggered');
+              }}
+              onPressOut={() => {
+                console.log('🟡 Pressable onPressOut triggered');
+              }}
               disabled={loading}
-              activeOpacity={0.8}
             >
               {loading ? (
                 <ActivityIndicator color="#000" />
               ) : (
                 <Text style={styles.loginButtonText}>LOGIN</Text>
               )}
-            </TouchableOpacity>
+            </Pressable>
 
             {/* Sign Up Link */}
             <View style={styles.signupContainer}>
