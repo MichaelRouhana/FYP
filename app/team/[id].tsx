@@ -158,9 +158,9 @@ export default function TeamDetails() {
   // Get gradient colors based on theme
   const getGradientColors = () => {
     if (isDark) {
-      return ['#1a1f2e', '#111828', '#080C17'];
+      return [theme.colors.background, theme.colors.card, theme.colors.background];
     }
-    return ['#f8fafc', '#ffffff', '#f3f4f6'];
+    return [theme.colors.card, theme.colors.background, theme.colors.background];
   };
 
   // Fetch standings when teamId changes
@@ -267,8 +267,8 @@ export default function TeamDetails() {
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-          <Text style={[styles.loadingText, { color: theme.colors.text }]}>Loading team data...</Text>
+          <ActivityIndicator size="large" color={theme.colors.tint} />
+          <Text style={styles.loadingText}>Loading team data...</Text>
         </View>
       </View>
     );
@@ -279,7 +279,7 @@ export default function TeamDetails() {
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.errorContainer}>
-          <Text style={[styles.errorText, { color: theme.colors.text }]}>Team not found</Text>
+          <Text style={styles.errorText}>Team not found</Text>
         </View>
       </View>
     );
@@ -295,7 +295,7 @@ export default function TeamDetails() {
         { 
           backgroundColor: theme.colors.headerBackground,
           paddingTop: insets.top,
-          borderBottomColor: theme.colors.separator,
+          borderBottomColor: theme.colors.muted,
         }
       ]}>
         {/* Back Button */}
@@ -316,7 +316,7 @@ export default function TeamDetails() {
             />
           ) : (
             <View style={[styles.headerLogoPlaceholder, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
-              <Text style={[styles.headerLogoPlaceholderText, { color: theme.colors.text }]}>
+              <Text style={styles.headerLogoPlaceholderText}>
                 {teamData.name.charAt(0)}
               </Text>
             </View>
@@ -325,14 +325,14 @@ export default function TeamDetails() {
 
         {/* Team Name and Country */}
         <View style={[styles.headerInfo, { backgroundColor: 'transparent' }]}>
-          <Text style={[styles.headerTeamName, { color: theme.colors.text }]} numberOfLines={1}>
+          <Text style={styles.headerTeamName} numberOfLines={1}>
             {teamData.name}
           </Text>
           <View style={[styles.headerCountryRow, { backgroundColor: 'transparent' }]}>
             {teamData.countryFlag && (
               <Text style={styles.headerCountryFlag}>{teamData.countryFlag}</Text>
             )}
-            <Text style={[styles.headerCountryName, { color: theme.colors.textSecondary }]}>
+            <Text style={styles.headerCountryName}>
               {teamData.country}
             </Text>
           </View>
@@ -346,7 +346,7 @@ export default function TeamDetails() {
           <Ionicons
             name={isTeamFavorite ? 'star' : 'star-outline'}
             size={24}
-            color={isTeamFavorite ? theme.colors.primary : theme.colors.icon}
+            color={isTeamFavorite ? theme.colors.tint : theme.colors.icon}
           />
         </TouchableOpacity>
       </View>
@@ -354,7 +354,7 @@ export default function TeamDetails() {
       {/* Custom Segmented Control Tabs */}
       <View style={[styles.tabBar, { 
         backgroundColor: isDark ? 'transparent' : theme.colors.headerBackground,
-        borderBottomColor: theme.colors.separator,
+        borderBottomColor: theme.colors.muted,
       }]}>
         <ScrollView 
           horizontal 
@@ -374,7 +374,7 @@ export default function TeamDetails() {
                   { 
                     color: activeTab === tab 
                       ? theme.colors.text 
-                      : theme.colors.textSecondary,
+                      : theme.colors.muted,
                     opacity: activeTab === tab ? 1 : 0.6,
                     fontFamily: activeTab === tab 
                       ? 'Montserrat_700Bold' 
@@ -385,7 +385,7 @@ export default function TeamDetails() {
                 {tab}
               </Text>
               {activeTab === tab && (
-                <View style={[styles.tabIndicator, { backgroundColor: theme.colors.primary }]} />
+                <View style={[styles.tabIndicator, { backgroundColor: theme.colors.tint }]} />
               )}
             </TouchableOpacity>
           ))}
@@ -407,8 +407,8 @@ export default function TeamDetails() {
               justifyContent: 'center',
               paddingVertical: 40,
             }]}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
-              <Text style={[styles.loadingText, { color: theme.colors.textSecondary, marginTop: 12 }]}>
+              <ActivityIndicator size="large" color={theme.colors.tint} />
+              <Text style={[styles.loadingText, { color: theme.colors.muted, marginTop: 12 }]}>
                 Loading stadium details...
               </Text>
             </View>
@@ -430,43 +430,43 @@ export default function TeamDetails() {
                   },
                 }),
               }]}>
-                <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Stadium Information</Text>
+                <Text style={styles.cardTitle}>Stadium Information</Text>
                 <View style={styles.infoList}>
                   {/* Stadium Name */}
                   {details.stadiumName && (
-                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
-                        <MaterialCommunityIcons name="stadium" size={24} color={theme.colors.primary} />
+                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.background }]}>
+                        <MaterialCommunityIcons name="stadium" size={24} color={theme.colors.tint} />
                       </View>
                       <View style={styles.infoTextContainer}>
-                        <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>STADIUM</Text>
-                        <Text style={[styles.infoValue, { color: theme.colors.text }]}>{details.stadiumName}</Text>
+                        <Text style={styles.infoLabel}>STADIUM</Text>
+                        <Text style={styles.infoValue}>{details.stadiumName}</Text>
                       </View>
                     </View>
                   )}
 
                   {/* City */}
                   {details.city && (
-                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
-                        <Ionicons name="location" size={24} color={theme.colors.primary} />
+                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.background }]}>
+                        <Ionicons name="location" size={24} color={theme.colors.tint} />
                       </View>
                       <View style={styles.infoTextContainer}>
-                        <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>CITY</Text>
-                        <Text style={[styles.infoValue, { color: theme.colors.text }]}>{details.city}</Text>
+                        <Text style={styles.infoLabel}>CITY</Text>
+                        <Text style={styles.infoValue}>{details.city}</Text>
                       </View>
                     </View>
                   )}
 
                   {/* Capacity */}
                   {details.capacity && details.capacity > 0 && (
-                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
-                        <Ionicons name="people" size={24} color={theme.colors.primary} />
+                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.background }]}>
+                        <Ionicons name="people" size={24} color={theme.colors.tint} />
                       </View>
                       <View style={styles.infoTextContainer}>
-                        <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>CAPACITY</Text>
-                        <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                        <Text style={styles.infoLabel}>CAPACITY</Text>
+                        <Text style={styles.infoValue}>
                           {details.capacity.toLocaleString()}
                         </Text>
                       </View>
@@ -475,13 +475,13 @@ export default function TeamDetails() {
 
                   {/* Founded Year */}
                   {details.foundedYear && details.foundedYear > 0 && (
-                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
-                        <Ionicons name="calendar" size={24} color={theme.colors.primary} />
+                    <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.background }]}>
+                        <Ionicons name="calendar" size={24} color={theme.colors.tint} />
                       </View>
                       <View style={styles.infoTextContainer}>
-                        <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>FOUNDED</Text>
-                        <Text style={[styles.infoValue, { color: theme.colors.text }]}>{details.foundedYear}</Text>
+                        <Text style={styles.infoLabel}>FOUNDED</Text>
+                        <Text style={styles.infoValue}>{details.foundedYear}</Text>
                       </View>
                     </View>
                   )}
@@ -505,11 +505,11 @@ export default function TeamDetails() {
               },
             }),
           }]}>
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Team Information</Text>
+            <Text style={styles.cardTitle}>Team Information</Text>
             <View style={styles.infoList}>
               {/* Coach */}
-              <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background, overflow: 'hidden' }]}>
+              <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
+                <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.background, overflow: 'hidden' }]}>
                   {teamData.coachImageUrl ? (
                     <Image 
                       source={{ uri: teamData.coachImageUrl }} 
@@ -517,49 +517,49 @@ export default function TeamDetails() {
                       resizeMode="cover"
                     />
                   ) : (
-                    <Ionicons name="person" size={24} color={theme.colors.primary} />
+                    <Ionicons name="person" size={24} color={theme.colors.tint} />
                   )}
                 </View>
                 <View style={styles.infoTextContainer}>
-                  <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>COACH</Text>
-                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>{teamData.coach}</Text>
+                  <Text style={styles.infoLabel}>COACH</Text>
+                  <Text style={styles.infoValue}>{teamData.coach}</Text>
                 </View>
               </View>
 
               {/* Country */}
-              <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
+              <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
+                <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.background }]}>
                   {teamData.countryFlag ? (
                     <Text style={styles.infoFlagIcon}>{teamData.countryFlag}</Text>
                   ) : (
-                    <Ionicons name="flag" size={24} color={theme.colors.primary} />
+                    <Ionicons name="flag" size={24} color={theme.colors.tint} />
                   )}
                 </View>
                 <View style={styles.infoTextContainer}>
-                  <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>COUNTRY</Text>
-                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>{teamData.country}</Text>
+                  <Text style={styles.infoLabel}>COUNTRY</Text>
+                  <Text style={styles.infoValue}>{teamData.country}</Text>
                 </View>
               </View>
 
               {/* Founded */}
-              <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
-                  <Ionicons name="calendar" size={24} color={theme.colors.primary} />
+              <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
+                <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.background }]}>
+                  <Ionicons name="calendar" size={24} color={theme.colors.tint} />
                 </View>
                 <View style={styles.infoTextContainer}>
-                  <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>FOUNDED</Text>
-                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>{teamData.founded}</Text>
+                  <Text style={styles.infoLabel}>FOUNDED</Text>
+                  <Text style={styles.infoValue}>{teamData.founded}</Text>
                 </View>
               </View>
 
               {/* UEFA Ranking */}
-              <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
-                  <MaterialCommunityIcons name="trophy" size={24} color={theme.colors.primary} />
+              <View style={[styles.infoRow, { borderBottomColor: theme.colors.muted }]}>
+                <View style={[styles.infoIconCircle, { backgroundColor: theme.colors.background }]}>
+                  <MaterialCommunityIcons name="trophy" size={24} color={theme.colors.tint} />
                 </View>
                 <View style={styles.infoTextContainer}>
-                  <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>UEFA RANKING</Text>
-                  <Text style={[styles.infoValue, { color: theme.colors.text }]}>
+                  <Text style={styles.infoLabel}>UEFA RANKING</Text>
+                  <Text style={styles.infoValue}>
                     {teamData.uefaRank ? `${teamData.uefaRank}st` : 'N/A'}
                   </Text>
                 </View>
@@ -583,7 +583,7 @@ export default function TeamDetails() {
               },
             }),
           }]}>
-            <Text style={[styles.cardTitle, { color: theme.colors.text }]}>Tournaments</Text>
+            <Text style={styles.cardTitle}>Tournaments</Text>
             <View style={styles.tournamentsList}>
               {teamData.tournaments.map((tournament, index) => (
                 <View key={index} style={styles.tournamentRow}>
@@ -594,15 +594,15 @@ export default function TeamDetails() {
                       resizeMode="contain" 
                     />
                   ) : (
-                    <View style={[styles.tournamentIconPlaceholder, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
+                    <View style={[styles.tournamentIconPlaceholder, { backgroundColor: theme.colors.background }]}>
                       <MaterialCommunityIcons 
                         name="soccer" 
                         size={20} 
-                        color={theme.colors.textSecondary} 
+                        color={theme.colors.muted} 
                       />
                     </View>
                   )}
-                  <Text style={[styles.tournamentName, { color: theme.colors.text }]}>
+                  <Text style={styles.tournamentName}>
                     {tournament.name}
                   </Text>
                 </View>
@@ -635,8 +635,8 @@ export default function TeamDetails() {
                 },
               }),
             }]}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
-              <Text style={[styles.loadingText, { color: theme.colors.textSecondary, marginTop: 12 }]}>
+              <ActivityIndicator size="large" color={theme.colors.tint} />
+              <Text style={[styles.loadingText, { color: theme.colors.muted, marginTop: 12 }]}>
                 Loading standings...
                     </Text>
           </View>
@@ -657,17 +657,17 @@ export default function TeamDetails() {
             }]}>
               {/* Table Header */}
               <View style={[styles.tableHeader, { 
-                borderBottomColor: theme.colors.separator,
+                borderBottomColor: theme.colors.muted,
                 backgroundColor: isDark ? theme.colors.headerBackground : theme.colors.card,
               }]}>
-                <Text style={[styles.tableHeaderText, styles.tableCellRank, { color: theme.colors.textSecondary }]}>#</Text>
-                <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary, flex: 1, marginRight: 8 }]}>TEAM</Text>
-                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.textSecondary }]}>P</Text>
-                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.textSecondary }]}>W</Text>
-                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.textSecondary }]}>D</Text>
-                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.textSecondary }]}>L</Text>
-                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.textSecondary }]}>GD</Text>
-                <Text style={[styles.tableHeaderText, styles.tableCellPoints, { color: theme.colors.textSecondary }]}>PTS</Text>
+                <Text style={[styles.tableHeaderText, styles.tableCellRank, { color: theme.colors.muted }]}>#</Text>
+                <Text style={[styles.tableHeaderText, { color: theme.colors.muted, flex: 1, marginRight: 8 }]}>TEAM</Text>
+                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.muted }]}>P</Text>
+                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.muted }]}>W</Text>
+                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.muted }]}>D</Text>
+                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.muted }]}>L</Text>
+                <Text style={[styles.tableHeaderText, styles.tableCell, { color: theme.colors.muted }]}>GD</Text>
+                <Text style={[styles.tableHeaderText, styles.tableCellPoints, { color: theme.colors.muted }]}>PTS</Text>
               </View>
 
               {/* Table Rows */}
@@ -678,8 +678,8 @@ export default function TeamDetails() {
                     styles.tableRow,
                     row.isCurrent && styles.tableRowHighlighted,
                     {
-                      borderBottomColor: theme.colors.separator,
-                      backgroundColor: row.isCurrent ? theme.colors.primary : theme.colors.card,
+                      borderBottomColor: theme.colors.muted,
+                      backgroundColor: row.isCurrent ? theme.colors.tint : theme.colors.card,
                     },
                   ]}
                 >
@@ -754,7 +754,7 @@ export default function TeamDetails() {
                     { 
                         color: row.isCurrent 
                           ? theme.colors.primaryText
-                          : (row.gd >= 0 ? theme.colors.primary : (isDark ? '#ef4444' : '#dc2626')),
+                          : (row.gd >= 0 ? theme.colors.tint : (isDark ? '#ef4444' : '#dc2626')),
                       fontFamily: 'Montserrat_600SemiBold',
                     },
                   ]}>
@@ -775,7 +775,7 @@ export default function TeamDetails() {
             </View>
           ) : (
             <View style={styles.emptyStandingsContainer}>
-              <Text style={[styles.emptyStandingsText, { color: theme.colors.textSecondary }]}>
+              <Text style={[styles.emptyStandingsText, { color: theme.colors.muted }]}>
                 No standings data available
               </Text>
             </View>
@@ -843,7 +843,7 @@ export default function TeamDetails() {
                         borderBottomWidth: 0,
                         backgroundColor: 'transparent',
                       }]}>
-                        <View style={[styles.playerPhotoContainer, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
+                        <View style={[styles.playerPhotoContainer, { backgroundColor: theme.colors.background }]}>
                           {teamData.coachImageUrl ? (
                             <Image 
                               source={{ uri: teamData.coachImageUrl }} 
@@ -851,16 +851,16 @@ export default function TeamDetails() {
                               resizeMode="cover"
                             />
                           ) : (
-                            <View style={[styles.playerPhotoPlaceholder, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
-                              <Ionicons name="person" size={20} color={theme.colors.textSecondary} />
+                            <View style={[styles.playerPhotoPlaceholder, { backgroundColor: theme.colors.background }]}>
+                              <Ionicons name="person" size={20} color={theme.colors.muted} />
                             </View>
                           )}
                         </View>
                         <View style={styles.playerInfoContainer}>
-                          <Text style={[styles.playerName, { color: theme.colors.text }]} numberOfLines={1}>
+                          <Text style={styles.playerName} numberOfLines={1}>
                             {teamData.coach}
                           </Text>
-                          <Text style={[styles.playerPosition, { color: theme.colors.textSecondary }]}>
+                          <Text style={styles.playerPosition}>
                             Coach
                           </Text>
                         </View>
@@ -876,7 +876,7 @@ export default function TeamDetails() {
 
                   return (
                     <View key={positionKey} style={styles.squadSection}>
-                      <Text style={[styles.squadSectionTitle, { color: theme.colors.text }]}>
+                      <Text style={styles.squadSectionTitle}>
                         {positionLabels[positionKey]}
                       </Text>
                       <View style={[
@@ -923,14 +923,14 @@ export default function TeamDetails() {
                             <TouchableOpacity
                               key={player.id}
                               style={[styles.playerCard, {
-                                borderBottomColor: theme.colors.separator,
+                                borderBottomColor: isDark ? theme.colors.muted : `${theme.colors.muted}33`,
                                 borderBottomWidth: isLastPlayer ? 0 : 1,
                                 backgroundColor: 'transparent',
                               }]}
                               onPress={() => router.push(`/player/${player.id}`)}
                               activeOpacity={0.7}
                             >
-                              <View style={[styles.playerPhotoContainer, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
+                              <View style={[styles.playerPhotoContainer, { backgroundColor: theme.colors.background }]}>
                                 {player.photoUrl ? (
                                   <Image 
                                     source={{ uri: player.photoUrl }} 
@@ -938,14 +938,14 @@ export default function TeamDetails() {
                                     resizeMode="cover"
                                   />
                                 ) : (
-                                  <View style={[styles.playerPhotoPlaceholder, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
-                                    <Ionicons name="person" size={20} color={theme.colors.textSecondary} />
+                                  <View style={[styles.playerPhotoPlaceholder, { backgroundColor: theme.colors.background }]}>
+                                    <Ionicons name="person" size={20} color={theme.colors.muted} />
                                   </View>
                                 )}
                               </View>
                               <View style={styles.playerInfoContainer}>
                                 <View style={styles.playerNameRow}>
-                                  <Text style={[styles.playerName, { color: theme.colors.text }]} numberOfLines={1}>
+                                  <Text style={styles.playerName} numberOfLines={1}>
                                     {player.name}
                                   </Text>
                                   {player.nationalityFlag && (
@@ -953,24 +953,24 @@ export default function TeamDetails() {
                                   )}
                                 </View>
                                 <View style={styles.playerDetailsRow}>
-                                  <Text style={[styles.playerPosition, { color: theme.colors.textSecondary }]}>
+                                  <Text style={styles.playerPosition}>
                                     {readablePosition}
                                   </Text>
                                   {player.nationality && !player.nationalityFlag && (
-                                    <Text style={[styles.playerNationality, { color: theme.colors.textSecondary }]}>
+                                    <Text style={[styles.playerNationality, { color: theme.colors.muted }]}>
                                       {player.nationality}
                                     </Text>
                                   )}
                                 </View>
                                 {player.injured && (
-                                  <Text style={[styles.playerInjury, { color: theme.colors.primary }]}>
+                                  <Text style={[styles.playerInjury, { color: theme.colors.tint }]}>
                                     🚑 {player.injuryReason || 'Injured'}
                                   </Text>
                                 )}
                               </View>
                               <View style={styles.playerRightSection}>
                                 {player.number !== undefined && player.number !== null && (
-                                  <Text style={[styles.playerNumber, { color: theme.colors.primary }]}>
+                                  <Text style={[styles.playerNumber, { color: theme.colors.tint }]}>
                                     {player.number}
                                   </Text>
                                 )}
@@ -982,7 +982,7 @@ export default function TeamDetails() {
                                   <Ionicons
                                     name={isPlayerFavorite ? 'star' : 'star-outline'}
                                     size={20}
-                                    color={isPlayerFavorite ? theme.colors.primary : theme.colors.iconMuted}
+                                    color={isPlayerFavorite ? theme.colors.tint : theme.colors.muted}
                                   />
                                 </TouchableOpacity>
                               </View>
@@ -1005,8 +1005,8 @@ export default function TeamDetails() {
         >
           {statsLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={theme.colors.primary} />
-              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>Loading stats...</Text>
+              <ActivityIndicator size="large" color={theme.colors.tint} />
+              <Text style={[styles.loadingText]}>Loading stats...</Text>
             </View>
           ) : stats ? (
             <>
@@ -1024,13 +1024,13 @@ export default function TeamDetails() {
             </>
           ) : (
             <View style={styles.loadingContainer}>
-              <Text style={[styles.loadingText, { color: theme.colors.textSecondary }]}>No stats available</Text>
+              <Text style={[styles.loadingText]}>No stats available</Text>
             </View>
           )}
         </ScrollView>
       ) : (
         <View style={[styles.comingSoonContainer, { backgroundColor: theme.colors.background }]}>
-          <Text style={[styles.comingSoonText, { color: theme.colors.textSecondary }]}>Coming Soon</Text>
+          <Text style={[styles.comingSoonText, { color: theme.colors.muted }]}>Coming Soon</Text>
         </View>
       )}
     </View>

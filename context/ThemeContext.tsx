@@ -26,6 +26,7 @@ export interface ThemeColors {
   // Accent
   primary: string;
   primaryText: string;
+  tint: string; // Matches Colors.ts
   
   // Status
   live: string;
@@ -34,6 +35,7 @@ export interface ThemeColors {
   // Other
   icon: string;
   iconMuted: string;
+  muted: string; // Matches Colors.ts
   filterInactive: string;
   tabBarBackground: string;
   tabBarBorder: string;
@@ -66,6 +68,7 @@ const darkTheme: Theme = {
     // Accent
     primary: '#22c55e',
     primaryText: '#000000',
+    tint: '#22c55e', // Matches Colors.ts dark.tint
     
     // Status
     live: '#ffffff',
@@ -74,6 +77,7 @@ const darkTheme: Theme = {
     // Other
     icon: '#ffffff',
     iconMuted: '#6b7280',
+    muted: '#94a3b8', // Matches Colors.ts dark.muted
     filterInactive: '#111828',
     tabBarBackground: '#111828',
     tabBarBorder: '#182443',
@@ -102,6 +106,7 @@ const lightTheme: Theme = {
     // Accent
     primary: '#32A95D',
     primaryText: '#FFFFFF',
+    tint: '#16a34a', // Matches Colors.ts light.tint
     
     // Status
     live: '#18223A',
@@ -110,6 +115,7 @@ const lightTheme: Theme = {
     // Other
     icon: '#18223A',
     iconMuted: '#6B7280',
+    muted: '#6b7280', // Matches Colors.ts light.muted
     filterInactive: '#FFFFFF',
     tabBarBackground: '#FFFFFF',
     tabBarBorder: '#E5E7EB',
