@@ -11,6 +11,7 @@ export interface ThemeColors {
   background: string;
   headerBackground: string;
   cardBackground: string;
+  card: string; // Alias for cardBackground to match Colors.ts
   inputBackground: string;
   
   // Text
@@ -50,6 +51,7 @@ const darkTheme: Theme = {
     background: '#080C17',
     headerBackground: '#080C17',
     cardBackground: '#111828',
+    card: '#111827', // Matches Colors.ts dark.card
     inputBackground: '#111828',
     
     // Text
@@ -85,6 +87,7 @@ const lightTheme: Theme = {
     background: '#F3F4F6',
     headerBackground: '#FFFFFF',
     cardBackground: '#FFFFFF',
+    card: '#F8FAFC', // Matches Colors.ts light.card
     inputBackground: '#FFFFFF',
     
     // Text

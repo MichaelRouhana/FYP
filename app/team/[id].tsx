@@ -315,7 +315,7 @@ export default function TeamDetails() {
               resizeMode="contain" 
             />
           ) : (
-            <View style={[styles.headerLogoPlaceholder, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder }]}>
+            <View style={[styles.headerLogoPlaceholder, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
               <Text style={[styles.headerLogoPlaceholderText, { color: theme.colors.text }]}>
                 {teamData.name.charAt(0)}
               </Text>
@@ -402,7 +402,7 @@ export default function TeamDetails() {
           {/* Stadium Details Section */}
           {detailsLoading ? (
             <View style={[styles.card, { 
-              backgroundColor: theme.colors.cardBackground,
+              backgroundColor: theme.colors.card,
               alignItems: 'center',
               justifyContent: 'center',
               paddingVertical: 40,
@@ -416,7 +416,7 @@ export default function TeamDetails() {
             <>
               {/* Stadium Information Card */}
               <View style={[styles.card, { 
-                backgroundColor: theme.colors.cardBackground,
+                backgroundColor: theme.colors.card,
                 marginBottom: 16,
                 ...Platform.select({
                   ios: {
@@ -435,7 +435,7 @@ export default function TeamDetails() {
                   {/* Stadium Name */}
                   {details.stadiumName && (
                     <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder }]}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
                         <MaterialCommunityIcons name="stadium" size={24} color={theme.colors.primary} />
                       </View>
                       <View style={styles.infoTextContainer}>
@@ -448,7 +448,7 @@ export default function TeamDetails() {
                   {/* City */}
                   {details.city && (
                     <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder }]}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
                         <Ionicons name="location" size={24} color={theme.colors.primary} />
                       </View>
                       <View style={styles.infoTextContainer}>
@@ -461,7 +461,7 @@ export default function TeamDetails() {
                   {/* Capacity */}
                   {details.capacity && details.capacity > 0 && (
                     <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder }]}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
                         <Ionicons name="people" size={24} color={theme.colors.primary} />
                       </View>
                       <View style={styles.infoTextContainer}>
@@ -476,7 +476,7 @@ export default function TeamDetails() {
                   {/* Founded Year */}
                   {details.foundedYear && details.foundedYear > 0 && (
                     <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder }]}>
+                      <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
                         <Ionicons name="calendar" size={24} color={theme.colors.primary} />
                       </View>
                       <View style={styles.infoTextContainer}>
@@ -492,7 +492,7 @@ export default function TeamDetails() {
 
           {/* Section 1: Team Information Card */}
           <View style={[styles.card, { 
-            backgroundColor: theme.colors.cardBackground,
+            backgroundColor: theme.colors.card,
             ...Platform.select({
               ios: {
                 shadowColor: '#000',
@@ -509,7 +509,7 @@ export default function TeamDetails() {
             <View style={styles.infoList}>
               {/* Coach */}
               <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder, overflow: 'hidden' }]}>
+                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background, overflow: 'hidden' }]}>
                   {teamData.coachImageUrl ? (
                     <Image 
                       source={{ uri: teamData.coachImageUrl }} 
@@ -528,7 +528,7 @@ export default function TeamDetails() {
 
               {/* Country */}
               <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder }]}>
+                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
                   {teamData.countryFlag ? (
                     <Text style={styles.infoFlagIcon}>{teamData.countryFlag}</Text>
                   ) : (
@@ -543,7 +543,7 @@ export default function TeamDetails() {
 
               {/* Founded */}
               <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder }]}>
+                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
                   <Ionicons name="calendar" size={24} color={theme.colors.primary} />
                 </View>
                 <View style={styles.infoTextContainer}>
@@ -554,7 +554,7 @@ export default function TeamDetails() {
 
               {/* UEFA Ranking */}
               <View style={[styles.infoRow, { borderBottomColor: theme.colors.separator }]}>
-                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder }]}>
+                <View style={[styles.infoIconCircle, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
                   <MaterialCommunityIcons name="trophy" size={24} color={theme.colors.primary} />
                 </View>
                 <View style={styles.infoTextContainer}>
@@ -570,7 +570,7 @@ export default function TeamDetails() {
           {/* Section 2: Tournaments */}
           {/* TODO: Fetch active tournaments from backend when endpoint is available */}
           <View style={[styles.card, { 
-            backgroundColor: theme.colors.cardBackground,
+            backgroundColor: theme.colors.card,
             ...Platform.select({
               ios: {
                 shadowColor: '#000',
@@ -594,7 +594,7 @@ export default function TeamDetails() {
                       resizeMode="contain" 
                     />
                   ) : (
-                    <View style={[styles.tournamentIconPlaceholder, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder }]}>
+                    <View style={[styles.tournamentIconPlaceholder, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
                       <MaterialCommunityIcons 
                         name="soccer" 
                         size={20} 
@@ -619,7 +619,7 @@ export default function TeamDetails() {
           {/* Standings Table */}
           {standingsLoading ? (
             <View style={[styles.standingsCard, { 
-              backgroundColor: theme.colors.cardBackground,
+              backgroundColor: theme.colors.card,
               alignItems: 'center',
               justifyContent: 'center',
               paddingVertical: 40,
@@ -642,7 +642,7 @@ export default function TeamDetails() {
           </View>
           ) : currentStandings.length > 0 ? (
             <View style={[styles.standingsCard, { 
-              backgroundColor: theme.colors.cardBackground,
+              backgroundColor: theme.colors.card,
               ...Platform.select({
                 ios: {
                   shadowColor: '#000',
@@ -658,7 +658,7 @@ export default function TeamDetails() {
               {/* Table Header */}
               <View style={[styles.tableHeader, { 
                 borderBottomColor: theme.colors.separator,
-                backgroundColor: isDark ? theme.colors.headerBackground : theme.colors.cardBackground,
+                backgroundColor: isDark ? theme.colors.headerBackground : theme.colors.card,
               }]}>
                 <Text style={[styles.tableHeaderText, styles.tableCellRank, { color: theme.colors.textSecondary }]}>#</Text>
                 <Text style={[styles.tableHeaderText, { color: theme.colors.textSecondary, flex: 1, marginRight: 8 }]}>TEAM</Text>
@@ -679,7 +679,7 @@ export default function TeamDetails() {
                     row.isCurrent && styles.tableRowHighlighted,
                     {
                       borderBottomColor: theme.colors.separator,
-                      backgroundColor: row.isCurrent ? theme.colors.primary : 'transparent',
+                      backgroundColor: row.isCurrent ? theme.colors.primary : theme.colors.card,
                     },
                   ]}
                 >
@@ -709,7 +709,7 @@ export default function TeamDetails() {
                         resizeMode="contain" 
                       />
                     ) : (
-                      <View style={[styles.teamLogoPlaceholder, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder }]} />
+                      <View style={[styles.teamLogoPlaceholder, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]} />
                     )}
                     <Text 
                       style={[
@@ -824,7 +824,7 @@ export default function TeamDetails() {
                     <View style={[
                       styles.squadCard,
                       { 
-                        backgroundColor: theme.colors.cardBackground,
+                        backgroundColor: theme.colors.card,
                         borderRadius: 24,
                         ...Platform.select({
                           ios: {
@@ -843,7 +843,7 @@ export default function TeamDetails() {
                         borderBottomWidth: 0,
                         backgroundColor: 'transparent',
                       }]}>
-                        <View style={[styles.playerPhotoContainer, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder }]}>
+                        <View style={[styles.playerPhotoContainer, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
                           {teamData.coachImageUrl ? (
                             <Image 
                               source={{ uri: teamData.coachImageUrl }} 
@@ -851,7 +851,7 @@ export default function TeamDetails() {
                               resizeMode="cover"
                             />
                           ) : (
-                            <View style={[styles.playerPhotoPlaceholder, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder }]}>
+                            <View style={[styles.playerPhotoPlaceholder, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
                               <Ionicons name="person" size={20} color={theme.colors.textSecondary} />
                             </View>
                           )}
@@ -882,7 +882,7 @@ export default function TeamDetails() {
                       <View style={[
                         styles.squadCard,
                         { 
-                          backgroundColor: theme.colors.cardBackground,
+                          backgroundColor: theme.colors.card,
                           borderRadius: 24,
                           ...Platform.select({
                             ios: {
@@ -930,7 +930,7 @@ export default function TeamDetails() {
                               onPress={() => router.push(`/player/${player.id}`)}
                               activeOpacity={0.7}
                             >
-                              <View style={[styles.playerPhotoContainer, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder }]}>
+                              <View style={[styles.playerPhotoContainer, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
                                 {player.photoUrl ? (
                                   <Image 
                                     source={{ uri: player.photoUrl }} 
@@ -938,7 +938,7 @@ export default function TeamDetails() {
                                     resizeMode="cover"
                                   />
                                 ) : (
-                                  <View style={[styles.playerPhotoPlaceholder, { backgroundColor: isDark ? theme.colors.border : theme.colors.tabBarBorder }]}>
+                                  <View style={[styles.playerPhotoPlaceholder, { backgroundColor: isDark ? theme.colors.border : theme.colors.background }]}>
                                     <Ionicons name="person" size={20} color={theme.colors.textSecondary} />
                                   </View>
                                 )}
