@@ -420,13 +420,13 @@ export default function TeamDetails() {
                 marginBottom: 16,
                 ...Platform.select({
                   ios: {
-                    shadowColor: '#000',
+                    shadowColor: isDark ? '#000' : 'rgba(0, 0, 0, 0.05)',
                     shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.1,
+                    shadowOpacity: isDark ? 0.1 : 0.05,
                     shadowRadius: 8,
                   },
                   android: {
-                    elevation: 4,
+                    elevation: isDark ? 4 : 2,
                   },
                 }),
               }]}>

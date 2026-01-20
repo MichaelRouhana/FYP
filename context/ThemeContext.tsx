@@ -94,7 +94,7 @@ const lightTheme: Theme = {
     
     // Borders
     border: '#18223A',
-    separator: '#18223A',
+    separator: '#E5E7EB',
     
     // Accent
     primary: '#32A95D',
