@@ -32,7 +32,6 @@ const SUPPORTED_BETS = [
   { key: 'doubleChance', label: 'Double Chance' },
   { key: 'firstTeamToScore', label: 'First Team to Score' },
   { key: 'scorePrediction', label: 'Correct Score' },
-  { key: 'halfTimeFullTime', label: 'Half Time / Full Time' },
 ] as const;
 
 export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProps) {
@@ -44,8 +43,13 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
   // Track which settings are currently being updated to prevent double-clicks and rate limiting
   const [updatingKeys, setUpdatingKeys] = useState<Set<string>>(new Set());
 
-  // Fetch settings data on mount
+  // Fetch settings data on mount and when fixtureId changes
   useEffect(() => {
+    // Reset state when fixtureId changes to prevent showing stale data
+    setMatchSettings(null);
+    setPredictionSettings(null);
+    setUpdatingKeys(new Set());
+    
     fetchSettingsData();
   }, [fixtureId]);
 
@@ -53,11 +57,23 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
     setSettingsLoading(true);
     try {
       const [settings, predSettings] = await Promise.all([
-        getMatchSettings(fixtureId).catch(() => null),
-        getPredictionSettings(fixtureId).catch(() => null),
+        getMatchSettings(fixtureId).catch((err) => {
+          console.error('[AdminMatchSettings] Error fetching match settings:', err);
+          return null;
+        }),
+        getPredictionSettings(fixtureId).catch((err) => {
+          console.error('[AdminMatchSettings] Error fetching prediction settings:', err);
+          return null;
+        }),
       ]);
-      setMatchSettings(settings);
-      setPredictionSettings(predSettings);
+      
+      // Only update state if we got valid data
+      if (settings) {
+        setMatchSettings(settings);
+      }
+      if (predSettings) {
+        setPredictionSettings(predSettings);
+      }
     } catch (error) {
       console.error('[AdminMatchSettings] Error fetching data:', error);
     } finally {
@@ -203,9 +219,9 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
                 </Text>
               </View>
               <Switch
-                value={matchSettings?.showMatch ?? false}
+                value={matchSettings?.showMatch === true}
                 onValueChange={(value) => handleMatchSettingToggle('showMatch', value)}
-                disabled={updatingKeys.has('match_showMatch')}
+                disabled={updatingKeys.has('match_showMatch') || !matchSettings}
                 trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
                 thumbColor="#ffffff"
               />
@@ -222,9 +238,9 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
                 </Text>
               </View>
               <Switch
-                value={matchSettings?.allowBetting ?? false}
+                value={matchSettings?.allowBetting === true}
                 onValueChange={(value) => handleMatchSettingToggle('allowBetting', value)}
-                disabled={updatingKeys.has('match_allowBetting')}
+                disabled={updatingKeys.has('match_allowBetting') || !matchSettings}
                 trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
                 thumbColor="#ffffff"
               />
@@ -241,9 +257,9 @@ export default function AdminMatchSettings({ fixtureId }: AdminMatchSettingsProp
                 </Text>
               </View>
               <Switch
-                value={matchSettings?.allowBettingHT ?? false}
+                value={matchSettings?.allowBettingHT === true}
                 onValueChange={(value) => handleMatchSettingToggle('allowBettingHT', value)}
-                disabled={updatingKeys.has('match_allowBettingHT')}
+                disabled={updatingKeys.has('match_allowBettingHT') || !matchSettings}
                 trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
                 thumbColor="#ffffff"
               />

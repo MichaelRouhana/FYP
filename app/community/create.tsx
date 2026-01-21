@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Switch,
   Alert,
   ActivityIndicator,
   Image,
@@ -28,7 +27,6 @@ export default function CreateCommunityScreen() {
   const [name, setName] = useState('');
   const [shortDescription, setShortDescription] = useState('');
   const [description, setDescription] = useState('');
-  const [isPrivate, setIsPrivate] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -99,7 +97,7 @@ export default function CreateCommunityScreen() {
         description: description.trim(),
         // Only include shortDescription if it's not empty
         ...(shortDescription.trim() && { shortDescription: shortDescription.trim() }),
-        isPrivate,
+        isPrivate: true, // All communities are always private
       };
 
       // Pass imageUri only if an image was selected
@@ -282,26 +280,6 @@ export default function CreateCommunityScreen() {
           </View>
         </View>
 
-        {/* Private Community Toggle */}
-        <View style={[styles.section, styles.toggleSection]}>
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleContent}>
-              <Text style={[styles.label, { color: isDark ? '#F9FAFB' : '#18223A' }]}>
-                Private Community
-              </Text>
-              <Text style={[styles.hint, { color: isDark ? '#9ca3af' : '#6B7280' }]}>
-                Only members can view and join
-              </Text>
-            </View>
-            <Switch
-              value={isPrivate}
-              onValueChange={setIsPrivate}
-              trackColor={{ false: isDark ? '#374151' : '#D1D5DB', true: '#22c55e' }}
-              thumbColor="#ffffff"
-            />
-          </View>
-        </View>
-
         {/* Create Button */}
         <TouchableOpacity
           style={[
@@ -389,18 +367,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Montserrat_400Regular',
     minHeight: 120,
-  },
-  toggleSection: {
-    marginBottom: 32,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  toggleContent: {
-    flex: 1,
-    marginRight: 16,
   },
   createButton: {
     borderRadius: 12,

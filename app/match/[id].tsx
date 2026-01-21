@@ -32,7 +32,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useFavorites } from '@/hooks/useFavorites';
 import { placeBet, createMatchWinnerBet, getOddsForSelection, getOdds } from '@/services/betApi';
 import { MarketType, BetRequestDTO } from '@/types/bet';
-import { getFixtureInjuries, getBetTypes, getOddsForFixture, getPredictionSettings } from '@/services/matchApi';
+import { getFixtureInjuries, getBetTypes, getOddsForFixture, getPredictionSettings, getMatchSettings } from '@/services/matchApi';
 import { FootballApiInjury } from '@/types/fixture';
 import AdminMatchSettings from '@/components/match/AdminMatchSettings';
 import {
@@ -129,12 +129,16 @@ const getMatchStatus = (statusShort: string | undefined): MatchStatus => {
 /**
  * Get filtered tabs based on match status with dynamic labels
  */
-const getTabsForStatus = (status: MatchStatus, isAdmin: boolean = false): { id: TabType; label: string }[] => {
+const getTabsForStatus = (status: MatchStatus, isAdmin: boolean = false, allowBetting: boolean = true): { id: TabType; label: string }[] => {
   const allowedTabs = TABS_BY_STATUS[status];
   const filteredTabs = ALL_TABS.filter(tab => {
     // Include settings tab for admins, but only if match is not finished
     if (tab.id === 'settings') {
       return isAdmin && status !== 'finished';
+    }
+    // Hide predictions tab if betting is not allowed (unless admin)
+    if (tab.id === 'predictions' && !isAdmin && !allowBetting) {
+      return false;
     }
     return allowedTabs.includes(tab.id);
   });
@@ -206,6 +210,11 @@ export default function MatchDetailsScreen() {
     scorePrediction?: boolean;
     halfTimeFullTime?: boolean;
   } | null>(null);
+  const [matchSettings, setMatchSettings] = useState<{ 
+    allowBetting?: boolean;
+    allowBettingHT?: boolean;
+    showMatch?: boolean;
+  } | null>(null);
   
   // Structured picks state
   interface Pick {
@@ -248,8 +257,9 @@ export default function MatchDetailsScreen() {
   }, [matchData?.fixture?.status?.short]);
 
   const availableTabs = useMemo(() => {
-    return getTabsForStatus(matchStatus, isAdmin);
-  }, [matchStatus, isAdmin]);
+    const allowBetting = matchSettings?.allowBetting !== false; // Default to true if not set
+    return getTabsForStatus(matchStatus, isAdmin, allowBetting);
+  }, [matchStatus, isAdmin, matchSettings?.allowBetting]);
 
   // Auto-select appropriate default tab when match status changes
   // Only set default ONCE on initial load, then allow free tab switching
@@ -302,7 +312,7 @@ export default function MatchDetailsScreen() {
     fetchInjuries();
   }, [id]);
 
-  // Fetch prediction settings - only for non-finished matches
+  // Fetch match settings and prediction settings - only for non-finished matches
   useEffect(() => {
     const fetchSettings = async () => {
       if (!id || !matchData?.fixture?.status?.short) return;
@@ -311,16 +321,22 @@ export default function MatchDetailsScreen() {
       const status = getMatchStatus(matchData.fixture.status.short);
       if (status === 'finished') {
         setPredictionSettings(null);
+        setMatchSettings(null);
         return;
       }
       
       try {
-        const settings = await getPredictionSettings(Number(id));
-        setPredictionSettings(settings);
+        const [predSettings, matchSettingsData] = await Promise.all([
+          getPredictionSettings(Number(id)).catch(() => null),
+          getMatchSettings(Number(id)).catch(() => null),
+        ]);
+        setPredictionSettings(predSettings);
+        setMatchSettings(matchSettingsData);
       } catch (error) {
-        console.error('[MatchDetails] Error fetching prediction settings:', error);
+        console.error('[MatchDetails] Error fetching settings:', error);
         // Default to showing all if settings can't be fetched
         setPredictionSettings(null);
+        setMatchSettings(null);
       }
     };
     fetchSettings();
@@ -943,10 +959,19 @@ export default function MatchDetailsScreen() {
     // Check if match is finished
     const isFinished = matchStatus === 'finished';
     
+    // Determine if betting section should be visible
+    // For upcoming matches: require allowBetting === true
+    // For live matches: require allowBettingHT === true
+    // For finished matches: never show
+    const shouldShowBetting = !isFinished && (
+      (matchStatus === 'upcoming' && matchSettings?.allowBetting !== false) ||
+      (matchStatus === 'live' && matchSettings?.allowBettingHT !== false)
+    );
+    
     return (
       <View style={styles.detailsContainer}>
-        {/* User Balance - Only show for non-finished matches */}
-        {!isFinished && (
+        {/* User Balance - Only show when betting is available */}
+        {shouldShowBetting && (
           <View style={[
             styles.balanceCard,
             {
@@ -964,8 +989,8 @@ export default function MatchDetailsScreen() {
           </View>
         )}
 
-        {/* Betting Card - Only show for non-finished matches */}
-        {!isFinished && (
+        {/* Betting Card - Only show when betting is allowed */}
+        {shouldShowBetting && (
           <View style={[
             styles.bettingCard, 
             { 
