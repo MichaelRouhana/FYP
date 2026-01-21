@@ -18,7 +18,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// --- Types ---
 type ApiTeam = { team: { id: number; name: string; logo: string } };
 type ApiLeague = { league: { id: number; name: string; logo: string; country: string } };
 type ApiPlayer = { player: { id: number; name: string; photo: string; firstname: string; lastname: string } };
@@ -46,139 +45,217 @@ export default function SearchScreen() {
   const { history, addToHistory, clearHistory, removeFromHistory } = useSearchHistory();
   const { isFavorite, toggleFavorite } = useFavorites();
   
-  // Search State
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState<FilterType>('all'); // Default is ALL
-  
-  // Data State
-  const [allResults, setAllResults] = useState<SearchResultItem[]>([]); // Stores everything fetched
+  const [activeFilter, setActiveFilter] = useState<FilterType>('all');
+  const [allResults, setAllResults] = useState<SearchResultItem[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // --- 1. Fuzzy Search Helper Functions (defined early) ---
   const normalize = useCallback((text: string | undefined | null): string => {
     if (!text || typeof text !== 'string') return '';
-    // Preserve hyphens and spaces for team names like "Al-Nassr"
-    // Only remove special characters that aren't part of names
-    return text.toLowerCase().replace(/[^a-z0-9\-\s]/g, '').trim();
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '')
+      .replace(/[^a-z0-9]/g, '');
   }, []);
-  
-  // Normalize for API calls (can be more aggressive, but preserve hyphens)
+
   const normalizeForApi = useCallback((text: string | undefined | null): string => {
     if (!text || typeof text !== 'string') return '';
-    // For API, preserve hyphens but normalize spaces
     return text.toLowerCase().trim().replace(/\s+/g, ' ');
   }, []);
 
-  // Helper to generate search variations for better matching
   const generateSearchVariations = useCallback((query: string): string[] => {
-    const normalized = normalize(query);
-    const apiNormalized = normalizeForApi(query); // Preserve hyphens
+    const apiNormalized = normalizeForApi(query);
     const variations = new Set<string>();
     
-    // Add the full normalized query (for client-side matching)
-    variations.add(normalized);
-    
-    // Add API-normalized version (preserves hyphens)
-    if (apiNormalized !== normalized) {
-      variations.add(apiNormalized);
-    }
-    
-    // Add original query (preserves exact spelling and hyphens)
     variations.add(query.toLowerCase().trim());
+    variations.add(apiNormalized);
     
-    // Add first word only
-    const firstWord = normalized.split(/[\s-]+/)[0];
-    if (firstWord.length > 2) {
-      variations.add(firstWord);
+    const words = query.toLowerCase().trim().split(/[\s-]+/).filter(w => w.length > 0);
+    
+    if (words.length > 0 && words[0].length > 2) {
+      variations.add(words[0]);
     }
     
-    // Add common name variations (e.g., "christiano" -> "cristiano")
     const commonReplacements: { [key: string]: string } = {
       'christiano': 'cristiano',
-      'cristiano': 'cristiano', // Ensure correct spelling is included
+      'cristiano': 'cristiano',
       'ronaldo': 'ronaldo',
       'messi': 'messi',
       'mbappe': 'mbappe',
     };
     
+    let correctedQuery = apiNormalized;
     Object.keys(commonReplacements).forEach(misspelling => {
-      if (normalized.includes(misspelling)) {
-        const corrected = normalized.replace(misspelling, commonReplacements[misspelling]);
-        variations.add(corrected);
-        // Also add with hyphens preserved if original had them
-        if (query.includes('-')) {
-          variations.add(corrected.replace(/\s+/g, '-'));
-        }
+      if (correctedQuery.includes(misspelling)) {
+        correctedQuery = correctedQuery.replace(misspelling, commonReplacements[misspelling]);
       }
     });
+    if (correctedQuery !== apiNormalized) {
+      variations.add(correctedQuery);
+    }
     
-    // If query has multiple words, try each word
-    const words = normalized.split(/[\s-]+/).filter(w => w.length > 2);
-    words.forEach(word => variations.add(word));
+    words.filter(w => w.length > 2).forEach(word => {
+      variations.add(word);
+    });
     
     return Array.from(variations);
-  }, [normalize, normalizeForApi]);
+  }, [normalizeForApi]);
 
-  // --- 3. Fetch Logic (Fetches ALL types at once) ---
   const performGlobalSearch = useCallback(async () => {
     setLoading(true);
     try {
-      // Strategy: Preserve original query for API (with hyphens), normalize for matching
-      // The API may need exact characters like hyphens to match correctly
       const originalQuery = searchQuery.trim();
-      const normalizedQuery = normalize(searchQuery); // For client-side matching
-      const apiQuery = normalizeForApi(searchQuery); // For API (preserves hyphens, normalizes spaces)
+      const normalizedQuery = normalize(searchQuery);
+      const apiQuery = normalizeForApi(searchQuery);
       
-      const searchTerms = normalizedQuery.split(/[\s-]+/).filter(t => t.length > 0);
+      const originalWords = originalQuery.split(/[\s-]+/).filter(w => w.length > 0);
+      const firstWord = originalWords.length > 0 ? originalWords[0] : originalQuery;
+      const wordCount = originalWords.length;
       
-      // Use first word for broader results, but also try full query
-      const apiSearchTerm = searchTerms.length > 0 ? searchTerms[0] : apiQuery;
-      const encodedApiQuery = encodeURIComponent(apiSearchTerm);
-      const encodedFullQuery = encodeURIComponent(apiQuery); // Use API-normalized version
-      const encodedOriginalQuery = encodeURIComponent(originalQuery); // Also try original
+      const encodedFirstWord = encodeURIComponent(firstWord.toLowerCase());
+      const encodedFullQuery = encodeURIComponent(apiQuery);
+      const encodedOriginalQuery = encodeURIComponent(originalQuery);
       
-      // For short queries (1-2 words), prefer full query; for longer, use first word + full
-      const useFullQueryFirst = searchTerms.length <= 2 && apiQuery.length <= 20;
+      const useFullQueryFirst = wordCount <= 2 && apiQuery.length <= 20;
       
-      console.log(`[Search] Original query: "${originalQuery}"`);
-      console.log(`[Search] API query (first word): "${apiSearchTerm}"`);
-      console.log(`[Search] API full query: "${apiQuery}"`);
-      console.log(`[Search] Using full query first: ${useFullQueryFirst}`);
-      
-      // Build team/league promises - try multiple variations to catch all matches
-      const allPromises = [
-        // Try original query first (preserves exact characters like hyphens)
-        api.get(`/football/teams?search=${encodedOriginalQuery}`),
-        api.get(`/football/leagues?search=${encodedOriginalQuery}`),
-        // Try API-normalized query (handles spaces)
-        api.get(`/football/teams?search=${encodedFullQuery}`),
-        api.get(`/football/leagues?search=${encodedFullQuery}`),
-        // Try first word (broader results for multi-word queries)
-        ...(searchTerms.length > 1 ? [
-          api.get(`/football/teams?search=${encodedApiQuery}`),
-          api.get(`/football/leagues?search=${encodedApiQuery}`),
-        ] : []),
+      const basePromises = [
+        api.get(`/football/teams?search=${encodedOriginalQuery}`).catch((err) => {
+          if (err.response?.status === 429) {
+            console.warn('[Search] Rate limited on teams (original query)');
+          }
+          throw err;
+        }),
+        api.get(`/football/leagues?search=${encodedOriginalQuery}`).catch((err) => {
+          if (err.response?.status === 429) {
+            console.warn('[Search] Rate limited on leagues (original query)');
+          }
+          throw err;
+        }),
       ];
       
-      // Generate search variations for players (they need more help)
-      const searchVariations = generateSearchVariations(searchQuery);
-      const playerQueries = searchVariations.slice(0, 4); // Try top 4 variations for players
+      const normalizedPromises = apiQuery !== originalQuery.toLowerCase() ? [
+        api.get(`/football/teams?search=${encodedFullQuery}`).catch((err) => {
+          if (err.response?.status === 429) {
+            console.warn('[Search] Rate limited on teams (normalized query)');
+          }
+          throw err;
+        }),
+        api.get(`/football/leagues?search=${encodedFullQuery}`).catch((err) => {
+          if (err.response?.status === 429) {
+            console.warn('[Search] Rate limited on leagues (normalized query)');
+          }
+          throw err;
+        }),
+      ] : [];
       
-      // Build all player search promises - try without league restriction first (global search)
+      const firstWordPromises = wordCount > 1 && firstWord.toLowerCase() !== originalQuery.toLowerCase() ? [
+        api.get(`/football/teams?search=${encodedFirstWord}`).catch((err) => {
+          if (err.response?.status === 429) {
+            console.warn('[Search] Rate limited on teams (first word)');
+          }
+          throw err;
+        }),
+        api.get(`/football/leagues?search=${encodedFirstWord}`).catch((err) => {
+          if (err.response?.status === 429) {
+            console.warn('[Search] Rate limited on leagues (first word)');
+          }
+          throw err;
+        }),
+      ] : [];
+      
+      const secondWordPromises = (() => {
+        if ((originalQuery.toLowerCase().startsWith('al-') || originalQuery.toLowerCase().startsWith('al ')) && originalWords.length > 1) {
+          const secondWord = originalWords[1];
+          if (secondWord && secondWord.length >= 2) {
+            const promises = [];
+            
+            promises.push(
+              api.get(`/football/teams?search=${encodeURIComponent(secondWord)}`).catch((err) => {
+                if (err.response?.status === 429) {
+                  console.warn('[Search] Rate limited on teams (second word)');
+                }
+                throw err;
+              }),
+              api.get(`/football/leagues?search=${encodeURIComponent(secondWord)}`).catch((err) => {
+                if (err.response?.status === 429) {
+                  console.warn('[Search] Rate limited on leagues (second word)');
+                }
+                throw err;
+              })
+            );
+            
+            if (secondWord.length === 2 && secondWord.toLowerCase() === 'na') {
+              promises.push(
+                api.get(`/football/teams?search=${encodeURIComponent('nas')}`).catch((err) => {
+                  if (err.response?.status === 429) {
+                    console.warn('[Search] Rate limited on teams (nas fallback)');
+                  }
+                  throw err;
+                }),
+                api.get(`/football/leagues?search=${encodeURIComponent('nas')}`).catch((err) => {
+                  if (err.response?.status === 429) {
+                    console.warn('[Search] Rate limited on leagues (nas fallback)');
+                  }
+                  throw err;
+                })
+              );
+            }
+            
+            return promises;
+          }
+        }
+        return [];
+      })();
+      
+      const allPromises = [
+        ...basePromises,
+        ...normalizedPromises,
+        ...firstWordPromises,
+        ...secondWordPromises,
+      ];
+      
       const playerPromises = [
-        // Try original query (preserves hyphens and exact spelling)
-        api.get(`/football/players?search=${encodedOriginalQuery}`),
-        // Try API-normalized query
-        api.get(`/football/players?search=${encodedFullQuery}`),
-        // Try variations
-        ...playerQueries.map(q => api.get(`/football/players?search=${encodeURIComponent(normalizeForApi(q))}`)),
-        // Fallback: try with major leagues (but don't restrict to just these)
-        api.get(`/football/players?search=${encodedApiQuery}&league=39&season=2024`).catch(() => null), // Premier League
-        api.get(`/football/players?search=${encodedApiQuery}&league=140&season=2024`).catch(() => null), // La Liga
-        api.get(`/football/players?search=${encodedApiQuery}&league=307&season=2024`).catch(() => null), // Saudi Pro League (Al-Nassr)
-        api.get(`/football/players?search=${encodedApiQuery}&league=135&season=2024`).catch(() => null), // Serie A
-        api.get(`/football/players?search=${encodedApiQuery}&league=78&season=2024`).catch(() => null), // Bundesliga
-        api.get(`/football/players?search=${encodedApiQuery}&league=61&season=2024`).catch(() => null), // Ligue 1
+        api.get(`/football/players?search=${encodedOriginalQuery}`).catch((err) => {
+          if (err.response?.status === 429) {
+            console.warn('[Search] Rate limited on players (original query)');
+          }
+          throw err;
+        }),
+        ...(wordCount > 1 && firstWord.toLowerCase() !== originalQuery.toLowerCase() ? [
+          api.get(`/football/players?search=${encodedFirstWord}`).catch((err) => {
+            if (err.response?.status === 429) {
+              console.warn('[Search] Rate limited on players (first word)');
+            }
+            throw err;
+          }),
+        ] : []),
+        ...(originalQuery.length >= 3 ? [
+          api.get(`/football/players?search=${encodedOriginalQuery}&league=39&season=2024`).catch((err) => {
+            if (err.response?.status === 429) {
+              console.warn('[Search] Rate limited on players (Premier League)');
+            }
+            throw err;
+          }),
+          api.get(`/football/players?search=${encodedOriginalQuery}&league=140&season=2024`).catch((err) => {
+            if (err.response?.status === 429) {
+              console.warn('[Search] Rate limited on players (La Liga)');
+            }
+            throw err;
+          }),
+          api.get(`/football/players?search=${encodedOriginalQuery}&league=307&season=2024`).catch((err) => {
+            if (err.response?.status === 429) {
+              console.warn('[Search] Rate limited on players (Saudi Pro League)');
+            }
+            throw err;
+          }),
+          api.get(`/football/players?search=${encodedOriginalQuery}&league=135&season=2024`).catch((err) => {
+            if (err.response?.status === 429) {
+              console.warn('[Search] Rate limited on players (Serie A)');
+            }
+            throw err;
+          }),
+        ] : []),
       ];
       
       const allResults = await Promise.allSettled([
@@ -186,19 +263,47 @@ export default function SearchScreen() {
         ...playerPromises,
       ]);
       
-      // Extract results - first results are teams/leagues, rest are players
-      const teamLeagueCount = allPromises.length;
-      // Teams/leagues: [original teams, original leagues, normalized teams, normalized leagues, (optional) first word teams, first word leagues]
-      const teamsRes = allResults[0];
-      const leaguesRes = allResults[1];
-      const teamsResFull = allResults[2];
-      const leaguesResFull = allResults[3];
-      const playerResArray = allResults.slice(teamLeagueCount);
+      let resultIndex = 0;
+      
+      const getResult = (): PromiseSettledResult<any> | null => {
+        if (resultIndex < allResults.length) {
+          const result = allResults[resultIndex++];
+          if (result.status === 'rejected' && result.reason?.response?.status === 429) {
+            return null;
+          }
+          return result;
+        }
+        return null;
+      };
+      
+      const teamsRes = getResult();
+      const leaguesRes = getResult();
+      
+      const hasNormalized = apiQuery !== originalQuery.toLowerCase();
+      const teamsResFull = hasNormalized ? getResult() : null;
+      const leaguesResFull = hasNormalized ? getResult() : null;
+      
+      const hasFirstWord = wordCount > 1 && firstWord.toLowerCase() !== originalQuery.toLowerCase();
+      const teamsResFirstWord = hasFirstWord ? getResult() : null;
+      const leaguesResFirstWord = hasFirstWord ? getResult() : null;
+      
+      const hasSecondWord = (originalQuery.toLowerCase().startsWith('al-') || originalQuery.toLowerCase().startsWith('al ')) && originalWords.length > 1 && originalWords[1].length >= 2;
+      const teamsResSecondWord = hasSecondWord ? getResult() : null;
+      const leaguesResSecondWord = hasSecondWord ? getResult() : null;
+      const hasNasFallback = hasSecondWord && originalWords[1].toLowerCase() === 'na';
+      const teamsResNasFallback = hasNasFallback ? getResult() : null;
+      const leaguesResNasFallback = hasNasFallback ? getResult() : null;
+      
+      const playerResArray = allResults.slice(resultIndex).filter(r => {
+        if (r.status === 'rejected' && r.reason?.response?.status === 429) {
+          return false;
+        }
+        return true;
+      });
 
       const newResults: SearchResultItem[] = [];
-      const seenIds = new Set<string>(); // Track IDs to avoid duplicates
+      const seenIds = new Set<string>();
 
-      // Helper to add result if not duplicate
       const addResult = (result: SearchResultItem) => {
         const key = `${result.type}-${result.id}`;
         if (!seenIds.has(key)) {
@@ -207,14 +312,15 @@ export default function SearchScreen() {
         }
       };
 
-      // Process Teams - combine results from both queries
-      if (teamsRes.status === 'fulfilled') {
-        const teamsData = (teamsRes.value.data.response as ApiTeam[]) || [];
-        teamsData.forEach((item) => {
+      const processTeamResults = (result: PromiseSettledResult<any> | null) => {
+        if (result && result.status === 'fulfilled' && result.value?.data?.response) {
+          const teamsData = (result.value.data.response as ApiTeam[]) || [];
+          teamsData.forEach((item) => {
           if (item?.team?.id && item?.team?.name) {
-            addResult({
+              const teamName = String(item.team.name).trim();
+              addResult({
               id: item.team.id,
-              title: item.team.name,
+                title: teamName,
               subtitle: 'Team',
               imageUrl: item.team.logo,
               type: 'team',
@@ -222,71 +328,52 @@ export default function SearchScreen() {
           }
         });
       }
+      };
       
-      // Process Teams from full query (may have exact matches)
-      if (teamsResFull.status === 'fulfilled') {
-        const teamsData = (teamsResFull.value.data.response as ApiTeam[]) || [];
-        teamsData.forEach((item) => {
-          if (item?.team?.id && item?.team?.name) {
-            addResult({
-              id: item.team.id,
-              title: item.team.name,
-              subtitle: 'Team',
-              imageUrl: item.team.logo,
-              type: 'team',
-            });
-          }
-        });
-      }
+      if (teamsRes) processTeamResults(teamsRes);
+      if (teamsResFull) processTeamResults(teamsResFull);
+      if (teamsResFirstWord) processTeamResults(teamsResFirstWord);
+      if (teamsResSecondWord) processTeamResults(teamsResSecondWord);
+      if (teamsResNasFallback) processTeamResults(teamsResNasFallback);
 
-      // Process Leagues - combine results from both queries
-      if (leaguesRes.status === 'fulfilled') {
-        const leaguesData = (leaguesRes.value.data.response as ApiLeague[]) || [];
+      const processLeagueResults = (result: PromiseSettledResult<any> | null) => {
+        if (result && result.status === 'fulfilled' && result.value?.data?.response) {
+          const leaguesData = (result.value.data.response as ApiLeague[]) || [];
         leaguesData.forEach((item) => {
           if (item?.league?.id && item?.league?.name) {
-            addResult({
+              const leagueName = String(item.league.name).trim();
+              addResult({
               id: item.league.id,
-              title: item.league.name,
-              subtitle: item.league.country || '',
+                title: leagueName,
+                subtitle: (item.league.country || '').trim(),
               imageUrl: item.league.logo,
               type: 'league',
             });
           }
         });
-      }
+        }
+      };
       
-      // Process Leagues from full query (may have exact matches)
-      if (leaguesResFull.status === 'fulfilled') {
-        const leaguesData = (leaguesResFull.value.data.response as ApiLeague[]) || [];
-        leaguesData.forEach((item) => {
-          if (item?.league?.id && item?.league?.name) {
-            addResult({
-              id: item.league.id,
-              title: item.league.name,
-              subtitle: item.league.country || '',
-              imageUrl: item.league.logo,
-              type: 'league',
-            });
-          }
-        });
-      }
+      if (leaguesRes) processLeagueResults(leaguesRes);
+      if (leaguesResFull) processLeagueResults(leaguesResFull);
+      if (leaguesResFirstWord) processLeagueResults(leaguesResFirstWord);
+      if (leaguesResSecondWord) processLeagueResults(leaguesResSecondWord);
+      if (leaguesResNasFallback) processLeagueResults(leaguesResNasFallback);
 
-      // Process Players - try all variations and fallbacks
-      // Extract player results from the Promise.allSettled array
-      // First 4 are teams/leagues, then player variations, then fallbacks
-      const playerResultsStartIndex = 4;
-      const playerVariationsCount = playerQueries.length;
-      
-      // Process player variations (without league restriction)
-      for (let i = 0; i < playerVariationsCount; i++) {
-        const playerRes = playerResArray[i];
-        if (playerRes.status === 'fulfilled' && playerRes.value?.data?.response) {
-          const playersData = (playerRes.value.data.response as ApiPlayer[]) || [];
+      playerResArray.forEach((playerRes, index) => {
+        if (playerRes.status === 'fulfilled') {
+          const responseData = playerRes.value?.data;
+          if (!responseData) {
+            return;
+          }
+          
+          const playersData = (responseData.response as ApiPlayer[]) || [];
           playersData.forEach((item) => {
             if (item?.player?.id && item?.player?.name) {
+              const playerName = String(item.player.name).trim();
               addResult({
                 id: item.player.id,
-                title: item.player.name,
+                title: playerName,
                 subtitle: 'Player',
                 imageUrl: item.player.photo,
                 type: 'player',
@@ -294,37 +381,23 @@ export default function SearchScreen() {
             }
           });
         }
-      }
-      
-      // Process player fallbacks (with league restrictions)
-      for (let i = playerVariationsCount; i < playerResArray.length; i++) {
-        const playerRes = playerResArray[i];
-        if (playerRes.status === 'fulfilled' && playerRes.value?.data?.response) {
-          const playersData = (playerRes.value.data.response as ApiPlayer[]) || [];
-          playersData.forEach((item) => {
-            if (item?.player?.id && item?.player?.name) {
-              addResult({
-                id: item.player.id,
-                title: item.player.name,
-                subtitle: 'Player',
-                imageUrl: item.player.photo,
-                type: 'player',
-              });
-            }
-          });
-        }
-      }
+      });
 
       setAllResults(newResults);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Global search error:', error);
+      
+      if (error?.response?.status === 429) {
+        console.warn('[Search] Rate limit reached. Please wait a moment before searching again.');
+      } else {
+        setAllResults([]);
+      }
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, generateSearchVariations]);
+  }, [searchQuery, normalizeForApi, normalize]);
 
-  // --- 2. Debounced Search Effect ---
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       if (searchQuery.length > 2) {
@@ -332,87 +405,51 @@ export default function SearchScreen() {
       } else {
         setAllResults([]);
       }
-    }, 600);
+    }, 800);
 
     return () => clearTimeout(delayDebounceFn);
   }, [searchQuery, performGlobalSearch]);
 
-  // --- 4. Fuzzy Match Function ---
   const fuzzyMatch = useCallback((item: SearchResultItem, query: string): boolean => {
     if (!query || query.trim().length === 0) return true;
     
-    // Safety check: ensure item has required properties
     if (!item || (!item.title && !item.subtitle)) return false;
     
     const normalizedQuery = normalize(query);
-    // Split by both spaces and hyphens for matching
-    const searchTerms = normalizedQuery.split(/[\s-]+/).filter(t => t.length > 1 || normalizedQuery.length <= 3);
     
-    if (searchTerms.length === 0) {
-      // If query is very short (1-2 chars), check if it's a prefix
-      if (normalizedQuery.length <= 2) {
-        const itemName = normalize(item.title);
-        return itemName.startsWith(normalizedQuery);
-      }
-      return true;
-    }
+    if (normalizedQuery.length === 0) return true;
     
-    // Search in both title and subtitle (with null safety)
-    // Normalize item name - also split by hyphens for matching
-    const itemName = normalize(item.title);
+    const itemName = normalize(item.title || '');
     const itemSubtitle = normalize(item.subtitle || '');
-    const combinedText = `${itemName} ${itemSubtitle}`.trim();
+    const combinedText = `${itemName}${itemSubtitle}`;
     
-    // If combined text is empty after normalization, skip this item
     if (combinedText.length === 0) return false;
     
-    // Check if the full query is a substring (for partial matches like "christiano" -> "cristiano ronaldo")
-    // Also check with hyphens removed for "al nassr" matching "al-nassr"
-    const queryNoHyphens = normalizedQuery.replace(/-/g, ' ');
-    const itemNameNoHyphens = itemName.replace(/-/g, ' ');
-    const combinedNoHyphens = `${itemNameNoHyphens} ${itemSubtitle}`.trim();
+    const matches = combinedText.includes(normalizedQuery);
     
-    if (combinedText.includes(normalizedQuery) || combinedNoHyphens.includes(queryNoHyphens)) {
-      return true;
-    }
-    
-    // Check if EVERY search term appears somewhere in the item name or subtitle
-    // For multi-word queries, all words must match
-    const allTermsMatch = searchTerms.every(term => {
-      return combinedText.includes(term) || combinedNoHyphens.includes(term);
-    });
-    
-    // Also check if query starts with the item name (for partial typing like "Real M" -> "Real Madrid")
-    const firstWordOfItem = itemName.split(/[\s-]+/)[0];
-    const firstWordOfQuery = normalizedQuery.split(/[\s-]+/)[0];
-    if (itemName.startsWith(normalizedQuery) || 
-        normalizedQuery.startsWith(firstWordOfItem) ||
-        firstWordOfItem.startsWith(firstWordOfQuery) ||
-        firstWordOfQuery.startsWith(firstWordOfItem)) {
-      return true;
-    }
-    
-    return allTermsMatch;
+    return matches;
   }, [normalize]);
 
-  // --- 5. Filter Logic (Client Side) ---
   const filteredResults = useMemo(() => {
-    // First, filter out any invalid items (missing title or id)
+    if (allResults.length === 0) {
+      return [];
+    }
+
     let results = allResults.filter(item => 
       item && 
       item.id !== undefined && 
       item.id !== null && 
-      (item.title || item.subtitle) // At least one should exist
+      (item.title || item.subtitle)
     );
 
-    // First, apply fuzzy text filtering if there's a search query
-    // This ensures multi-word queries like "Real Madrid" work correctly
     if (searchQuery && searchQuery.trim().length > 0) {
-      results = results.filter(item => fuzzyMatch(item, searchQuery));
-      console.log(`[Search] Filtered ${allResults.length} results to ${results.length} using query: "${searchQuery}"`);
+      const beforeCount = results.length;
+      results = results.filter(item => {
+        const matches = fuzzyMatch(item, searchQuery);
+        return matches;
+      });
     }
 
-    // Then, apply type filter
     if (activeFilter === 'all') return results;
 
     if (activeFilter === 'teams') return results.filter(r => r.type === 'team');
@@ -422,10 +459,7 @@ export default function SearchScreen() {
     return [];
   }, [allResults, activeFilter, searchQuery, fuzzyMatch]);
 
-  // --- Helper Functions ---
-
   const handleItemPress = async (item: SearchResultItem) => {
-    // Add to search history before navigating
     await addToHistory(item.title);
     
     if (item.type === 'player') {
@@ -439,20 +473,19 @@ export default function SearchScreen() {
 
   const handleRecentSearchPress = (term: string) => {
     setSearchQuery(term);
-    // This will trigger the search via useEffect
   };
 
-  // --- Render Item ---
   const renderResultItem = ({ item }: { item: SearchResultItem }) => {
     const isCircular = item.type === 'team' || item.type === 'player';
-    const favorited = isFavorite(item.type, typeof item.id === 'string' ? parseInt(item.id) : item.id);
+    const favoriteType = item.type === 'league' ? 'competition' : item.type;
+    const favorited = isFavorite(favoriteType, typeof item.id === 'string' ? parseInt(item.id) : item.id);
 
     const handleToggleFavorite = () => {
-      toggleFavorite(item.type, {
+      toggleFavorite(favoriteType, {
         id: typeof item.id === 'string' ? parseInt(item.id) : item.id,
         name: item.title,
         imageUrl: item.imageUrl || '',
-        type: item.type,
+        type: favoriteType,
       });
     };
 
@@ -545,9 +578,7 @@ export default function SearchScreen() {
         </ScrollView>
       </View>
 
-      {/* Results or Recent Searches */}
       {searchQuery.length === 0 ? (
-        // Show Recent Searches when search is empty
         <View style={styles.recentSearchesContainer}>
           {history.length > 0 && (
             <View style={styles.recentSearchesHeader}>
@@ -612,10 +643,9 @@ export default function SearchScreen() {
           />
         </View>
       ) : (
-        // Show Search Results when query exists
         <FlatList
           data={filteredResults}
-          keyExtractor={(item) => `${item.type}-${item.id}`} // Ensure unique key across types
+          keyExtractor={(item) => `${item.type}-${item.id}`}
           renderItem={renderResultItem}
           contentContainerStyle={styles.resultsList}
           ListEmptyComponent={
@@ -653,7 +683,6 @@ const styles = StyleSheet.create({
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60 },
   emptyText: { fontSize: 15, fontFamily: 'Montserrat_500Medium' },
   emptySubtext: { fontSize: 13, fontFamily: 'Montserrat_400Regular', textAlign: 'center' },
-  // Recent Searches
   recentSearchesContainer: { flex: 1, paddingHorizontal: 16 },
   recentSearchesHeader: {
     flexDirection: 'row',
