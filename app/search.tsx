@@ -315,7 +315,7 @@ export default function SearchScreen() {
       const processTeamResults = (result: PromiseSettledResult<any> | null) => {
         if (result && result.status === 'fulfilled' && result.value?.data?.response) {
           const teamsData = (result.value.data.response as ApiTeam[]) || [];
-          teamsData.forEach((item) => {
+        teamsData.forEach((item) => {
           if (item?.team?.id && item?.team?.name) {
               const teamName = String(item.team.name).trim();
               addResult({
@@ -351,7 +351,7 @@ export default function SearchScreen() {
             });
           }
         });
-        }
+      }
       };
       
       if (leaguesRes) processLeagueResults(leaguesRes);
@@ -368,19 +368,19 @@ export default function SearchScreen() {
           }
           
           const playersData = (responseData.response as ApiPlayer[]) || [];
-          playersData.forEach((item) => {
-            if (item?.player?.id && item?.player?.name) {
+        playersData.forEach((item) => {
+          if (item?.player?.id && item?.player?.name) {
               const playerName = String(item.player.name).trim();
               addResult({
-                id: item.player.id,
+              id: item.player.id,
                 title: playerName,
                 subtitle: 'Player',
-                imageUrl: item.player.photo,
-                type: 'player',
-              });
-            }
-          });
-        }
+              imageUrl: item.player.photo,
+              type: 'player',
+            });
+          }
+        });
+      }
       });
 
       setAllResults(newResults);

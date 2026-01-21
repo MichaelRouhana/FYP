@@ -378,7 +378,6 @@ export const mapStandingsToUI = (standingsData: any[]): { leagueName: string; st
     goalsAgainst: team.all.goals.against,
     goalDifference: team.goalsDiff,
     points: team.points,
-    form: team.form?.split('').slice(0, 5) || [],
   }));
 
   return {
