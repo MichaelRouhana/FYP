@@ -57,19 +57,37 @@ export default function SearchScreen() {
   // --- 1. Fuzzy Search Helper Functions (defined early) ---
   const normalize = useCallback((text: string | undefined | null): string => {
     if (!text || typeof text !== 'string') return '';
-    return text.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+    // Preserve hyphens and spaces for team names like "Al-Nassr"
+    // Only remove special characters that aren't part of names
+    return text.toLowerCase().replace(/[^a-z0-9\-\s]/g, '').trim();
+  }, []);
+  
+  // Normalize for API calls (can be more aggressive, but preserve hyphens)
+  const normalizeForApi = useCallback((text: string | undefined | null): string => {
+    if (!text || typeof text !== 'string') return '';
+    // For API, preserve hyphens but normalize spaces
+    return text.toLowerCase().trim().replace(/\s+/g, ' ');
   }, []);
 
   // Helper to generate search variations for better matching
   const generateSearchVariations = useCallback((query: string): string[] => {
     const normalized = normalize(query);
+    const apiNormalized = normalizeForApi(query); // Preserve hyphens
     const variations = new Set<string>();
     
-    // Add the full normalized query
+    // Add the full normalized query (for client-side matching)
     variations.add(normalized);
     
+    // Add API-normalized version (preserves hyphens)
+    if (apiNormalized !== normalized) {
+      variations.add(apiNormalized);
+    }
+    
+    // Add original query (preserves exact spelling and hyphens)
+    variations.add(query.toLowerCase().trim());
+    
     // Add first word only
-    const firstWord = normalized.split(' ')[0];
+    const firstWord = normalized.split(/[\s-]+/)[0];
     if (firstWord.length > 2) {
       variations.add(firstWord);
     }
@@ -77,6 +95,7 @@ export default function SearchScreen() {
     // Add common name variations (e.g., "christiano" -> "cristiano")
     const commonReplacements: { [key: string]: string } = {
       'christiano': 'cristiano',
+      'cristiano': 'cristiano', // Ensure correct spelling is included
       'ronaldo': 'ronaldo',
       'messi': 'messi',
       'mbappe': 'mbappe',
@@ -84,67 +103,97 @@ export default function SearchScreen() {
     
     Object.keys(commonReplacements).forEach(misspelling => {
       if (normalized.includes(misspelling)) {
-        variations.add(normalized.replace(misspelling, commonReplacements[misspelling]));
+        const corrected = normalized.replace(misspelling, commonReplacements[misspelling]);
+        variations.add(corrected);
+        // Also add with hyphens preserved if original had them
+        if (query.includes('-')) {
+          variations.add(corrected.replace(/\s+/g, '-'));
+        }
       }
     });
     
     // If query has multiple words, try each word
-    const words = normalized.split(' ').filter(w => w.length > 2);
+    const words = normalized.split(/[\s-]+/).filter(w => w.length > 2);
     words.forEach(word => variations.add(word));
     
     return Array.from(variations);
-  }, [normalize]);
+  }, [normalize, normalizeForApi]);
 
   // --- 3. Fetch Logic (Fetches ALL types at once) ---
   const performGlobalSearch = useCallback(async () => {
     setLoading(true);
     try {
-      // Strategy: Try both first word (broader) and full query (exact) for teams/leagues
-      // For players, use variations since they're harder to find
-      const normalizedQuery = normalize(searchQuery);
-      const searchTerms = normalizedQuery.split(' ').filter(t => t.length > 0);
+      // Strategy: Preserve original query for API (with hyphens), normalize for matching
+      // The API may need exact characters like hyphens to match correctly
+      const originalQuery = searchQuery.trim();
+      const normalizedQuery = normalize(searchQuery); // For client-side matching
+      const apiQuery = normalizeForApi(searchQuery); // For API (preserves hyphens, normalizes spaces)
+      
+      const searchTerms = normalizedQuery.split(/[\s-]+/).filter(t => t.length > 0);
       
       // Use first word for broader results, but also try full query
-      const apiSearchTerm = searchTerms.length > 0 ? searchTerms[0] : searchQuery.trim();
+      const apiSearchTerm = searchTerms.length > 0 ? searchTerms[0] : apiQuery;
       const encodedApiQuery = encodeURIComponent(apiSearchTerm);
-      const encodedFullQuery = encodeURIComponent(normalizedQuery);
+      const encodedFullQuery = encodeURIComponent(apiQuery); // Use API-normalized version
+      const encodedOriginalQuery = encodeURIComponent(originalQuery); // Also try original
       
       // For short queries (1-2 words), prefer full query; for longer, use first word + full
-      const useFullQueryFirst = searchTerms.length <= 2 && normalizedQuery.length <= 15;
+      const useFullQueryFirst = searchTerms.length <= 2 && apiQuery.length <= 20;
       
-      console.log(`[Search] API query (first word): "${apiSearchTerm}" (from "${searchQuery}")`);
-      console.log(`[Search] Full query: "${normalizedQuery}"`);
+      console.log(`[Search] Original query: "${originalQuery}"`);
+      console.log(`[Search] API query (first word): "${apiSearchTerm}"`);
+      console.log(`[Search] API full query: "${apiQuery}"`);
       console.log(`[Search] Using full query first: ${useFullQueryFirst}`);
+      
+      // Build team/league promises - try multiple variations to catch all matches
+      const allPromises = [
+        // Try original query first (preserves exact characters like hyphens)
+        api.get(`/football/teams?search=${encodedOriginalQuery}`),
+        api.get(`/football/leagues?search=${encodedOriginalQuery}`),
+        // Try API-normalized query (handles spaces)
+        api.get(`/football/teams?search=${encodedFullQuery}`),
+        api.get(`/football/leagues?search=${encodedFullQuery}`),
+        // Try first word (broader results for multi-word queries)
+        ...(searchTerms.length > 1 ? [
+          api.get(`/football/teams?search=${encodedApiQuery}`),
+          api.get(`/football/leagues?search=${encodedApiQuery}`),
+        ] : []),
+      ];
       
       // Generate search variations for players (they need more help)
       const searchVariations = generateSearchVariations(searchQuery);
-      const playerQueries = searchVariations.slice(0, 3); // Try top 3 variations for players
+      const playerQueries = searchVariations.slice(0, 4); // Try top 4 variations for players
       
-      // We run requests in parallel - order: full query first if short, otherwise first word first
-      const teamLeaguePromises = useFullQueryFirst ? [
-        // Try full query first for short queries (more specific)
-        api.get(`/football/teams?search=${encodedFullQuery}`),
-        api.get(`/football/leagues?search=${encodedFullQuery}`),
-        // Then try first word (broader results)
-        api.get(`/football/teams?search=${encodedApiQuery}`),
-        api.get(`/football/leagues?search=${encodedApiQuery}`),
-      ] : [
-        // Try first word first for longer queries (broader results)
-        api.get(`/football/teams?search=${encodedApiQuery}`),
-        api.get(`/football/leagues?search=${encodedApiQuery}`),
-        // Then try full query (exact matches)
-        api.get(`/football/teams?search=${encodedFullQuery}`),
-        api.get(`/football/leagues?search=${encodedFullQuery}`),
+      // Build all player search promises - try without league restriction first (global search)
+      const playerPromises = [
+        // Try original query (preserves hyphens and exact spelling)
+        api.get(`/football/players?search=${encodedOriginalQuery}`),
+        // Try API-normalized query
+        api.get(`/football/players?search=${encodedFullQuery}`),
+        // Try variations
+        ...playerQueries.map(q => api.get(`/football/players?search=${encodeURIComponent(normalizeForApi(q))}`)),
+        // Fallback: try with major leagues (but don't restrict to just these)
+        api.get(`/football/players?search=${encodedApiQuery}&league=39&season=2024`).catch(() => null), // Premier League
+        api.get(`/football/players?search=${encodedApiQuery}&league=140&season=2024`).catch(() => null), // La Liga
+        api.get(`/football/players?search=${encodedApiQuery}&league=307&season=2024`).catch(() => null), // Saudi Pro League (Al-Nassr)
+        api.get(`/football/players?search=${encodedApiQuery}&league=135&season=2024`).catch(() => null), // Serie A
+        api.get(`/football/players?search=${encodedApiQuery}&league=78&season=2024`).catch(() => null), // Bundesliga
+        api.get(`/football/players?search=${encodedApiQuery}&league=61&season=2024`).catch(() => null), // Ligue 1
       ];
       
-      const [teamsRes, leaguesRes, teamsResFull, leaguesResFull, ...playerResArray] = await Promise.allSettled([
-        ...teamLeaguePromises,
-        // Players: try multiple variations (without league restriction)
-        ...playerQueries.map(q => api.get(`/football/players?search=${encodeURIComponent(q)}`)),
-        // Players: fallback with league restriction
-        api.get(`/football/players?search=${encodedApiQuery}&league=39&season=2024`).catch(() => null),
-        api.get(`/football/players?search=${encodedApiQuery}&league=140&season=2024`).catch(() => null), // La Liga
+      const allResults = await Promise.allSettled([
+        ...allPromises,
+        ...playerPromises,
       ]);
+      
+      // Extract results - first results are teams/leagues, rest are players
+      const teamLeagueCount = allPromises.length;
+      // Teams/leagues: [original teams, original leagues, normalized teams, normalized leagues, (optional) first word teams, first word leagues]
+      const teamsRes = allResults[0];
+      const leaguesRes = allResults[1];
+      const teamsResFull = allResults[2];
+      const leaguesResFull = allResults[3];
+      const playerResArray = allResults.slice(teamLeagueCount);
 
       const newResults: SearchResultItem[] = [];
       const seenIds = new Set<string>(); // Track IDs to avoid duplicates
@@ -296,9 +345,8 @@ export default function SearchScreen() {
     if (!item || (!item.title && !item.subtitle)) return false;
     
     const normalizedQuery = normalize(query);
-    // Filter out very short terms (1 char) as they cause too many false positives
-    // But keep them if they're part of a longer query
-    const searchTerms = normalizedQuery.split(' ').filter(t => t.length > 1 || normalizedQuery.length <= 3);
+    // Split by both spaces and hyphens for matching
+    const searchTerms = normalizedQuery.split(/[\s-]+/).filter(t => t.length > 1 || normalizedQuery.length <= 3);
     
     if (searchTerms.length === 0) {
       // If query is very short (1-2 chars), check if it's a prefix
@@ -310,6 +358,7 @@ export default function SearchScreen() {
     }
     
     // Search in both title and subtitle (with null safety)
+    // Normalize item name - also split by hyphens for matching
     const itemName = normalize(item.title);
     const itemSubtitle = normalize(item.subtitle || '');
     const combinedText = `${itemName} ${itemSubtitle}`.trim();
@@ -318,16 +367,28 @@ export default function SearchScreen() {
     if (combinedText.length === 0) return false;
     
     // Check if the full query is a substring (for partial matches like "christiano" -> "cristiano ronaldo")
-    if (combinedText.includes(normalizedQuery)) {
+    // Also check with hyphens removed for "al nassr" matching "al-nassr"
+    const queryNoHyphens = normalizedQuery.replace(/-/g, ' ');
+    const itemNameNoHyphens = itemName.replace(/-/g, ' ');
+    const combinedNoHyphens = `${itemNameNoHyphens} ${itemSubtitle}`.trim();
+    
+    if (combinedText.includes(normalizedQuery) || combinedNoHyphens.includes(queryNoHyphens)) {
       return true;
     }
     
     // Check if EVERY search term appears somewhere in the item name or subtitle
     // For multi-word queries, all words must match
-    const allTermsMatch = searchTerms.every(term => combinedText.includes(term));
+    const allTermsMatch = searchTerms.every(term => {
+      return combinedText.includes(term) || combinedNoHyphens.includes(term);
+    });
     
     // Also check if query starts with the item name (for partial typing like "Real M" -> "Real Madrid")
-    if (itemName.startsWith(normalizedQuery) || normalizedQuery.startsWith(itemName.split(' ')[0])) {
+    const firstWordOfItem = itemName.split(/[\s-]+/)[0];
+    const firstWordOfQuery = normalizedQuery.split(/[\s-]+/)[0];
+    if (itemName.startsWith(normalizedQuery) || 
+        normalizedQuery.startsWith(firstWordOfItem) ||
+        firstWordOfItem.startsWith(firstWordOfQuery) ||
+        firstWordOfQuery.startsWith(firstWordOfItem)) {
       return true;
     }
     
