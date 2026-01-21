@@ -121,9 +121,6 @@ export interface OddsResponse {
 
 export const getOdds = async (fixtureId: number): Promise<OddsResponse | null> => {
   try {
-    // As per user request: Use POST /bets to get odds
-    // Try to get odds by making requests for each selection
-    // Note: This will create bets, so this approach might need adjustment
     
     // First, try to get odds from the football/odds endpoint (more appropriate)
     try {
@@ -161,9 +158,6 @@ export const getOdds = async (fixtureId: number): Promise<OddsResponse | null> =
       console.log('[getOdds] /football/odds endpoint failed, trying POST /bets as requested');
     }
     
-    // As per user request: Try POST /bets endpoint
-    // Note: This creates a bet, so we'll only use it if the response contains odds
-    // We'll make a request and check if the response has odds data
     try {
       const response = await api.post<any>('/bets', {
         fixtureId,

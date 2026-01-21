@@ -64,8 +64,6 @@ type BothTeamsScore = 'yes' | 'no' | null;
 type FirstTeamScore = 'home' | 'away' | null;
 type DoubleChance = 'x1' | '12' | 'x2' | null;
 
-// All available tabs with their labels
-// Settings tab is first for admins
 const ALL_TABS: { id: TabType; label: string }[] = [
   { id: 'settings', label: 'SETTINGS' },
   { id: 'details', label: 'DETAILS' },
@@ -79,25 +77,12 @@ const ALL_TABS: { id: TabType; label: string }[] = [
   { id: 'power', label: 'POWER' },
 ];
 
-// Tab configuration per match status (based on user requirements)
 const TABS_BY_STATUS: Record<MatchStatus, TabType[]> = {
-  // Upcoming Match (NS - Not Started)
-  // ✅ Show: PREDICTIONS, LINEUP, H2H, STANDINGS, POWER, DETAILS
-  // ❌ Hide: Summary, Stats, Commentary
   upcoming: ['predictions', 'lineups', 'h2h', 'table', 'power', 'details'],
-  
-  // Live Match (1H, 2H, HT, ET, etc.)
-  // ✅ Show: SUMMARY (labeled as COMMENTARY), STATS, LINEUP, H2H, STANDINGS, POWER, DETAILS
-  // ❌ Hide: Predictions, Commentary tab
   live: ['summary', 'stats', 'lineups', 'h2h', 'table', 'power', 'details'],
-  
-  // Completed Match (FT, AET, PEN)
-  // ✅ Show: COMMENTARY (labeled as SUMMARY), STATS, LINEUP, H2H, STANDINGS, DETAILS
-  // ❌ Hide: Predictions, Power, Summary tab
   finished: ['commentary', 'stats', 'lineups', 'h2h', 'table', 'details'],
 };
 
-// Default tabs for each status - always start with details
 const DEFAULT_TAB_BY_STATUS: Record<MatchStatus, TabType> = {
   upcoming: 'details',
   live: 'details',
@@ -112,12 +97,10 @@ const getMatchStatus = (statusShort: string | undefined): MatchStatus => {
   
   const status = statusShort.toUpperCase();
   
-  // Live statuses
   if (['1H', '2H', 'HT', 'ET', 'BT', 'P', 'LIVE', 'INT'].includes(status)) {
     return 'live';
   }
   
-  // Finished statuses
   if (['FT', 'AET', 'PEN', 'PST', 'CANC', 'ABD', 'AWD', 'WO'].includes(status)) {
     return 'finished';
   }
@@ -601,10 +584,6 @@ export default function MatchDetailsScreen() {
     return result;
   }, [predictionsData, matchData]);
 
-
-  // Transform API data to UI format using memoization
-  // Note: If isProjectedLineup is true, lineupsData is already in array format [home, away]
-  // and will be handled in renderLineupsTab
   const lineups = useMemo(() => {
     // Only map if lineupsData is not an array (official lineups format)
     if (Array.isArray(lineupsData) && lineupsData.length > 0 && lineupsData[0] && typeof lineupsData[0] === 'object' && 'team' in lineupsData[0]) {
@@ -2069,6 +2048,8 @@ export default function MatchDetailsScreen() {
                     backgroundColor: theme.colors.cardBackground,
                     color: theme.colors.text,
                     borderColor: theme.colors.border,
+                    borderWidth: 1,
+                    borderRadius: 8,
                   },
                 ]}
             placeholder="Enter stake amount"

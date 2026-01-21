@@ -713,7 +713,6 @@ export default function CommunityInfoScreen() {
   };
 
   const handleLeaveCommunity = () => {
-    // TODO: Implement leave community functionality
     console.log('Leave community:', id);
   };
 

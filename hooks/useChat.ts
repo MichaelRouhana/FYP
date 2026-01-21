@@ -210,8 +210,6 @@ export function useCommunities() {
           '/communities/my'
         );
         
-        // Map backend DTOs to frontend Community format
-        // Note: /my endpoint returns List<CommunityResponseDTO>, not PagedResponse
         const mappedCommunities: Community[] = (Array.isArray(response.data) ? response.data : response.data.content || []).map((dto) => ({
           id: dto.id.toString(),
           name: dto.name || 'Unnamed Community',
@@ -371,10 +369,7 @@ export function useChatMessages(communityId: string) {
   const subscriptionRef = useRef<any>(null);
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // WebSocket configuration
-  // Note: With servlet context-path=/api/v1, WebSocket endpoints ARE affected
-  // The endpoint registered at /ws becomes /api/v1/ws
-  const IP_ADDRESS = '192.168.10.249'; // Same as API config
+  const IP_ADDRESS = '192.168.10.249';
   const PORT = '8080';
   const WS_URL = `ws://${IP_ADDRESS}:${PORT}/api/v1/ws`;
 
@@ -446,8 +441,6 @@ export function useChatMessages(communityId: string) {
         }
         console.log('✅ TextEncoder/TextDecoder verified before STOMP client creation');
 
-        // Create STOMP client
-        // Note: @stomp/stompjs automatically uses native WebSocket in React Native
         console.log('🔧 Creating STOMP client with token:', token ? 'Token present' : 'No token');
         const client = new Client({
           brokerURL: WS_URL,
@@ -676,9 +669,6 @@ export function useChatMessages(communityId: string) {
     try {
       // Get current user ID from token (you may need to decode JWT or get from storage)
       const token = await getItem('jwt_token');
-      // For now, we'll let the backend extract user from token
-      // The payload structure matches CommunityMessageDTO
-      // Note: senderUsername is set by backend from authenticated user, we only send content
       const payload: Pick<CommunityMessageDTO, 'content'> = {
         content: text,
       };

@@ -100,13 +100,12 @@ export default function TeamDetails() {
             name: headerData.name,
             logo: headerData.logo,
             country: headerData.country,
-            countryFlag: '🇪🇸', // TODO: Map country to flag emoji based on country name
+            countryFlag: '🇪🇸',
             coach: headerData.coachName,
             coachImageUrl: headerData.coachImageUrl,
             founded: headerData.foundedYear.toString(),
             stadium: headerData.stadiumName,
             uefaRank: headerData.uefaRanking,
-            // TODO: Fetch active tournaments from backend when endpoint is available
             tournaments: [
               { name: 'UEFA Champions League', logo: 'https://media.api-sports.io/football/leagues/2.png' },
               { name: 'La Liga', logo: 'https://media.api-sports.io/football/leagues/140.png' },

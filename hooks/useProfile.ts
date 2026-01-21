@@ -67,9 +67,6 @@ export function useProfile() {
         correct: totalWins,
         incorrect: totalLost, // Use totalLost instead of totalBets - totalWins to exclude pending
       });
-
-      // TODO: Fetch favorite teams and communities from separate endpoints if available
-      // For now, keep empty arrays
       setFavoriteTeams([]);
       setCommunities([]);
     } catch (err: any) {

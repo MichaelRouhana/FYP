@@ -275,11 +275,28 @@ export const mapH2HToUI = (h2hData: any[], homeTeamName: string, awayTeamName: s
     const homeScore = match.goals.home;
     const awayScore = match.goals.away;
     const rawDate = match.fixture.date; // ISO date string for sorting
+    const historicalHomeTeam = match.teams.home.name;
+    const historicalAwayTeam = match.teams.away.name;
 
     if (isCompleted) {
-      if (homeScore > awayScore) homeWins++;
-      else if (homeScore < awayScore) awayWins++;
-      else draws++;
+      if (homeScore > awayScore) {
+        // Historical home team won - check if it's the current home or away team
+        if (historicalHomeTeam === homeTeamName) {
+          homeWins++;
+        } else if (historicalHomeTeam === awayTeamName) {
+          awayWins++;
+        }
+      } else if (homeScore < awayScore) {
+        // Historical away team won - check if it's the current home or away team
+        if (historicalAwayTeam === homeTeamName) {
+          homeWins++;
+        } else if (historicalAwayTeam === awayTeamName) {
+          awayWins++;
+        }
+      } else {
+        // Draw
+        draws++;
+      }
     }
 
     return {

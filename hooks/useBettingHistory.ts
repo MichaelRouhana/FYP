@@ -145,8 +145,6 @@ export const useBettingHistory = (): UseBettingHistoryReturn => {
               ? new Date(nextBet.createdDate).getTime() 
               : nextBet.id;
             
-            // Group if: same stake and created within 2 seconds (or sequential IDs if no timestamp)
-            // Note: Accumulator bets can be on different matches, so we don't require same matchId
             const timeDiff = Math.abs(nextTime - currentTime);
             const idDiff = Math.abs(nextBet.id - currentBet.id);
             const isWithinTimeWindow = currentBet.createdDate 

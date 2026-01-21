@@ -74,10 +74,6 @@ export function useDashboardBets() {
         { id: '2', username: 'Charbel Bou Abdo', pfp: undefined, totalPoints: 600, points: 600 },
         { id: '3', username: 'Ali Shamas', pfp: undefined, totalPoints: 567, points: 567 },
       ];
-
-      // Fetch all bets data in parallel, with mock fallback
-      // Note: Chart data (totalBets, wonBets, lostBets) always shows last 7 days for trend visualization
-      // Stats (total/won/lost counts) are filtered by timeRange
       const [totalBetsData, wonBetsData, lostBetsData, statsData, bettersData, pointersData] = await Promise.all([
         getTotalBets().catch(() => mockTotalBets),
         getWonBets().catch(() => mockWonBets),

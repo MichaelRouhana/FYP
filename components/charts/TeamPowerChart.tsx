@@ -20,8 +20,6 @@ export const TeamPowerChart: React.FC<TeamPowerChartProps> = ({
   awayColor = CHART_COLORS.awayTeam,
   isDark = true,
 }) => {
-  // Transform data for react-native-gifted-charts with safety checks
-  // Note: We don't include 'label' in data to avoid duplicate X-axis labels
   const homeData = useMemo(() => {
     if (!data?.homeTeam?.timeSeries || data.homeTeam.timeSeries.length === 0) {
       return [];

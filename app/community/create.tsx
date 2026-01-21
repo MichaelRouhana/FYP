@@ -1,6 +1,3 @@
-// app/community/create.tsx
-// Modal screen for creating a new community (Admin only)
-
 import React, { useState } from 'react';
 import {
   View,
