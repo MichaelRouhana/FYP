@@ -52,5 +52,17 @@ export const getApiBaseUrl = (platform: string): string => {
   }
 };
 
+// Helper to build WebSocket URL based on platform
+export const getWebSocketUrl = (platform: string, path: string = '/ws'): string => {
+  if (platform === 'web') {
+    // For web, convert http to ws
+    const wsBaseUrl = API_CONFIG.baseUrl.replace('http://', 'ws://').replace('https://', 'wss://');
+    return `${wsBaseUrl}${API_CONFIG.pathPrefix}${path}`;
+  } else {
+    // For native (iOS/Android), use IP address with ws protocol
+    return `ws://${API_CONFIG.ipAddress}:${API_CONFIG.port}${API_CONFIG.pathPrefix}${path}`;
+  }
+};
+
 export default API_CONFIG;
 

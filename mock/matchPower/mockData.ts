@@ -40,34 +40,35 @@ const teamBalanceMockData: TeamBalanceData = {
 // ============================================
 // TEAM POWER Mock Data (Line Chart)
 // Power values over match time (0-100 scale)
+// Updated to show more distinct patterns between teams
 // ============================================
 const teamPowerMockData: TeamPowerData = {
   homeTeam: {
     name: 'PSG',
     timeSeries: [
-      { minute: 5, value: 45 },
-      { minute: 10, value: 52 },
-      { minute: 15, value: 48 },
-      { minute: 20, value: 65 },
-      { minute: 25, value: 58 },
-      { minute: 30, value: 72 },
-      { minute: 35, value: 68 },
-      { minute: 40, value: 75 },
-      { minute: 45, value: 70 },
+      { minute: 5, value: 42 },   // Starts lower
+      { minute: 10, value: 48 },  // Gradual rise
+      { minute: 15, value: 55 },  // Building momentum
+      { minute: 20, value: 68 },  // Strong push
+      { minute: 25, value: 75 },  // Peak performance
+      { minute: 30, value: 72 },  // Slight dip
+      { minute: 35, value: 78 },  // Strong again
+      { minute: 40, value: 82 },  // Highest point
+      { minute: 45, value: 76 },  // End of half
     ],
   },
   awayTeam: {
     name: 'Marseille',
     timeSeries: [
-      { minute: 5, value: 55 },
-      { minute: 10, value: 60 },
-      { minute: 15, value: 58 },
-      { minute: 20, value: 52 },
-      { minute: 25, value: 68 },
-      { minute: 30, value: 62 },
-      { minute: 35, value: 70 },
-      { minute: 40, value: 65 },
-      { minute: 45, value: 72 },
+      { minute: 5, value: 58 },   // Starts stronger
+      { minute: 10, value: 62 },  // Maintains
+      { minute: 15, value: 58 },  // Slight drop
+      { minute: 20, value: 52 },  // Losing ground
+      { minute: 25, value: 48 },  // Low point
+      { minute: 30, value: 55 },  // Recovery attempt
+      { minute: 35, value: 60 },  // Building back
+      { minute: 40, value: 58 },  // Stabilizing
+      { minute: 45, value: 62 },  // End of half
     ],
   },
 };
@@ -75,27 +76,17 @@ const teamPowerMockData: TeamPowerData = {
 // ============================================
 // GOAL POWER Mock Data (Bar Chart)
 // Structure matches API-Football goals.for.minute
+// Empty data - will show when game starts
 // ============================================
-const psgGoalsByMinute: GoalsByMinute = {
-  '0-15': { total: 3, percentage: '12%' },
-  '16-30': { total: 4, percentage: '16%' },
-  '31-45': { total: 2, percentage: '8%' },
-  '46-60': { total: 5, percentage: '20%' },
-  '61-75': { total: 4, percentage: '16%' },
-  '76-90': { total: 5, percentage: '20%' },
-  '91-105': { total: 1, percentage: '4%' },
-  '106-120': { total: 1, percentage: '4%' },
-};
-
-const marseilleGoalsByMinute: GoalsByMinute = {
-  '0-15': { total: 2, percentage: '10%' },
-  '16-30': { total: 3, percentage: '15%' },
-  '31-45': { total: 2, percentage: '10%' },
-  '46-60': { total: 4, percentage: '20%' },
-  '61-75': { total: 3, percentage: '15%' },
-  '76-90': { total: 4, percentage: '20%' },
-  '91-105': { total: 1, percentage: '5%' },
-  '106-120': { total: 1, percentage: '5%' },
+const emptyGoalsByMinute: GoalsByMinute = {
+  '0-15': { total: 0, percentage: '0%' },
+  '16-30': { total: 0, percentage: '0%' },
+  '31-45': { total: 0, percentage: '0%' },
+  '46-60': { total: 0, percentage: '0%' },
+  '61-75': { total: 0, percentage: '0%' },
+  '76-90': { total: 0, percentage: '0%' },
+  '91-105': { total: 0, percentage: '0%' },
+  '106-120': { total: 0, percentage: '0%' },
 };
 
 const goalPowerMockData: GoalPowerData = {
@@ -103,7 +94,7 @@ const goalPowerMockData: GoalPowerData = {
     name: 'PSG',
     goals: {
       for: {
-        minute: psgGoalsByMinute,
+        minute: emptyGoalsByMinute,
       },
     },
   },
@@ -111,7 +102,7 @@ const goalPowerMockData: GoalPowerData = {
     name: 'Marseille',
     goals: {
       for: {
-        minute: marseilleGoalsByMinute,
+        minute: emptyGoalsByMinute,
       },
     },
   },

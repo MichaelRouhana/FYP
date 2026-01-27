@@ -5,6 +5,7 @@ import { mapEventsToCommentary } from '@/utils/commentaryMapper';
 import { H2HMatch } from '@/mock/matchH2H';
 import { getRatingColor, Player } from '@/mock/matchLineups';
 import { CHART_COLORS } from '@/mock/matchPower/constants';
+import { getMatchPowerData } from '@/mock/matchPower/mockData';
 import { eventLegend, EventType, MatchEvent } from '@/mock/matchSummary';
 import { TeamStanding } from '@/mock/matchTable';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import {
   FlatList,
   Image,
   ImageBackground,
+  Platform,
   ScrollView,
   StyleSheet,
   Switch,
@@ -559,30 +561,52 @@ export default function MatchDetailsScreen() {
   }, [eventsData, matchData]);
 
   // Transform predictions data to Power tab format with smart fallback using odds
+  // TEMPORARILY USING MOCK DATA - Commented out real API mapping
   const powerData = useMemo(() => {
     if (!matchData) {
       console.warn('[PowerTab] ⚠️ No match data available');
       return null;
     }
 
-    // Extract odds if available (for fallback)
-    const odds = extractOdds(predictionsData);
+    // TEMPORARY: Use mock data instead of real API data
+    const mockData = getMatchPowerData(id || '');
     
-    // Use the new mapPowerData function with smart fallback
-    const result = mapPowerData(predictionsData, matchData, odds);
+    // Update team names to match actual match data
+    if (matchData.teams) {
+      mockData.teamBalance.homeTeam.name = matchData.teams.home.name;
+      mockData.teamBalance.awayTeam.name = matchData.teams.away.name;
+      mockData.teamPower.homeTeam.name = matchData.teams.home.name;
+      mockData.teamPower.awayTeam.name = matchData.teams.away.name;
+      mockData.goalPower.homeTeam.name = matchData.teams.home.name;
+      mockData.goalPower.awayTeam.name = matchData.teams.away.name;
+    }
     
-    // Log the result for debugging
-    console.log('[PowerTab] 📊 Final powerData:', {
-      homeTeam: result.teamBalance.homeTeam.name,
-      awayTeam: result.teamBalance.awayTeam.name,
-      homeStats: result.teamBalance.homeTeam.stats,
-      awayStats: result.teamBalance.awayTeam.stats,
-      isUsingFallback: result.teamBalance.homeTeam.stats.strength === 50 && result.teamBalance.awayTeam.stats.strength === 50,
-      isUsingOddsFallback: result.teamBalance.homeTeam.stats.strength !== 50 && result.teamBalance.awayTeam.stats.strength !== 50 && !predictionsData,
+    console.log('[PowerTab] 📊 Using mock power data for:', {
+      homeTeam: mockData.teamBalance.homeTeam.name,
+      awayTeam: mockData.teamBalance.awayTeam.name,
     });
     
-    return result;
-  }, [predictionsData, matchData]);
+    return mockData;
+
+    // REAL API MAPPING (COMMENTED OUT FOR NOW)
+    // Extract odds if available (for fallback)
+    // const odds = extractOdds(predictionsData);
+    // 
+    // // Use the new mapPowerData function with smart fallback
+    // const result = mapPowerData(predictionsData, matchData, odds);
+    // 
+    // // Log the result for debugging
+    // console.log('[PowerTab] 📊 Final powerData:', {
+    //   homeTeam: result.teamBalance.homeTeam.name,
+    //   awayTeam: result.teamBalance.awayTeam.name,
+    //   homeStats: result.teamBalance.homeTeam.stats,
+    //   awayStats: result.teamBalance.awayTeam.stats,
+    //   isUsingFallback: result.teamBalance.homeTeam.stats.strength === 50 && result.teamBalance.awayTeam.stats.strength === 50,
+    //   isUsingOddsFallback: result.teamBalance.homeTeam.stats.strength !== 50 && result.teamBalance.awayTeam.stats.strength !== 50 && !predictionsData,
+    // });
+    // 
+    // return result;
+  }, [matchData, id]);
 
   const lineups = useMemo(() => {
     // Only map if lineupsData is not an array (official lineups format)
@@ -3239,12 +3263,30 @@ export default function MatchDetailsScreen() {
           <Text style={[styles.powerSectionDescription, { color: isDark ? '#667085' : '#6B7280' }]}>
             A chart that display's the timing of the goals scored during a match showing when each team found the net
           </Text>
-          <GoalPowerChart
-            data={powerData.goalPower}
-            homeColor={CHART_COLORS.homeTeam}
-            awayColor={CHART_COLORS.awayTeam}
-            isDark={isDark}
-          />
+          {(() => {
+            const status = getMatchStatus(matchData?.fixture?.status?.short);
+            const isGameStarted = status === 'live' || status === 'finished';
+            
+            if (!isGameStarted) {
+              return (
+                <View style={[styles.powerContainer, { justifyContent: 'center', alignItems: 'center', paddingVertical: 48, minHeight: 200 }]}>
+                  <MaterialCommunityIcons name="soccer-field" size={48} color={isDark ? '#9ca3af' : '#6B7280'} />
+                  <Text style={{ color: isDark ? '#9ca3af' : '#6B7280', marginTop: 16, fontSize: 14, textAlign: 'center', paddingHorizontal: 20 }}>
+                    Goal timing data will be available once the game starts
+                  </Text>
+                </View>
+              );
+            }
+            
+            return (
+              <GoalPowerChart
+                data={powerData.goalPower}
+                homeColor={CHART_COLORS.homeTeam}
+                awayColor={CHART_COLORS.awayTeam}
+                isDark={isDark}
+              />
+            );
+          })()}
         </View>
       </View>
     );
@@ -3453,7 +3495,10 @@ export default function MatchDetailsScreen() {
       <ScrollView
         style={[styles.contentScrollView, { backgroundColor: isDark ? '#080C17' : '#F3F4F6' }]}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={[
+          styles.contentContainer,
+          Platform.OS === 'android' && { paddingBottom: insets.bottom + 20 }
+        ]}
       >
         {selectedTab === 'details' && renderDetailsTab()}
         {selectedTab === 'predictions' && renderPredictionsTab()}

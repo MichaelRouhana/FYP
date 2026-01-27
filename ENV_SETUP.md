@@ -1,12 +1,34 @@
 # Environment Variables Setup
 
-This project uses environment variables to configure the API endpoint. This allows you to easily change the API domain without modifying code.
+This project uses centralized configuration for all API endpoints (REST API and WebSocket). **You only need to change the IP address in ONE place** - either in `app.json` or `.env` file.
 
 ## Quick Setup
 
-### Option 1: Using app.json (Recommended - No additional setup needed)
+### 🚀 Option 1: Auto-Detect IP (Easiest - Recommended!)
 
-The easiest way is to edit `app.json` and update the `extra` field with your API configuration:
+**The IP address is now automatically detected and updated!** Just run:
+
+```bash
+npm start
+# or
+npm run android
+# or  
+npm run ios
+```
+
+The script will automatically:
+1. Detect your current machine's IP address
+2. Update `app.json` with the correct IP
+3. Start the Expo development server
+
+You can also manually update the IP anytime by running:
+```bash
+npm run update-ip
+```
+
+### Option 2: Manual Setup via app.json
+
+If you prefer to set it manually, edit `app.json` and update the `API_IP_ADDRESS` in the `extra` field:
 
 ```json
 {
@@ -22,7 +44,13 @@ The easiest way is to edit `app.json` and update the `extra` field with your API
 }
 ```
 
-**Note**: The current `app.json` already has these values set. Just update them to match your environment.
+**Note**: The auto-detect script (Option 1) handles this automatically, but you can still set it manually if needed.
+
+**To find your IP address manually:**
+- **Windows**: Run `ipconfig` in PowerShell/CMD and look for "IPv4 Address"
+- **Mac/Linux**: Run `ifconfig` or `ip addr` in terminal
+
+**Important**: After changing the IP in `app.json`, restart your Expo development server for changes to take effect.
 
 ### Option 2: Using .env file
 
@@ -52,23 +80,13 @@ EXPO_PUBLIC_API_PATH_PREFIX=/api/v1
    - **Local Development**: Use `http://localhost:8080` for web, and your local IP (e.g., `192.168.10.249`) for mobile
    - **Production**: Use your production domain (e.g., `https://api.yourdomain.com`)
 
-## Alternative: Using app.json
+## Summary
 
-You can also configure the API in `app.json` by adding an `extra` field:
-
-```json
-{
-  "expo": {
-    ...
-    "extra": {
-      "API_BASE_URL": "http://localhost:8080",
-      "API_IP_ADDRESS": "192.168.10.249",
-      "API_PORT": "8080",
-      "API_PATH_PREFIX": "/api/v1"
-    }
-  }
-}
-```
+✅ **All API endpoints (REST and WebSocket) now use the centralized config**  
+✅ **IP address auto-detected automatically** - just run `npm start`!  
+✅ **Change IP address in ONE place** (`app.json` or `.env`)  
+✅ **No more hardcoded IP addresses in the code**  
+✅ **No manual IP updates needed** when switching WiFi or devices
 
 ## Important Notes
 
@@ -79,9 +97,11 @@ You can also configure the API in `app.json` by adding an `extra` field:
 
 ## How It Works
 
-- **Web Platform**: Uses `EXPO_PUBLIC_API_BASE_URL` 
-- **Mobile Platforms (iOS/Android)**: Uses `EXPO_PUBLIC_API_IP_ADDRESS` and `EXPO_PUBLIC_API_PORT`
+- **Web Platform**: Uses `API_BASE_URL` (typically `http://localhost:8080`)
+- **Mobile Platforms (iOS/Android)**: Uses `API_IP_ADDRESS` and `API_PORT` to build the URL
+- **WebSocket Connections**: Automatically use the same configuration (no separate IP needed!)
 - The API path prefix (`/api/v1`) is appended automatically
+- All API calls and WebSocket connections are centralized through `config.ts`
 
 ## Troubleshooting
 

@@ -2,9 +2,11 @@
 // Real-time messaging hook using WebSocket (STOMP)
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import { Client } from '@stomp/stompjs';
 import { getItem } from '@/utils/storage';
 import api from '@/services/api';
+import { getWebSocketUrl } from '@/config';
 import { Community, Message, User, CommunityInfo, Moderator, Member, LeaderboardEntry, MessageType, CommunityMessage, CommunityMessageDTO } from '@/types/chat';
 import { formatMessageTimestamp } from '@/utils/dateFormatter';
 
@@ -369,9 +371,8 @@ export function useChatMessages(communityId: string) {
   const subscriptionRef = useRef<any>(null);
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const IP_ADDRESS = '192.168.10.249';
-  const PORT = '8080';
-  const WS_URL = `ws://${IP_ADDRESS}:${PORT}/api/v1/ws`;
+  // Use centralized config for WebSocket URL
+  const WS_URL = getWebSocketUrl(Platform.OS, '/ws');
 
   // Fetch message history from REST API
   const fetchMessageHistory = useCallback(async () => {

@@ -3,9 +3,11 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "update-ip": "node scripts/update-ip.js",
+    "test-backend": "node scripts/test-backend-connection.js",
+    "start": "npm run update-ip && expo start",
+    "android": "npm run update-ip && expo start --android",
+    "ios": "npm run update-ip && expo start --ios",
     "web": "expo start --web"
   },
   "dependencies": {
