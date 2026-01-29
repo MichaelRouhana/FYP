@@ -384,7 +384,7 @@ export function useChatMessages(communityId: string) {
         if (response.data && Array.isArray(response.data)) {
           // Map backend CommunityMessage entities to frontend Message format
           const historyMessages: Message[] = response.data.map((msg: any, index: number) => ({
-            _id: msg.id?.toString() || `hist-${index}`,
+            _id: msg.id ? `msg-${msg.id}` : `hist-${index}`,
             text: msg.content || '',
             createdAt: msg.sentAt ? new Date(msg.sentAt) : new Date(),
             user: {
@@ -394,6 +394,8 @@ export function useChatMessages(communityId: string) {
             },
             senderEmail: msg.senderEmail, // Include email for identity verification
             messageType: 'text' as MessageType,
+            isDeleted: msg.isDeleted || false,
+            deletedBy: msg.deletedBy,
           }));
           setMessages(historyMessages);
         }
@@ -502,8 +504,9 @@ export function useChatMessages(communityId: string) {
 
                   // Map backend CommunityMessageDTO to frontend Message format
                   // Use message ID to prevent duplicates
-    const newMessage: Message = {
-                    _id: data.id ? `msg-${data.id}` : `msg-${Date.now()}-${Math.random()}`,
+                  const messageId = data.id ? `msg-${data.id}` : `msg-${Date.now()}-${Math.random()}`;
+                  const newMessage: Message = {
+                    _id: messageId,
                     text: data.content || '',
                     createdAt: data.sentAt ? new Date(data.sentAt) : new Date(),
                     user: {
@@ -513,13 +516,30 @@ export function useChatMessages(communityId: string) {
                     },
                     senderEmail: data.senderEmail, // Include email for identity verification
                     messageType: 'text' as MessageType,
+                    isDeleted: data.isDeleted || false,
+                    deletedBy: data.deletedBy,
                   };
 
-                  // Prevent duplicate messages by checking if message with same ID already exists
+                  // Update existing message if it's a deletion update, otherwise add new message
                   setMessages((prev) => {
-                    const exists = prev.some(msg => msg._id === newMessage._id);
+                    // If this is a deletion update, find and update the existing message
+                    if (data.isDeleted && data.id) {
+                      const existingIndex = prev.findIndex(msg => msg._id === messageId);
+                      if (existingIndex !== -1) {
+                        const updated = [...prev];
+                        updated[existingIndex] = {
+                          ...updated[existingIndex],
+                          isDeleted: true,
+                          deletedBy: data.deletedBy,
+                        };
+                        return updated;
+                      }
+                    }
+                    
+                    // Check for duplicates before adding
+                    const exists = prev.some(msg => msg._id === messageId);
                     if (exists) {
-                      console.log('⚠️ Duplicate message detected, skipping:', newMessage._id);
+                      console.log('⚠️ Duplicate message detected, skipping:', messageId);
                       return prev;
                     }
                     return [...prev, newMessage];
@@ -708,6 +728,41 @@ export function useChatMessages(communityId: string) {
     return newMessage;
   }, []);
 
+  const deleteMessage = useCallback(async (messageId: string) => {
+    // Check if client exists and is actually connected
+    if (!clientRef.current) {
+      console.error('❌ WebSocket client not initialized');
+      setError('WebSocket client not initialized. Please wait for connection.');
+      return;
+    }
+
+    // Check STOMP connection state
+    const isStompConnected = clientRef.current.connected;
+    
+    if (!isStompConnected) {
+      console.error('❌ STOMP not connected');
+      setError('Not connected to chat server. Please wait for connection to establish.');
+      return;
+    }
+
+    try {
+      // Extract numeric message ID from the frontend ID format (msg-{id})
+      const numericId = messageId.replace('msg-', '');
+      
+      console.log('Deleting message:', `/app/community/${communityId}/delete/${numericId}`);
+
+      // Send delete command via WebSocket
+      // The backend will broadcast the deletion update back via WebSocket
+      clientRef.current.publish({
+        destination: `/app/community/${communityId}/delete/${numericId}`,
+        body: JSON.stringify({}), // Empty body, messageId is in the path
+      });
+    } catch (err: any) {
+      console.error('Error deleting message:', err);
+      setError(err.message || 'Failed to delete message');
+    }
+  }, [communityId, connected]);
+
   return {
     messages,
     loading,
@@ -715,6 +770,7 @@ export function useChatMessages(communityId: string) {
     connected,
     sendMessage,
     shareMatch,
+    deleteMessage,
   };
 }
 

@@ -19,6 +19,8 @@ export interface CommunityMessageDTO {
   senderEmail?: string; // Email for identity verification
   sentAt?: string; // ISO date string
   senderId?: number; // Sender user ID
+  isDeleted?: boolean; // Whether the message has been deleted
+  deletedBy?: string; // Who deleted the message (username, "Admin", or "Moderator")
 }
 
 /**
@@ -66,6 +68,8 @@ export interface Message {
   user: User; // Mapped from senderUsername/senderId
   senderEmail?: string; // Email for identity verification
   messageType: MessageType;
+  isDeleted?: boolean; // Whether the message has been deleted
+  deletedBy?: string; // Who deleted the message (username, "Admin", or "Moderator")
   /**
    * Snapshot of the parent message (for UI performance)
    */

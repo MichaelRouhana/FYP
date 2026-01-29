@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   FlatList,
   Image,
@@ -22,6 +23,7 @@ import { getItem } from '@/utils/storage';
 import { useTheme } from '@/context/ThemeContext';
 import { useChatMessages, useCommunityDetails } from '@/hooks/useChat';
 import { MatchBidData, Message } from '@/types/chat';
+import { getMembersWithRoles } from '@/services/communityApi';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = Math.min(SCREEN_WIDTH * 0.65, 240);
@@ -36,11 +38,12 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
   const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
-  const { messages, sendMessage, loading, error, connected } = useChatMessages(id);
+  const { messages, sendMessage, deleteMessage, loading, error, connected } = useChatMessages(id);
   const { community } = useCommunityDetails(id);
   const [inputText, setInputText] = useState('');
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [user, setUser] = useState<{ email?: string; name?: string } | null>(null);
+  const [userRoles, setUserRoles] = useState<string[]>([]); // Current user's roles in this community
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
@@ -63,6 +66,31 @@ export default function ChatScreen() {
     };
     getCurrentUser();
   }, []);
+
+  // Fetch current user's roles in this community
+  useEffect(() => {
+    const fetchUserRoles = async () => {
+      if (!id || !user?.email) return;
+      
+      try {
+        const members = await getMembersWithRoles(id);
+        const currentUserMember = members.find(m => m.email === user.email);
+        if (currentUserMember) {
+          setUserRoles(currentUserMember.roles || []);
+          console.log('✅ Current user roles in community:', currentUserMember.roles);
+        } else {
+          setUserRoles([]);
+        }
+      } catch (err) {
+        console.error('Error fetching user roles:', err);
+        setUserRoles([]);
+      }
+    };
+    
+    if (user?.email) {
+      fetchUserRoles();
+    }
+  }, [id, user?.email]);
 
   // Listen to keyboard show/hide events
   useEffect(() => {
@@ -128,6 +156,49 @@ export default function ChatScreen() {
     if (!user) return false;
     // Use email comparison (primary) with fallback to username comparison
     return message.senderEmail === user?.email || message.user.name === user?.name;
+  };
+
+  // Check if current user can delete a message
+  // - Sender can always delete their own messages
+  // - OWNER (admin) can delete any message
+  // - MODERATOR can delete any message
+  const canDeleteMessage = (message: Message) => {
+    if (!message || message.isDeleted) return false;
+    
+    // User can delete their own messages
+    if (isCurrentUser(message)) return true;
+    
+    // Check if user is OWNER or MODERATOR
+    const isOwner = userRoles.includes('OWNER');
+    const isModerator = userRoles.includes('MODERATOR');
+    
+    return isOwner || isModerator;
+  };
+
+  // Handle long press on message to delete
+  const handleLongPress = (message: Message) => {
+    if (!canDeleteMessage(message)) return;
+
+    Alert.alert(
+      'Delete Message',
+      'Delete Message? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            if (deleteMessage) {
+              deleteMessage(message._id);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const renderMatchBidCard = (data: MatchBidData) => (
@@ -210,8 +281,59 @@ export default function ChatScreen() {
     }
 
     // Regular text message
+    // Check if message is deleted
+    if (item.isDeleted) {
+      return (
+        <View
+          style={[
+            styles.messageWrapper,
+            { justifyContent: isMe ? 'flex-end' : 'flex-start' },
+          ]}
+        >
+          {/* Avatar for others */}
+          {!isMe && (
+            <View style={[styles.avatarSmall, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
+              <Text style={[styles.avatarLetter, { color: isDark ? '#fff' : '#18223A' }]}>
+                {item.user.name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+
+          <View style={[styles.messageContent, isMe && styles.messageContentMe]}>
+            {/* Username for others only - never show for own messages */}
+            {!isMe && (
+              <Text style={[styles.senderName, { color: theme.colors.textSecondary }]}>{item.user.name}</Text>
+            )}
+
+            {/* Deleted Message Bubble */}
+            <View
+              style={[
+                styles.messageBubble,
+                styles.deletedBubble,
+                isMe ? styles.bubbleMe : styles.bubbleOther,
+              ]}
+            >
+              <Text style={[styles.deletedMessageText, { 
+                color: theme.colors.textMuted,
+                fontStyle: 'italic',
+              }]}>
+                This message was deleted by {item.deletedBy || 'user'}
+              </Text>
+            </View>
+
+            {/* Time */}
+            <Text style={[styles.timeText, { color: theme.colors.textMuted }, isMe && styles.timeTextMe]}>
+              {formatTime(item.createdAt)}
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
     return (
-      <View
+      <TouchableOpacity
+        activeOpacity={1}
+        onLongPress={() => handleLongPress(item)}
         style={[
           styles.messageWrapper,
           { justifyContent: isMe ? 'flex-end' : 'flex-start' },
@@ -232,8 +354,8 @@ export default function ChatScreen() {
             <Text style={[styles.senderName, { color: theme.colors.textSecondary }]}>{item.user.name}</Text>
           )}
 
-          {/* Reply preview */}
-          {item.replyTo && (
+          {/* Reply preview - disabled for deleted messages */}
+          {item.replyTo && !item.isDeleted && (
             <View style={[styles.replyPreview, { backgroundColor: isDark ? '#1f2937' : '#E5E7EB' }]}>
               <View style={[styles.replyBar, { backgroundColor: theme.colors.primary }]} />
               <View>
@@ -266,7 +388,7 @@ export default function ChatScreen() {
             {formatTime(item.createdAt)}
           </Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -570,6 +692,16 @@ const styles = StyleSheet.create({
   },
   messageTextMe: {
     color: '#fff',
+  },
+  deletedBubble: {
+    opacity: 0.6,
+    backgroundColor: '#f3f4f6',
+  },
+  deletedMessageText: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    fontStyle: 'italic',
+    color: '#6b7280',
   },
   timeText: {
     fontSize: 11,
