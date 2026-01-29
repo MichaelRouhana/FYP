@@ -11,6 +11,8 @@ import {
   FlatList,
   ActivityIndicator,
   TouchableWithoutFeedback,
+  Pressable,
+  Modal,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -180,6 +182,7 @@ function MembersTab({
   const [membersWithRoles, setMembersWithRoles] = useState<CommunityMemberDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionMenuVisible, setActionMenuVisible] = useState<string | null>(null);
+  const [menuWasTouched, setMenuWasTouched] = useState(false); // Track if menu was touched
 
   // Fetch members with roles function
   const fetchMembersWithRoles = async () => {
@@ -335,13 +338,17 @@ function MembersTab({
     const isModerator = isModeratorRole || isOwnerRole;
     const canShowActions = isOwner && !isCurrentUser; // Don't show actions for self
 
+    const isMenuOpen = actionMenuVisible === item.id.toString();
+    
     return (
       <View style={[styles.memberRow, { 
         backgroundColor: isDark ? '#111827' : '#FFFFFF', 
         borderWidth: isDark ? 0 : 1, 
         borderColor: theme.colors.border,
         position: 'relative',
-        zIndex: 1, // Base zIndex for member row
+        zIndex: isMenuOpen ? 1000 : 1, // Higher zIndex when menu is open
+        elevation: isMenuOpen ? 10 : 0, // Higher elevation for Android when menu is open
+        overflow: 'visible', // Allow menu to render outside row bounds
       }]}>
         <Image 
           source={{ uri: item.pfp || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.username)}&background=3b82f6&color=fff` }} 
@@ -370,14 +377,21 @@ function MembersTab({
         </View>
         {canShowActions && (
           <TouchableOpacity
-            onPress={() => setActionMenuVisible(actionMenuVisible === item.id.toString() ? null : item.id.toString())}
+            onPress={() => {
+              setMenuWasTouched(false);
+              setActionMenuVisible(actionMenuVisible === item.id.toString() ? null : item.id.toString());
+            }}
             style={styles.actionButton}
           >
             <Ionicons name="ellipsis-vertical" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         )}
         {actionMenuVisible === item.id.toString() && (
-          <View 
+          <View
+            onStartShouldSetResponder={() => {
+              setMenuWasTouched(true); // Mark that menu was touched
+              return false; // Don't capture the touch, let children handle it
+            }}
             style={[styles.actionMenu, { 
               backgroundColor: isDark ? '#1f2937' : '#f9fafb', 
               borderColor: theme.colors.border,
@@ -385,14 +399,16 @@ function MembersTab({
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.25,
               shadowRadius: 3.84,
-              elevation: 5,
-              zIndex: 1001, // Higher than overlay
+              elevation: 15, // Higher elevation for Android
+              zIndex: 1003, // Higher than overlay
             }]}
-            pointerEvents="box-none" // Allow touches to pass to children
           >
             {isModerator ? (
               <>
                 <TouchableOpacity
+                  onPressIn={() => {
+                    setMenuWasTouched(true); // Mark that menu item was touched
+                  }}
                   onPress={() => {
                     Alert.alert(
                       'Demote Moderator',
@@ -410,6 +426,9 @@ function MembersTab({
                 </TouchableOpacity>
                 <View style={[styles.actionMenuDivider, { backgroundColor: theme.colors.separator }]} />
                 <TouchableOpacity
+                  onPressIn={() => {
+                    setMenuWasTouched(true); // Mark that menu item was touched
+                  }}
                   onPress={() => {
                     Alert.alert(
                       'Kick User',
@@ -441,7 +460,12 @@ function MembersTab({
                 <TouchableOpacity
                   activeOpacity={0.7}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  onPressIn={() => {
+                    setMenuWasTouched(true); // Mark that menu item was touched
+                    console.log('[UI] Promote onPressIn - menu touched');
+                  }}
                   onPress={() => {
+                    setMenuWasTouched(true); // Ensure it's marked
                     console.log(`[UI] ⚡ Promote button TOUCHED for user: ${item.username} (ID: ${item.id})`);
                     console.log(`[UI] Item details:`, { id: item.id, username: item.username, email: item.email });
                     
@@ -476,13 +500,16 @@ function MembersTab({
                       );
                     }, 100);
                   }}
-                  style={[styles.actionMenuItem, { zIndex: 1002 }]}
+                  style={[styles.actionMenuItem, { zIndex: 1004 }]}
                 >
                   <Ionicons name="arrow-up" size={18} color={theme.colors.text} />
                   <Text style={[styles.actionMenuText, { color: theme.colors.text }]}>Promote to Moderator</Text>
                 </TouchableOpacity>
                 <View style={[styles.actionMenuDivider, { backgroundColor: theme.colors.separator }]} />
                 <TouchableOpacity
+                  onPressIn={() => {
+                    setMenuWasTouched(true); // Mark that menu item was touched
+                  }}
                   onPress={() => {
                     Alert.alert(
                       'Kick User',
@@ -533,7 +560,7 @@ function MembersTab({
   }
 
   return (
-    <>
+    <View style={{ flex: 1, position: 'relative' }}>
       <FlatList
         style={styles.tabContainer}
         data={membersWithRoles}
@@ -543,24 +570,31 @@ function MembersTab({
         showsVerticalScrollIndicator={false}
         onScrollBeginDrag={() => setActionMenuVisible(null)} // Close menu on scroll
       />
-      {/* Overlay to close menu when clicking outside */}
+      {/* Overlay to close menu when clicking outside - only responds to touches outside menu */}
       {actionMenuVisible && (
-        <TouchableWithoutFeedback 
+        <Pressable
+          style={[
+            StyleSheet.absoluteFill,
+            { 
+              zIndex: 1001, // Above rows but below menu
+              backgroundColor: 'transparent',
+            }
+          ]}
           onPress={() => {
-            console.log('[UI] Overlay pressed - closing action menu');
-            setActionMenuVisible(null);
+            // Use a small delay to allow menu item onPressIn to fire first
+            setTimeout(() => {
+              if (!menuWasTouched) {
+                console.log('[UI] Overlay pressed - closing action menu');
+                setActionMenuVisible(null);
+              } else {
+                console.log('[UI] Menu was touched - not closing');
+              }
+              setMenuWasTouched(false); // Reset for next interaction
+            }, 100);
           }}
-        >
-          <View 
-            style={[
-              StyleSheet.absoluteFill,
-              { zIndex: 999, backgroundColor: 'transparent' } // Lower zIndex than menu, transparent
-            ]} 
-            pointerEvents="box-none"
-          />
-        </TouchableWithoutFeedback>
+        />
       )}
-    </>
+    </View>
   );
 }
 
@@ -863,6 +897,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 16,
+    overflow: 'visible', // Allow menus to render outside list bounds
   },
   errorText: {
     color: '#9ca3af',
