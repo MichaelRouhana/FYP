@@ -182,7 +182,6 @@ function MembersTab({
   const [membersWithRoles, setMembersWithRoles] = useState<CommunityMemberDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionMenuVisible, setActionMenuVisible] = useState<string | null>(null);
-  const [menuWasTouched, setMenuWasTouched] = useState(false); // Track if menu was touched
 
   // Fetch members with roles function
   const fetchMembersWithRoles = async () => {
@@ -378,7 +377,6 @@ function MembersTab({
         {canShowActions && (
           <TouchableOpacity
             onPress={() => {
-              setMenuWasTouched(false);
               setActionMenuVisible(actionMenuVisible === item.id.toString() ? null : item.id.toString());
             }}
             style={styles.actionButton}
@@ -388,10 +386,6 @@ function MembersTab({
         )}
         {actionMenuVisible === item.id.toString() && (
           <View
-            onStartShouldSetResponder={() => {
-              setMenuWasTouched(true); // Mark that menu was touched
-              return false; // Don't capture the touch, let children handle it
-            }}
             style={[styles.actionMenu, { 
               backgroundColor: isDark ? '#1f2937' : '#f9fafb', 
               borderColor: theme.colors.border,
@@ -400,22 +394,41 @@ function MembersTab({
               shadowOpacity: 0.25,
               shadowRadius: 3.84,
               elevation: 15, // Higher elevation for Android
-              zIndex: 1003, // Higher than overlay
+              zIndex: 1010,
             }]}
+            pointerEvents="auto" // Ensure menu captures touches
           >
+            {/* Close button */}
+            <TouchableOpacity
+              onPress={() => setActionMenuVisible(null)}
+              style={styles.closeButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={20} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
             {isModerator ? (
               <>
                 <TouchableOpacity
-                  onPressIn={() => {
-                    setMenuWasTouched(true); // Mark that menu item was touched
-                  }}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   onPress={() => {
                     Alert.alert(
                       'Demote Moderator',
                       `Are you sure you want to demote ${item.username} to a regular member?`,
                       [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Demote', style: 'destructive', onPress: () => handleDemote(item.id) },
+                        { 
+                          text: 'Cancel', 
+                          style: 'cancel',
+                          onPress: () => setActionMenuVisible(null) // Close menu on cancel
+                        },
+                        { 
+                          text: 'Demote', 
+                          style: 'destructive', 
+                          onPress: () => {
+                            setActionMenuVisible(null); // Close menu before action
+                            handleDemote(item.id);
+                          }
+                        },
                       ]
                     );
                   }}
@@ -426,19 +439,23 @@ function MembersTab({
                 </TouchableOpacity>
                 <View style={[styles.actionMenuDivider, { backgroundColor: theme.colors.separator }]} />
                 <TouchableOpacity
-                  onPressIn={() => {
-                    setMenuWasTouched(true); // Mark that menu item was touched
-                  }}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   onPress={() => {
                     Alert.alert(
                       'Kick User',
                       `Are you sure you want to remove ${item.username} from this community?`,
                       [
-                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Cancel', 
+                          style: 'cancel',
+                          onPress: () => setActionMenuVisible(null) // Close menu on cancel
+                        },
                         { 
                           text: 'Kick', 
                           style: 'destructive', 
                           onPress: () => {
+                            setActionMenuVisible(null); // Close menu before action
                             if (item.email) {
                               handleKick(item.email, item.username);
                             } else {
@@ -460,66 +477,63 @@ function MembersTab({
                 <TouchableOpacity
                   activeOpacity={0.7}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  onPressIn={() => {
-                    setMenuWasTouched(true); // Mark that menu item was touched
-                    console.log('[UI] Promote onPressIn - menu touched');
-                  }}
                   onPress={() => {
-                    setMenuWasTouched(true); // Ensure it's marked
                     console.log(`[UI] ⚡ Promote button TOUCHED for user: ${item.username} (ID: ${item.id})`);
                     console.log(`[UI] Item details:`, { id: item.id, username: item.username, email: item.email });
                     
-                    // Close menu first
-                    setActionMenuVisible(null);
-                    
-                    // Small delay to allow menu to close before showing alert
-                    setTimeout(() => {
-                      Alert.alert(
-                        'Promote to Moderator',
-                        `Are you sure you want to promote ${item.username} to moderator?`,
-                        [
-                          { 
-                            text: 'Cancel', 
-                            style: 'cancel', 
-                            onPress: () => console.log('[UI] Promotion cancelled by user') 
-                          },
-                          { 
-                            text: 'Promote', 
-                            onPress: () => {
-                              console.log(`[UI] ✅ User confirmed promotion for ID: ${item.id}`);
-                              if (!item.id) {
-                                console.error('[UI] ❌ ERROR: item.id is undefined or null!');
-                                Alert.alert('Error', 'Cannot promote: User ID is missing.');
-                                return;
-                              }
-                              console.log(`[UI] 🚀 Calling handlePromote(${item.id})...`);
-                              handlePromote(item.id);
+                    Alert.alert(
+                      'Promote to Moderator',
+                      `Are you sure you want to promote ${item.username} to moderator?`,
+                      [
+                        { 
+                          text: 'Cancel', 
+                          style: 'cancel',
+                          onPress: () => {
+                            console.log('[UI] Promotion cancelled by user');
+                            setActionMenuVisible(null); // Close menu on cancel
+                          }
+                        },
+                        { 
+                          text: 'Promote', 
+                          onPress: () => {
+                            console.log(`[UI] ✅ User confirmed promotion for ID: ${item.id}`);
+                            setActionMenuVisible(null); // Close menu before action
+                            if (!item.id) {
+                              console.error('[UI] ❌ ERROR: item.id is undefined or null!');
+                              Alert.alert('Error', 'Cannot promote: User ID is missing.');
+                              return;
                             }
-                          },
-                        ]
-                      );
-                    }, 100);
+                            console.log(`[UI] 🚀 Calling handlePromote(${item.id})...`);
+                            handlePromote(item.id);
+                          }
+                        },
+                      ]
+                    );
                   }}
-                  style={[styles.actionMenuItem, { zIndex: 1004 }]}
+                  style={styles.actionMenuItem}
                 >
                   <Ionicons name="arrow-up" size={18} color={theme.colors.text} />
                   <Text style={[styles.actionMenuText, { color: theme.colors.text }]}>Promote to Moderator</Text>
                 </TouchableOpacity>
                 <View style={[styles.actionMenuDivider, { backgroundColor: theme.colors.separator }]} />
                 <TouchableOpacity
-                  onPressIn={() => {
-                    setMenuWasTouched(true); // Mark that menu item was touched
-                  }}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   onPress={() => {
                     Alert.alert(
                       'Kick User',
                       `Are you sure you want to remove ${item.username} from this community?`,
                       [
-                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Cancel', 
+                          style: 'cancel',
+                          onPress: () => setActionMenuVisible(null) // Close menu on cancel
+                        },
                         { 
                           text: 'Kick', 
                           style: 'destructive', 
                           onPress: () => {
+                            setActionMenuVisible(null); // Close menu before action
                             if (item.email) {
                               handleKick(item.email, item.username);
                             } else {
@@ -568,32 +582,13 @@ function MembersTab({
         renderItem={renderMember}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        onScrollBeginDrag={() => setActionMenuVisible(null)} // Close menu on scroll
+        onScrollBeginDrag={() => {
+          // Close menu when user starts scrolling
+          if (actionMenuVisible) {
+            setActionMenuVisible(null);
+          }
+        }}
       />
-      {/* Overlay to close menu when clicking outside - only responds to touches outside menu */}
-      {actionMenuVisible && (
-        <Pressable
-          style={[
-            StyleSheet.absoluteFill,
-            { 
-              zIndex: 1001, // Above rows but below menu
-              backgroundColor: 'transparent',
-            }
-          ]}
-          onPress={() => {
-            // Use a small delay to allow menu item onPressIn to fire first
-            setTimeout(() => {
-              if (!menuWasTouched) {
-                console.log('[UI] Overlay pressed - closing action menu');
-                setActionMenuVisible(null);
-              } else {
-                console.log('[UI] Menu was touched - not closing');
-              }
-              setMenuWasTouched(false); // Reset for next interaction
-            }, 100);
-          }}
-        />
-      )}
     </View>
   );
 }
@@ -1135,6 +1130,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     padding: 4,
+    paddingTop: 32, // Extra padding at top for close button
     minWidth: 180,
     zIndex: 1001,
     elevation: 10, // Higher elevation for Android
@@ -1142,6 +1138,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    padding: 4,
+    zIndex: 1002,
   },
   actionMenuItem: {
     flexDirection: 'row',
