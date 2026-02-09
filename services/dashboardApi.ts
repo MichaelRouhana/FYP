@@ -4,6 +4,26 @@
 import api from './api';
 import { PagedResponse } from '@/types/bet';
 
+// Backend `/dashboard/logs` returns a different paging wrapper than our frontend `PagedResponse<T>`
+type BackendPagedResponse<T> = {
+  content: T[];
+  metadata?: {
+    itemsPerPage: number;
+    totalItems: number;
+    currentPage: number; // backend returns 1-based page number
+    totalPages: number;
+  };
+};
+
+type ActivityLogViewDTO = {
+  username?: string;
+  action?: string;
+  path?: string;
+  httpMethod?: string;
+  ip?: string;
+  timestamp?: string;
+};
+
 export interface ChartPoint {
   x: string; // Date label (e.g., "MON", "TUE")
   y: number; // Value
@@ -89,10 +109,40 @@ export async function getDashboardUsers(): Promise<DashboardUser[]> {
 /**
  * Fetch dashboard logs
  */
-export async function getDashboardLogs(): Promise<DashboardLog[]> {
+export async function getDashboardLogs(params?: {
+  page?: number; // 0-based (Spring Pageable)
+  size?: number;
+}): Promise<DashboardLog[]> {
   try {
-    const response = await api.get('/dashboard/logs');
-    return response.data || [];
+    const page = params?.page ?? 0;
+    const size = params?.size ?? 50;
+
+    const response = await api.get<BackendPagedResponse<ActivityLogViewDTO>>('/dashboard/logs', {
+      params: {
+        page,
+        size,
+        sort: 'timestamp,desc',
+      },
+    });
+
+    const rows = response.data?.content || [];
+
+    return rows.map((row, idx) => {
+      const method = row.httpMethod || 'N/A';
+      const path = row.path || 'N/A';
+      const ip = row.ip || 'N/A';
+      const username = row.username || 'unknown';
+      const action = row.action || 'N/A';
+
+      return {
+        // Backend DTO doesn't include an ID, so we synthesize one for React keys
+        id: page * size + idx + 1,
+        action,
+        username,
+        timestamp: row.timestamp || '',
+        details: `${method} ${path} (${ip})`,
+      };
+    });
   } catch (error: any) {
     console.error('Error fetching dashboard logs:', error);
     // Logs endpoint might not be implemented yet, return empty array

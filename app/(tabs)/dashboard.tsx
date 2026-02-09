@@ -29,6 +29,63 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { totalUsers, totalActiveUsers, users, logs, loading, error, refetch } = useDashboardUsers();
 
+  const humanizeAction = (action?: string) => {
+    const a = (action || '').trim();
+    if (!a) return 'performed an action';
+
+    // Common backend summaries (Swagger @Operation.summary)
+    // Examples:
+    // - "retrieve dashboard's logs"
+    // - "Get user profile with statistics"
+    // Convert to a friendlier past-tense phrase.
+    const lower = a.toLowerCase();
+
+    if (lower.startsWith("retrieve dashboard's ")) {
+      const rest = a.slice("retrieve dashboard's ".length).trim();
+      return `viewed the dashboard ${rest}`;
+    }
+
+    if (lower.startsWith('retrieve ')) {
+      const rest = a.slice('retrieve '.length).trim();
+      return `retrieved ${rest}`;
+    }
+
+    if (lower.startsWith('get ')) {
+      const rest = a.slice('get '.length).trim();
+      return `requested ${rest}`;
+    }
+
+    // Fallback: sentence-case but as an action phrase
+    return a.charAt(0).toLowerCase() + a.slice(1);
+  };
+
+  const parseDetails = (details?: string) => {
+    // Expected format from `getDashboardLogs` mapping:
+    // "GET /api/v1/dashboard/logs (172.18.0.1)"
+    const d = (details || '').trim();
+    const match = d.match(/^([A-Z]+)\s+(.+?)\s+\((.+)\)$/);
+    if (!match) return { method: null as string | null, path: null as string | null };
+    return { method: match[1], path: match[2] };
+  };
+
+  const formatLogSentence = (log: any) => {
+    const username = log?.username || 'unknown user';
+    const actionPhrase = humanizeAction(log?.action);
+
+    const time =
+      log?.timestamp
+        ? new Date(log.timestamp).toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          })
+        : 'Unknown time';
+
+    // Per request: do NOT include endpoints/method/path
+    return `At ${time}, ${username} ${actionPhrase}.`;
+  };
+
   // Transform chart data for react-native-gifted-charts
   const transformChartData = (data: Array<{ x: string; y: number }>) => {
     if (!data || data.length === 0) {
@@ -244,20 +301,10 @@ export default function DashboardScreen() {
               </View>
               {logs.length > 0 ? (
                 logs.slice(0, 8).map((log, index) => {
-                  const timestamp = log.timestamp
-                    ? new Date(log.timestamp).toLocaleTimeString('en-US', {
-                        hour12: false,
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit',
-                        fractionalSecondDigits: 3,
-                      })
-                    : 'N/A';
-
                   return (
                     <View key={log.id || index} style={[styles.logRow, { borderBottomColor: theme.colors.separator }]}>
                       <Text style={[styles.logText, { color: theme.colors.textSecondary }]}>
-                        {index + 1} {timestamp} INFO {log.username} {log.action} - {log.details}
+                        {formatLogSentence(log)}
                       </Text>
                     </View>
                   );
@@ -267,7 +314,10 @@ export default function DashboardScreen() {
                   <Text style={[styles.logText, { color: theme.colors.textSecondary }]}>No logs available</Text>
                 </View>
               )}
-              <TouchableOpacity style={styles.viewAllButton}>
+              <TouchableOpacity
+                style={styles.viewAllButton}
+                onPress={() => router.push('/admin/logs')}
+              >
                 <Text style={styles.viewAllText}>VIEW ALL</Text>
               </TouchableOpacity>
             </View>
@@ -326,7 +376,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 0,
-    paddingBottom: 100,
+    // Keep a little space above the tab bar without huge dead space
+    paddingBottom: 28,
   },
   statCard: {
     borderRadius: 16,
@@ -428,9 +479,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_400Regular',
   },
   viewAllButton: {
-    paddingVertical: 16,
+    paddingVertical: 10,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
   },
   viewAllText: {
     fontSize: 13,
