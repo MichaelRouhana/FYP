@@ -7,7 +7,7 @@ import { Client } from '@stomp/stompjs';
 import { getItem } from '@/utils/storage';
 import api from '@/services/api';
 import { getWebSocketUrl } from '@/config';
-import { Community, Message, User, CommunityInfo, Moderator, Member, LeaderboardEntry, MessageType, CommunityMessage, CommunityMessageDTO } from '@/types/chat';
+import { Community, Message, User, CommunityInfo, Moderator, Member, LeaderboardEntry, MessageType, CommunityMessage, CommunityMessageDTO, MatchBidData } from '@/types/chat';
 import { formatMessageTimestamp } from '@/utils/dateFormatter';
 
 // Current user (mock)
@@ -383,20 +383,26 @@ export function useChatMessages(communityId: string) {
         const response = await api.get<CommunityMessage[]>(`/communities/${communityId}/messages`);
         if (response.data && Array.isArray(response.data)) {
           // Map backend CommunityMessage entities to frontend Message format
-          const historyMessages: Message[] = response.data.map((msg: any, index: number) => ({
-            _id: msg.id ? `msg-${msg.id}` : `hist-${index}`,
-            text: msg.content || '',
-            createdAt: msg.sentAt ? new Date(msg.sentAt) : new Date(),
-            user: {
-              id: msg.senderId?.toString() || 'unknown',
-              name: msg.senderUsername || 'Unknown User',
-              avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.senderUsername || 'User')}&background=3b82f6&color=fff`,
-            },
-            senderEmail: msg.senderEmail, // Include email for identity verification
-            messageType: 'text' as MessageType,
-            isDeleted: msg.isDeleted || false,
-            deletedBy: msg.deletedBy,
-          }));
+          const historyMessages: Message[] = response.data.map((msg: any, index: number) => {
+            // Check if message is MATCH_SHARE format
+            const isMatchShare = msg.content && msg.content.startsWith('MATCH_SHARE:');
+            const messageType: MessageType = isMatchShare ? 'match_bid' : 'text';
+            
+            return {
+              _id: msg.id ? `msg-${msg.id}` : `hist-${index}`,
+              text: msg.content || '',
+              createdAt: msg.sentAt ? new Date(msg.sentAt) : new Date(),
+              user: {
+                id: msg.senderId?.toString() || 'unknown',
+                name: msg.senderUsername || 'Unknown User',
+                avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.senderUsername || 'User')}&background=3b82f6&color=fff`,
+              },
+              senderEmail: msg.senderEmail, // Include email for identity verification
+              messageType,
+              isDeleted: msg.isDeleted || false,
+              deletedBy: msg.deletedBy,
+            };
+          });
           setMessages(historyMessages);
         }
       } catch (apiError: any) {
@@ -505,9 +511,63 @@ export function useChatMessages(communityId: string) {
                   // Map backend CommunityMessageDTO to frontend Message format
                   // Use message ID to prevent duplicates
                   const messageId = data.id ? `msg-${data.id}` : `msg-${Date.now()}-${Math.random()}`;
+                  
+                  // Check if message content is match share format or JSON match data
+                  let messageType: MessageType = 'text';
+                  let customData: MatchBidData | undefined = undefined;
+                  
+                  // Check for MATCH_SHARE format: "MATCH_SHARE:{matchId}"
+                  if (data.content && data.content.startsWith('MATCH_SHARE:')) {
+                    const matchId = data.content.replace('MATCH_SHARE:', '');
+                    messageType = 'match_bid';
+                    
+                    // Try to retrieve match data from AsyncStorage synchronously if possible
+                    // For async, we'll load it and update the message after
+                    (async () => {
+                      try {
+                        const storedData = await getItem(`match_share_${matchId}`);
+                        if (storedData) {
+                          const parsedData: MatchBidData = JSON.parse(storedData);
+                          // Update the message with match data
+                          setMessages((prev) => {
+                            const updated = [...prev];
+                            const messageIndex = updated.findIndex(msg => msg._id === messageId);
+                            if (messageIndex !== -1) {
+                              updated[messageIndex] = {
+                                ...updated[messageIndex],
+                                messageType: 'match_bid',
+                                customData: parsedData,
+                                text: '', // Clear text for match_bid messages
+                              };
+                            }
+                            return updated;
+                          });
+                        }
+                      } catch (err) {
+                        console.error('Error retrieving match data from storage:', err);
+                      }
+                    })();
+                  } else {
+                    // Try parsing as JSON (legacy format)
+                    try {
+                      const parsedContent = JSON.parse(data.content || '{}');
+                      if (parsedContent.type === 'match_bid' && parsedContent.data) {
+                        messageType = 'match_bid';
+                        customData = parsedContent.data;
+                      }
+                    } catch {
+                      // Not JSON, treat as regular text
+                    }
+                  }
+                  
                   const newMessage: Message = {
                     _id: messageId,
-                    text: data.content || '',
+                    // Important: keep MATCH_SHARE:{id} in text until customData is loaded
+                    // so the UI can resolve the match card from storage.
+                    text:
+                      messageType === 'match_bid'
+                        ? (customData ? '' : (data.content || ''))
+                        : (data.content || ''),
                     createdAt: data.sentAt ? new Date(data.sentAt) : new Date(),
                     user: {
                       id: data.senderId ? data.senderId.toString() : 'unknown',
@@ -515,7 +575,8 @@ export function useChatMessages(communityId: string) {
                       avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(data.senderUsername || 'User')}&background=3b82f6&color=fff`,
                     },
                     senderEmail: data.senderEmail, // Include email for identity verification
-                    messageType: 'text' as MessageType,
+                    messageType,
+                    customData,
                     isDeleted: data.isDeleted || false,
                     deletedBy: data.deletedBy,
                   };
@@ -851,13 +912,11 @@ const MOCK_MODERATORS: Moderator[] = [
   },
 ];
 
-// Mock rules
-const MOCK_RULES: string[] = [
+// Default community rules (fallback when backend rules are empty)
+const DEFAULT_COMMUNITY_RULES: string[] = [
   'Be respectful - zero tolerance for harassment',
-  'No spam or self-promotion',
-  'Keep discussions relevant to football',
-  'No hate speech or discrimination',
-  'Respect moderator decisions',
+  'No Spam or unrelated promotions',
+  'Stick to the community topic and language',
 ];
 
 // Mock members data
@@ -899,7 +958,7 @@ const COMMUNITY_INFO_MAP: Record<string, CommunityInfo> = {
     location: 'United Kingdom',
     memberCount: '1.8M members',
     moderators: MOCK_MODERATORS,
-    rules: MOCK_RULES,
+    rules: DEFAULT_COMMUNITY_RULES,
     members: MOCK_MEMBERS,
     leaderboard: MOCK_LEADERBOARD,
   },
@@ -911,7 +970,7 @@ const COMMUNITY_INFO_MAP: Record<string, CommunityInfo> = {
     location: 'London, UK',
     memberCount: '2.1M members',
     moderators: MOCK_MODERATORS,
-    rules: MOCK_RULES,
+    rules: DEFAULT_COMMUNITY_RULES,
     members: MOCK_MEMBERS,
     leaderboard: MOCK_LEADERBOARD,
   },
@@ -923,7 +982,7 @@ const COMMUNITY_INFO_MAP: Record<string, CommunityInfo> = {
     location: 'Madrid, Spain',
     memberCount: '3.5M members',
     moderators: MOCK_MODERATORS,
-    rules: MOCK_RULES,
+    rules: DEFAULT_COMMUNITY_RULES,
     members: MOCK_MEMBERS,
     leaderboard: MOCK_LEADERBOARD,
   },
@@ -979,7 +1038,7 @@ export function useCommunityInfo(communityId: string) {
               };
             })
           : [], // Empty array instead of MOCK_MODERATORS
-        rules: dto.rules || [],
+        rules: dto.rules && dto.rules.length > 0 ? dto.rules : DEFAULT_COMMUNITY_RULES,
         members: membersResponse.status === 'fulfilled' && membersResponse.value?.data 
           ? membersResponse.value.data.map((m: any, idx: number) => ({
               id: m.id?.toString() || `member-${idx}`,

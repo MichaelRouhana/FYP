@@ -18,7 +18,7 @@ import {
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { jwtDecode } from 'jwt-decode';
-import { getItem } from '@/utils/storage';
+import { getItem, setItem } from '@/utils/storage';
 
 import { useTheme } from '@/context/ThemeContext';
 import { useChatMessages, useCommunityDetails } from '@/hooks/useChat';
@@ -37,7 +37,12 @@ interface JwtPayload {
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
-  const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
+  const { id, name, shareMatch, matchData } = useLocalSearchParams<{ 
+    id: string; 
+    name: string;
+    shareMatch?: string;
+    matchData?: string;
+  }>();
   const { messages, sendMessage, deleteMessage, loading, error, connected } = useChatMessages(id);
   const { community } = useCommunityDetails(id);
   const [inputText, setInputText] = useState('');
@@ -45,7 +50,17 @@ export default function ChatScreen() {
   const [user, setUser] = useState<{ email?: string; name?: string } | null>(null);
   const [userRoles, setUserRoles] = useState<string[]>([]); // Current user's roles in this community
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [hasSharedMatch, setHasSharedMatch] = useState(false);
+  const [loadedMatchData, setLoadedMatchData] = useState<Record<string, MatchBidData>>({});
   const flatListRef = useRef<FlatList>(null);
+
+  const openMatchDetails = useCallback((matchId?: string) => {
+    if (!matchId) return;
+    router.push({
+      pathname: '/match/[id]',
+      params: { id: String(matchId), tab: 'details' },
+    });
+  }, []);
 
   // Get current user's email and name from JWT token for identity verification
   useEffect(() => {
@@ -112,6 +127,36 @@ export default function ChatScreen() {
       keyboardDidHideListener.remove();
     };
   }, []);
+
+  // Auto-share match when shareMatch param is present
+  useEffect(() => {
+    if (shareMatch === 'true' && matchData && connected && !hasSharedMatch) {
+      const shareMatchAsync = async () => {
+        try {
+          const parsedMatchData: MatchBidData = JSON.parse(matchData);
+          // Extract match ID from the data or generate one
+          const matchId = (parsedMatchData as any).matchId || `match_${Date.now()}`;
+          
+          // Store the full match data in AsyncStorage with match ID as key
+          await setItem(`match_share_${matchId}`, JSON.stringify(parsedMatchData));
+          
+          // Send a shorter message that fits in the database column
+          // Format: "MATCH_SHARE:{matchId}" - this is much shorter than full JSON
+          const matchShareMessage = `MATCH_SHARE:${matchId}`;
+          sendMessage(matchShareMessage);
+          setHasSharedMatch(true);
+          
+          // Clear params to prevent re-sending
+          setTimeout(() => {
+            router.setParams({ shareMatch: undefined, matchData: undefined });
+          }, 100);
+        } catch (err) {
+          console.error('Error parsing match data:', err);
+        }
+      };
+      shareMatchAsync();
+    }
+  }, [shareMatch, matchData, connected, hasSharedMatch, sendMessage]);
 
   const handleSend = useCallback(() => {
     const text = inputText.trim();
@@ -201,11 +246,18 @@ export default function ChatScreen() {
     );
   };
 
-  const renderMatchBidCard = (data: MatchBidData) => (
-    <View style={[styles.matchBidCard, { 
-      backgroundColor: '#FFFFFF',
-      borderColor: '#18223A'
-    }]}>
+  const renderMatchBidCard = (data: MatchBidData, onPress: () => void) => (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={onPress}
+      style={[
+        styles.matchBidCard,
+        {
+          backgroundColor: '#FFFFFF',
+          borderColor: '#18223A',
+        },
+      ]}
+    >
       {/* League Header */}
       <View style={styles.leagueHeader}>
         <Image
@@ -246,14 +298,45 @@ export default function ChatScreen() {
       <Text style={styles.matchTime}>{data.matchTime}</Text>
 
       {/* Place Bid Button */}
-      <TouchableOpacity style={[styles.placeBidButton, { backgroundColor: '#18223A' }]} activeOpacity={0.8}>
+      <TouchableOpacity
+        style={[styles.placeBidButton, { backgroundColor: '#18223A' }]}
+        activeOpacity={0.8}
+        onPress={onPress}
+      >
         <Text style={styles.placeBidText}>PLACE YOUR BID</Text>
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 
-  const renderMessage = ({ item }: { item: Message }) => {
+  const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isMe = isCurrentUser(item);
+    
+    // Determine message grouping (only for text messages)
+    let isFirstInGroup = true;
+    let isLastInGroup = true;
+    
+    if (item.messageType === 'text' && !item.isDeleted) {
+      const prevMessage = index > 0 ? messages[index - 1] : null;
+      const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
+      
+      // Check if previous message is from same sender (and is a text message, not deleted)
+      const isSameSenderAsPrev = prevMessage && 
+        !prevMessage.isDeleted &&
+        prevMessage.messageType === 'text' &&
+        (prevMessage.senderEmail === item.senderEmail || 
+         prevMessage.user.name === item.user.name);
+      
+      // Check if next message is from same sender (and is a text message, not deleted)
+      const isSameSenderAsNext = nextMessage && 
+        !nextMessage.isDeleted &&
+        nextMessage.messageType === 'text' &&
+        (nextMessage.senderEmail === item.senderEmail || 
+         nextMessage.user.name === item.user.name);
+      
+      // Determine group position
+      isFirstInGroup = !isSameSenderAsPrev;
+      isLastInGroup = !isSameSenderAsNext;
+    }
 
     // Handle system messages
     if (item.messageType === 'system') {
@@ -268,16 +351,85 @@ export default function ChatScreen() {
     }
 
     // Handle match_bid type - render the custom card
-    if (item.messageType === 'match_bid' && item.customData) {
-      return (
-        <View style={styles.matchBidWrapper}>
-          {renderMatchBidCard(item.customData)}
-          <View style={styles.sharedInfo}>
-            <Text style={styles.sharedTime}>{formatTime(item.createdAt)}</Text>
-            <Text style={[styles.sharedLabel, { color: theme.colors.textSecondary }]}>You Shared this match</Text>
+    if (item.messageType === 'match_bid') {
+      // Get match data from customData or loadedMatchData
+      const matchData = item.customData || (item.text && item.text.startsWith('MATCH_SHARE:') 
+        ? loadedMatchData[item.text.replace('MATCH_SHARE:', '')] 
+        : null);
+      const onPressMatch = () => openMatchDetails(matchData?.matchId);
+      
+      // If match data is not loaded yet, try to load it from storage
+      if (!matchData && item.text && item.text.startsWith('MATCH_SHARE:')) {
+        const matchId = item.text.replace('MATCH_SHARE:', '');
+        
+        // Only load if we haven't tried loading this matchId yet
+        if (!loadedMatchData[matchId] && !item.customData) {
+          getItem(`match_share_${matchId}`).then((storedData) => {
+            if (storedData) {
+              try {
+                const parsedData: MatchBidData = JSON.parse(storedData);
+                setLoadedMatchData((prev) => ({
+                  ...prev,
+                  [matchId]: parsedData,
+                }));
+              } catch (err) {
+                console.error('Error parsing stored match data:', err);
+              }
+            }
+          }).catch(() => {});
+        }
+        
+        // Show loading state while data is being loaded
+        return (
+          <View
+            style={[
+              styles.matchBidMessageRow,
+              { justifyContent: isMe ? 'flex-end' : 'flex-start' },
+            ]}
+          >
+            {!isMe && (
+              <View style={[styles.avatarSmall, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
+                <Text style={[styles.avatarLetter, { color: isDark ? '#fff' : '#18223A' }]}>
+                  {item.user.name.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+            <View style={[styles.matchBidLoadingCard, { backgroundColor: '#FFFFFF' }]}>
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+              <Text style={{ marginTop: 8, color: theme.colors.textSecondary, fontSize: 12 }}>Loading match...</Text>
+            </View>
           </View>
-        </View>
-      );
+        );
+      }
+      
+      if (matchData) {
+        return (
+          <View
+            style={[
+              styles.matchBidMessageRow,
+              { justifyContent: isMe ? 'flex-end' : 'flex-start' },
+            ]}
+          >
+            {!isMe && (
+              <View style={[styles.avatarSmall, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
+                <Text style={[styles.avatarLetter, { color: isDark ? '#fff' : '#18223A' }]}>
+                  {item.user.name.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            )}
+
+            <View style={[styles.matchBidMessageContent, isMe && styles.matchBidMessageContentMe]}>
+              {renderMatchBidCard(matchData, onPressMatch)}
+              <View style={styles.sharedInfo}>
+                <Text style={styles.sharedTime}>{formatTime(item.createdAt)}</Text>
+                <Text style={[styles.sharedLabel, { color: theme.colors.textSecondary }]}>
+                  {isMe ? 'You Shared this match' : `${item.user.name} shared this match`}
+                </Text>
+              </View>
+            </View>
+          </View>
+        );
+      }
     }
 
     // Regular text message
@@ -287,21 +439,27 @@ export default function ChatScreen() {
         <View
           style={[
             styles.messageWrapper,
-            { justifyContent: isMe ? 'flex-end' : 'flex-start' },
+            { 
+              justifyContent: isMe ? 'flex-end' : 'flex-start',
+              marginBottom: isLastInGroup ? 16 : 4, // Reduced spacing for grouped messages
+            },
           ]}
         >
-          {/* Avatar for others */}
-          {!isMe && (
+          {/* Avatar for others - only show on last message in group */}
+          {!isMe && isLastInGroup && (
             <View style={[styles.avatarSmall, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
               <Text style={[styles.avatarLetter, { color: isDark ? '#fff' : '#18223A' }]}>
                 {item.user.name.charAt(0).toUpperCase()}
               </Text>
             </View>
           )}
+          
+          {/* Spacer for avatar when not showing */}
+          {!isMe && !isLastInGroup && <View style={{ width: 40 }} />}
 
           <View style={[styles.messageContent, isMe && styles.messageContentMe]}>
-            {/* Username for others only - never show for own messages */}
-            {!isMe && (
+            {/* Username for others only - show only on first message in group */}
+            {!isMe && isFirstInGroup && (
               <Text style={[styles.senderName, { color: theme.colors.textSecondary }]}>{item.user.name}</Text>
             )}
 
@@ -311,6 +469,10 @@ export default function ChatScreen() {
                 styles.messageBubble,
                 styles.deletedBubble,
                 isMe ? styles.bubbleMe : styles.bubbleOther,
+                // Only last message in group has tail
+                isMe 
+                  ? (isLastInGroup ? styles.bubbleMeLast : styles.bubbleMeMiddle)
+                  : (isLastInGroup ? styles.bubbleOtherLast : styles.bubbleOtherMiddle),
               ]}
             >
               <Text style={[styles.deletedMessageText, { 
@@ -336,21 +498,27 @@ export default function ChatScreen() {
         onLongPress={() => handleLongPress(item)}
         style={[
           styles.messageWrapper,
-          { justifyContent: isMe ? 'flex-end' : 'flex-start' },
+          { 
+            justifyContent: isMe ? 'flex-end' : 'flex-start',
+            marginBottom: isLastInGroup ? 16 : 4, // Reduced spacing for grouped messages
+          },
         ]}
-      >
-        {/* Avatar for others */}
-        {!isMe && (
-          <View style={[styles.avatarSmall, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
-            <Text style={[styles.avatarLetter, { color: isDark ? '#fff' : '#18223A' }]}>
-              {item.user.name.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        )}
+        >
+          {/* Avatar for others - only show on last message in group */}
+          {!isMe && isLastInGroup && (
+            <View style={[styles.avatarSmall, { backgroundColor: isDark ? '#374151' : '#E5E7EB' }]}>
+              <Text style={[styles.avatarLetter, { color: isDark ? '#fff' : '#18223A' }]}>
+                {item.user.name.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          
+          {/* Spacer for avatar when not showing */}
+          {!isMe && !isLastInGroup && <View style={{ width: 40 }} />}
 
         <View style={[styles.messageContent, isMe && styles.messageContentMe]}>
-          {/* Username for others only - never show for own messages */}
-          {!isMe && (
+          {/* Username for others only - show only on first message in group */}
+          {!isMe && isFirstInGroup && (
             <Text style={[styles.senderName, { color: theme.colors.textSecondary }]}>{item.user.name}</Text>
           )}
 
@@ -372,6 +540,10 @@ export default function ChatScreen() {
             style={[
               styles.messageBubble,
               isMe ? styles.bubbleMe : styles.bubbleOther,
+              // Only last message in group has tail
+              isMe 
+                ? (isLastInGroup ? styles.bubbleMeLast : styles.bubbleMeMiddle)
+                : (isLastInGroup ? styles.bubbleOtherLast : styles.bubbleOtherMiddle),
             ]}
           >
             <Text style={[styles.messageText, { 
@@ -461,7 +633,7 @@ export default function ChatScreen() {
             ref={flatListRef}
             data={messages}
             keyExtractor={(item) => item._id}
-            renderItem={renderMessage}
+            renderItem={({ item, index }) => renderMessage({ item, index })}
             contentContainerStyle={styles.messagesContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
@@ -610,6 +782,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  matchBidMessageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginBottom: 16,
+  },
+  matchBidMessageContent: {
+    alignItems: 'flex-start',
+  },
+  matchBidMessageContentMe: {
+    alignItems: 'flex-end',
+  },
+  matchBidLoadingCard: {
+    width: CARD_WIDTH,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#18223A',
+  },
   avatarSmall: {
     width: 32,
     height: 32,
@@ -670,16 +862,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#0a7ea4', // Blue for me
     alignSelf: 'flex-end',
     marginLeft: 50,
-    borderBottomRightRadius: 0, // Sharp corner bottom-right (tail pointing right)
-    borderBottomLeftRadius: 16,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
   },
   bubbleOther: {
     backgroundColor: '#f0f0f0', // Gray for others
     alignSelf: 'flex-start',
     marginRight: 50,
-    borderBottomLeftRadius: 0, // Sharp corner bottom-left (tail pointing left)
+  },
+  // My messages - grouped styles
+  bubbleMeMiddle: {
+    borderRadius: 16, // Fully rounded, no tail
+  },
+  bubbleMeLast: {
+    borderBottomRightRadius: 0, // Tail on bottom-right (pointing right)
+    borderBottomLeftRadius: 16,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  // Other messages - grouped styles
+  bubbleOtherMiddle: {
+    borderRadius: 16, // Fully rounded, no tail
+  },
+  bubbleOtherLast: {
+    borderBottomLeftRadius: 0, // Tail on bottom-left (pointing left)
     borderBottomRightRadius: 16,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,

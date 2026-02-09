@@ -46,6 +46,7 @@ export interface User {
  * Specific data for the custom "Bid" widget seen in the chat screenshot
  */
 export interface MatchBidData {
+  matchId?: string;     // Match ID for storage key
   league: string;       // e.g. "Serie A"
   leagueLogo?: string;  // URL for league logo
   country: string;      // e.g. "Italy"

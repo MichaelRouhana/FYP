@@ -37,6 +37,7 @@ import { MarketType, BetRequestDTO } from '@/types/bet';
 import { getFixtureInjuries, getBetTypes, getOddsForFixture, getPredictionSettings, getMatchSettings } from '@/services/matchApi';
 import { FootballApiInjury } from '@/types/fixture';
 import AdminMatchSettings from '@/components/match/AdminMatchSettings';
+import ShareModal from '@/components/ShareModal';
 import {
   mapLineupsToUI,
   mapStatsToUI,
@@ -154,7 +155,7 @@ const getTabsForStatus = (status: MatchStatus, isAdmin: boolean = false, allowBe
 };
 
 export default function MatchDetailsScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
   const insets = useSafeAreaInsets();
   const { theme, isDark } = useTheme();
   
@@ -220,6 +221,7 @@ export default function MatchDetailsScreen() {
   const [betSelection, setBetSelection] = useState<BetSelection>(null);
   const [stake, setStake] = useState('');
   const { isFavorite, toggleFavorite } = useFavorites();
+  const [shareModalVisible, setShareModalVisible] = useState(false);
   
   // Predictions state
   const [goalsOverUnder, setGoalsOverUnder] = useState<GoalsOverUnder>(null);
@@ -245,6 +247,17 @@ export default function MatchDetailsScreen() {
     const allowBetting = matchSettings?.allowBetting !== false; // Default to true if not set
     return getTabsForStatus(matchStatus, isAdmin, allowBetting);
   }, [matchStatus, isAdmin, matchSettings?.allowBetting]);
+
+  // If a caller explicitly requests a tab (e.g. from shared match card), respect it once.
+  const [hasAppliedRequestedTab, setHasAppliedRequestedTab] = useState(false);
+  React.useEffect(() => {
+    if (hasAppliedRequestedTab) return;
+    if (!tab) return;
+    if (!availableTabs.some((t) => t.id === tab)) return;
+    setSelectedTab(tab as TabType);
+    setHasAutoSelectedTab(true);
+    setHasAppliedRequestedTab(true);
+  }, [tab, availableTabs, hasAppliedRequestedTab]);
 
   // Auto-select appropriate default tab when match status changes
   // Only set default ONCE on initial load, then allow free tab switching
@@ -429,6 +442,34 @@ export default function MatchDetailsScreen() {
             'match_winner',
             'Match Result (1X2)'
           );
+        }
+
+        // Keep a simple 1X2 odds object for the Details tab betting widget (real odds, not mock fallback)
+        // Values are usually "Home" | "Draw" | "Away" for API-Football's Match Winner bet.
+        if (markets.match_winner?.selections?.length) {
+          const homeOdd =
+            markets.match_winner.selections.find((s) => s.value.toLowerCase() === 'home')?.odd ??
+            markets.match_winner.selections.find((s) => s.value.toLowerCase() === '1')?.odd;
+          const drawOdd =
+            markets.match_winner.selections.find((s) => s.value.toLowerCase() === 'draw')?.odd ??
+            markets.match_winner.selections.find((s) => s.value.toLowerCase() === 'x')?.odd;
+          const awayOdd =
+            markets.match_winner.selections.find((s) => s.value.toLowerCase() === 'away')?.odd ??
+            markets.match_winner.selections.find((s) => s.value.toLowerCase() === '2')?.odd;
+
+          if (
+            typeof homeOdd === 'number' &&
+            typeof drawOdd === 'number' &&
+            typeof awayOdd === 'number' &&
+            homeOdd > 0 &&
+            drawOdd > 0 &&
+            awayOdd > 0
+          ) {
+            setApiOdds({ home: homeOdd, draw: drawOdd, away: awayOdd });
+          } else {
+            // If the market is missing pieces, don't overwrite any existing API odds
+            console.warn('[MatchDetails] Could not derive 1X2 odds from match_winner market:', markets.match_winner.selections);
+          }
         }
 
         // Double Chance
@@ -1364,8 +1405,21 @@ export default function MatchDetailsScreen() {
   // Helper to manage picks
   const updatePick = (marketKey: string, selection: string, line?: number | string, odds?: number) => {
     setSelectedPicks((prev) => {
+      // Sportsbook-style correlated market rule:
+      // Match Result (1X2) and Double Chance are correlated, so only ONE of these markets
+      // can be selected at a time in a multi-pick list.
+      const correlatedMarket =
+        marketKey === 'match_winner'
+          ? 'double_chance'
+          : marketKey === 'double_chance'
+          ? 'match_winner'
+          : null;
+
       // Remove any existing pick for this market (and line if table market)
       const filtered = prev.filter((p) => {
+        // Enforce correlated market exclusivity
+        if (correlatedMarket && p.marketKey === correlatedMarket) return false;
+
         if (p.marketKey !== marketKey) return true;
         // For table markets, also match by line
         if (line !== undefined && p.line !== line) return true;
@@ -1395,7 +1449,151 @@ export default function MatchDetailsScreen() {
     });
   };
 
+  /**
+   * Contradiction handling for accumulator picks
+   * - Grey out / disable options that cannot coexist with already-selected picks.
+   */
+  type ResultMask = 1 | 2 | 4 | 7;
+  const MASK_HOME: ResultMask = 1;
+  const MASK_DRAW: ResultMask = 2;
+  const MASK_AWAY: ResultMask = 4;
+  const MASK_ALL: ResultMask = 7;
+
+  const isNoGoalSelectionValue = (selection: string) => {
+    const v = (selection || '').toLowerCase().replace(/\s+/g, '');
+    return v === 'nogoal' || v === 'no-goal' || v === 'none' || v === '0';
+  };
+
+  const resultMaskForValue = (marketKey: string, selection: string): ResultMask | null => {
+    const key = marketKey;
+    const v = (selection || '').toLowerCase().replace(/\s+/g, '');
+
+    if (key === 'match_winner') {
+      if (v === 'home' || v === '1') return MASK_HOME;
+      if (v === 'draw' || v === 'x') return MASK_DRAW;
+      if (v === 'away' || v === '2') return MASK_AWAY;
+      return null;
+    }
+
+    if (key === 'double_chance') {
+      // API typically uses: 1X / 12 / X2
+      if (v === '1x' || v === 'x1') return (MASK_HOME | MASK_DRAW) as ResultMask;
+      if (v === '12') return (MASK_HOME | MASK_AWAY) as ResultMask;
+      if (v === 'x2' || v === '2x') return (MASK_DRAW | MASK_AWAY) as ResultMask;
+      return null;
+    }
+
+    // "No Goal" implies 0-0 -> draw only
+    if ((key === 'team_score_first' || key === 'team_score_last') && isNoGoalSelectionValue(selection)) {
+      return MASK_DRAW;
+    }
+
+    return null;
+  };
+
+  // NOTE: Do not introduce hooks below the component's early returns.
+  // These are intentionally plain computations to avoid hook-order issues.
+  const hasNoGoalPick = selectedPicks.some((p) => {
+    if (p.marketKey !== 'team_score_first' && p.marketKey !== 'team_score_last') return false;
+    return isNoGoalSelectionValue(p.selection);
+  });
+
+  const getResultMaskFromSelected = (excludeMarketKey?: string) => {
+    let mask: number = MASK_ALL;
+    for (const p of selectedPicks) {
+      if (excludeMarketKey && p.marketKey === excludeMarketKey) continue;
+      const m = resultMaskForValue(p.marketKey, p.selection);
+      if (m != null) {
+        mask = mask & m;
+      }
+    }
+    return mask as ResultMask;
+  };
+
+  const isResultOptionContradictory = (marketKey: 'match_winner' | 'double_chance', selection: string) => {
+    const baseMask = getResultMaskFromSelected(marketKey);
+    const candidateMask = resultMaskForValue(marketKey, selection);
+    if (candidateMask == null) return false;
+    return (baseMask & candidateMask) === 0;
+  };
+
+  const parseLineNumber = (line?: number | string) => {
+    if (line === undefined || line === null) return null;
+    if (typeof line === 'number') return Number.isFinite(line) ? line : null;
+    const n = parseFloat(String(line));
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const getOverUnderBoundsFromSelected = (marketKey: string, excludeLine?: number | string) => {
+    let lower = -Infinity;
+    let upper = Infinity;
+
+    for (const p of selectedPicks) {
+      if (p.marketKey !== marketKey) continue;
+      if (excludeLine !== undefined && p.line === excludeLine) continue;
+
+      const lineNum = parseLineNumber(p.line);
+      if (lineNum == null) continue;
+
+      const sel = (p.selection || '').toUpperCase();
+      if (sel === 'OVER') lower = Math.max(lower, lineNum);
+      if (sel === 'UNDER') upper = Math.min(upper, lineNum);
+    }
+
+    return { lower, upper };
+  };
+
+  const isOverUnderOptionContradictory = (marketKey: string, selection: string, line?: number | string) => {
+    // No Goal implies total goals = 0, so any OVER is impossible.
+    if (hasNoGoalPick && (selection || '').toUpperCase() === 'OVER') return true;
+
+    const lineNum = parseLineNumber(line);
+    if (lineNum == null) return false;
+
+    const { lower: baseLower, upper: baseUpper } = getOverUnderBoundsFromSelected(marketKey, line);
+    let lower = baseLower;
+    let upper = baseUpper;
+
+    const sel = (selection || '').toUpperCase();
+    if (sel === 'OVER') lower = Math.max(lower, lineNum);
+    if (sel === 'UNDER') upper = Math.min(upper, lineNum);
+
+    return lower >= upper;
+  };
+
+  const isBttsOptionContradictory = (selection: string) => {
+    // No Goal implies BTTS cannot be YES
+    if (hasNoGoalPick && (selection || '').toUpperCase() === 'YES') return true;
+    return false;
+  };
+
+  const isTeamScoreNoGoalContradictory = () => {
+    // If user already picked something that guarantees at least 1 goal, "No Goal" is impossible.
+    const anyTotalGoalsOver =
+      selectedPicks.some((p) => p.marketKey === 'goals_ou' && (p.selection || '').toUpperCase() === 'OVER') ||
+      selectedPicks.some((p) => p.marketKey.startsWith('team_total_') && (p.selection || '').toUpperCase() === 'OVER');
+
+    const bttsYes = selectedPicks.some((p) => p.marketKey === 'btts' && (p.selection || '').toUpperCase() === 'YES');
+
+    return anyTotalGoalsOver || bttsYes;
+  };
+
   const renderPredictionsTab = () => {
+    const hasMatchWinnerPick = selectedPicks.some((p) => p.marketKey === 'match_winner');
+    const hasDoubleChancePick = selectedPicks.some((p) => p.marketKey === 'double_chance');
+
+    // Accumulator-style potential winnings for the Predictions tab
+    const stakeNumForAccumulator = parseFloat((stake || '').trim());
+    const totalOddsForAccumulator = selectedPicks.reduce((acc, pick) => {
+      const oddValue = pick.odds ? parseFloat(pick.odds.toString()) : 1.0;
+      const safeOdd = isNaN(oddValue) || oddValue <= 0 ? 1.0 : oddValue;
+      return acc * safeOdd;
+    }, 1);
+    const potentialWinningsForAccumulator =
+      !stake || isNaN(stakeNumForAccumulator) || stakeNumForAccumulator <= 0
+        ? 0
+        : Math.round(stakeNumForAccumulator * totalOddsForAccumulator);
+
     const handleSubmitPredictions = async () => {
       if (!matchData) {
         Alert.alert('Error', 'Match data not available');
@@ -1567,15 +1765,23 @@ export default function MatchDetailsScreen() {
                                    sel.value === 'Draw' ? 'DRAW' : 
                                    (matchData?.teams?.away?.name || 'AWAY');
                 const isSelected = isPickSelected('match_winner', sel.value);
+                // Correlated market rule (sportsbooks): disable 1X2 if Double Chance is already chosen
+                const isCorrelatedDisabled = hasDoubleChancePick && !isSelected;
+                const isDisabled =
+                  isCorrelatedDisabled ||
+                  (!isSelected && isResultOptionContradictory('match_winner', sel.value));
                 return (
             <TouchableOpacity
                     key={sel.value}
+                    disabled={isDisabled}
               style={[
                 styles.predictionButton,
                 { backgroundColor: theme.colors.cardBackground },
                       isSelected && styles.predictionButtonSelected,
+                      isDisabled && styles.predictionButtonDisabled,
               ]}
                     onPress={() => {
+                      if (isDisabled) return;
                       if (isSelected) {
                         removePick('match_winner');
                       } else {
@@ -1588,11 +1794,12 @@ export default function MatchDetailsScreen() {
                   styles.predictionButtonText,
                   { color: theme.colors.text },
                         isSelected && styles.predictionButtonTextSelected,
+                        isDisabled && { color: theme.colors.textSecondary },
                 ]}
               >
                       {displayValue}
                     </Text>
-                    <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
+                    <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }, isDisabled && { opacity: 0.6 }]}>
                       {sel.odd.toFixed(2)}x
               </Text>
             </TouchableOpacity>
@@ -1612,15 +1819,23 @@ export default function MatchDetailsScreen() {
               {oddsMarkets.double_chance.selections.map((sel) => {
                 const displayValue = sel.value === '1X' ? 'X1' : sel.value === '12' ? '12' : 'X2';
                 const isSelected = isPickSelected('double_chance', sel.value);
+                // Correlated market rule (sportsbooks): disable Double Chance if 1X2 is already chosen
+                const isCorrelatedDisabled = hasMatchWinnerPick && !isSelected;
+                const isDisabled =
+                  isCorrelatedDisabled ||
+                  (!isSelected && isResultOptionContradictory('double_chance', sel.value));
                 return (
             <TouchableOpacity
                     key={sel.value}
+                    disabled={isDisabled}
               style={[
                 styles.predictionButton,
                 { backgroundColor: theme.colors.cardBackground },
                       isSelected && styles.predictionButtonSelected,
+                      isDisabled && styles.predictionButtonDisabled,
               ]}
                     onPress={() => {
+                      if (isDisabled) return;
                       if (isSelected) {
                         removePick('double_chance');
                       } else {
@@ -1633,13 +1848,14 @@ export default function MatchDetailsScreen() {
                   styles.predictionButtonText,
                   { color: theme.colors.text },
                         isSelected && styles.predictionButtonTextSelected,
+                        isDisabled && { color: theme.colors.textSecondary },
                 ]}
                       numberOfLines={2}
                       ellipsizeMode="tail"
               >
                       {displayValue}
                     </Text>
-                    <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
+                    <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }, isDisabled && { opacity: 0.6 }]}>
                       {sel.odd.toFixed(2)}x
               </Text>
             </TouchableOpacity>
@@ -1666,15 +1882,19 @@ export default function MatchDetailsScreen() {
                   <Text style={[styles.oddsTableLineText, { color: theme.colors.text }]}>{row.line}</Text>
                   {row.selections.map((sel) => {
                     const isSelected = isPickSelected('goals_ou', sel.value, row.line);
+                    const isDisabled = !isSelected && isOverUnderOptionContradictory('goals_ou', sel.value, row.line);
                     return (
             <TouchableOpacity
                         key={sel.value}
+                        disabled={isDisabled}
               style={[
                           styles.oddsTableCell,
                 { backgroundColor: theme.colors.cardBackground },
                           isSelected && styles.oddsTableCellSelected,
+                          isDisabled && styles.oddsTableCellDisabled,
               ]}
                         onPress={() => {
+                          if (isDisabled) return;
                           if (isSelected) {
                             removePick('goals_ou', row.line);
                           } else {
@@ -1687,11 +1907,12 @@ export default function MatchDetailsScreen() {
                             styles.oddsTableCellText,
                   { color: theme.colors.text },
                             isSelected && styles.oddsTableCellTextSelected,
+                            isDisabled && { color: theme.colors.textSecondary },
                 ]}
               >
                           {sel.value}
                         </Text>
-                        <Text style={[styles.oddsTableCellOdds, { color: theme.colors.textSecondary }]}>
+                        <Text style={[styles.oddsTableCellOdds, { color: theme.colors.textSecondary }, isDisabled && { opacity: 0.6 }]}>
                           {sel.odd.toFixed(2)}
               </Text>
             </TouchableOpacity>
@@ -1713,16 +1934,20 @@ export default function MatchDetailsScreen() {
               {oddsMarkets.btts.selections.map((sel) => {
                 const displayValue = sel.value.toUpperCase();
                 const isSelected = isPickSelected('btts', sel.value);
+                const isDisabled = !isSelected && isBttsOptionContradictory(sel.value);
                 return (
             <TouchableOpacity
                     key={sel.value}
+                    disabled={isDisabled}
               style={[
                 styles.predictionButton,
                 styles.predictionButtonWide,
                 { backgroundColor: theme.colors.cardBackground },
                       isSelected && styles.predictionButtonSelected,
+                      isDisabled && styles.predictionButtonDisabled,
               ]}
                     onPress={() => {
+                      if (isDisabled) return;
                       if (isSelected) {
                         removePick('btts');
                       } else {
@@ -1735,13 +1960,14 @@ export default function MatchDetailsScreen() {
                   styles.predictionButtonText,
                   { color: theme.colors.text },
                         isSelected && styles.predictionButtonTextSelected,
+                        isDisabled && { color: theme.colors.textSecondary },
                 ]}
                       numberOfLines={2}
                       ellipsizeMode="tail"
               >
                       {displayValue}
                     </Text>
-                    <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
+                    <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }, isDisabled && { opacity: 0.6 }]}>
                       {sel.odd.toFixed(2)}x
               </Text>
             </TouchableOpacity>
@@ -1818,16 +2044,21 @@ export default function MatchDetailsScreen() {
               {oddsMarkets.team_score_first.selections.map((sel) => {
                 const displayValue = sel.value === 'Home' ? 'HOME' : sel.value === 'Away' ? 'AWAY' : 'NO GOAL';
                 const isSelected = isPickSelected('team_score_first', sel.value);
+                const isNoGoal = isNoGoalSelectionValue(sel.value);
+                const isDisabled = !isSelected && isNoGoal && isTeamScoreNoGoalContradictory();
                 return (
             <TouchableOpacity
                     key={sel.value}
+                    disabled={isDisabled}
               style={[
                 styles.predictionButton,
                 styles.predictionButtonWide,
                 { backgroundColor: theme.colors.cardBackground },
                       isSelected && styles.predictionButtonSelected,
+                      isDisabled && styles.predictionButtonDisabled,
               ]}
                     onPress={() => {
+                      if (isDisabled) return;
                       if (isSelected) {
                         removePick('team_score_first');
                       } else {
@@ -1840,13 +2071,14 @@ export default function MatchDetailsScreen() {
                   styles.predictionButtonText,
                   { color: theme.colors.text },
                         isSelected && styles.predictionButtonTextSelected,
+                        isDisabled && { color: theme.colors.textSecondary },
                 ]}
                       numberOfLines={2}
                       ellipsizeMode="tail"
               >
                       {displayValue}
                     </Text>
-                    <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }]}>
+                    <Text style={[styles.predictionOdds, { color: theme.colors.textSecondary }, isDisabled && { opacity: 0.6 }]}>
                       {sel.odd.toFixed(2)}x
               </Text>
             </TouchableOpacity>
@@ -2096,6 +2328,23 @@ export default function MatchDetailsScreen() {
           )}
         </View>
 
+        {/* Potential Winnings (same UI as Details tab) */}
+        <View style={[
+          styles.potentialWinningsContainer,
+          {
+            backgroundColor: isDark ? '#0E1C1C' : '#E8F5E9',
+            borderColor: isDark ? '#142A28' : '#32A95D',
+          }
+        ]}>
+          <View style={styles.potentialWinningsLeft}>
+            <MaterialCommunityIcons name="trophy-outline" size={20} color={isDark ? '#2B5555' : '#32A95D'} />
+            <Text style={[styles.potentialWinningsText, { color: isDark ? '#2B5555' : '#32A95D' }]}>Potential Winnings</Text>
+          </View>
+          <Text style={[styles.potentialWinningsAmount, { color: isDark ? '#22c55e' : '#32A95D' }]}>
+            {potentialWinningsForAccumulator} pts
+          </Text>
+        </View>
+
         {/* Submit Button */}
         <TouchableOpacity
           style={[styles.submitPredictionsButton, { backgroundColor: theme.colors.primary }]}
@@ -2257,6 +2506,94 @@ export default function MatchDetailsScreen() {
       <View style={styles.formationRow}>
         {players.map((player) => renderPlayerNode(player)).filter(Boolean)}
       </View>
+    );
+  };
+
+  /**
+   * Render formation rows using API-Football `grid` (preferred).
+   * This avoids collapsing formations like 3-4-2-1 into 3-4-4, or 4-2-3-1 into 4-5-1.
+   *
+   * API shape (startXI item):
+   * { player: { id, grid: "row:col" } }
+   */
+  const renderTeamFormation = (
+    lineupRaw: any | null,
+    team: any | null,
+    side: 'home' | 'away'
+  ) => {
+    if (!team) return null;
+
+    const startXI: any[] = lineupRaw?.startXI || [];
+    const hasGrid = startXI.some((p) => typeof p?.player?.grid === 'string' && String(p.player.grid).includes(':'));
+
+    // Fallback to old behavior if grid isn't present
+    if (!hasGrid) {
+      if (side === 'away') {
+        return (
+          <>
+            {renderFormationRow(team.starters.goalkeeper)}
+            {renderFormationRow(team.starters.defenders)}
+            {renderFormationRow(team.starters.midfielders)}
+            {renderFormationRow(team.starters.forwards)}
+          </>
+        );
+      }
+      return (
+        <>
+          {renderFormationRow(team.starters.forwards)}
+          {renderFormationRow(team.starters.midfielders)}
+          {renderFormationRow(team.starters.defenders)}
+          {renderFormationRow(team.starters.goalkeeper)}
+        </>
+      );
+    }
+
+    // Build lookup from player id -> mapped Player (with rating/photo)
+    const allStarters: Player[] = [
+      ...(team.starters.goalkeeper || []),
+      ...(team.starters.defenders || []),
+      ...(team.starters.midfielders || []),
+      ...(team.starters.forwards || []),
+    ];
+    const byId = new Map<string, Player>();
+    for (const p of allStarters) {
+      byId.set(String(p.id), p);
+    }
+
+    // Group mapped players into rows using grid row/col
+    const rows = new Map<number, Array<{ col: number; player: Player }>>();
+    for (const item of startXI) {
+      const grid = item?.player?.grid;
+      const pid = item?.player?.id;
+      if (!grid || !pid) continue;
+      const [rStr, cStr] = String(grid).split(':');
+      const r = parseInt(rStr, 10);
+      const c = parseInt(cStr, 10);
+      if (!Number.isFinite(r) || !Number.isFinite(c)) continue;
+
+      const mapped = byId.get(String(pid));
+      if (!mapped) continue;
+
+      const arr = rows.get(r) ?? [];
+      arr.push({ col: c, player: mapped });
+      rows.set(r, arr);
+    }
+
+    const sortedRowNums = Array.from(rows.keys()).sort((a, b) => a - b);
+    const sortedRows: Player[][] = sortedRowNums
+      .map((r) => rows.get(r)!)
+      .map((arr) => arr.sort((a, b) => a.col - b.col).map((x) => x.player))
+      .filter((players) => players.length > 0);
+
+    // For home team, reverse so the striker row is closest to the center line (top of bottom half)
+    const displayRows = side === 'home' ? [...sortedRows].reverse() : sortedRows;
+
+    return (
+      <>
+        {displayRows.map((players, idx) => (
+          <React.Fragment key={`${side}-row-${idx}`}>{renderFormationRow(players)}</React.Fragment>
+        ))}
+      </>
     );
   };
 
@@ -2422,20 +2759,14 @@ export default function MatchDetailsScreen() {
             {/* Away Team (Top - attacking down) */}
                 {awayTeam && (
             <View style={styles.teamFormation}>
-              {renderFormationRow(awayTeam.starters.goalkeeper)}
-              {renderFormationRow(awayTeam.starters.defenders)}
-              {renderFormationRow(awayTeam.starters.midfielders)}
-              {renderFormationRow(awayTeam.starters.forwards)}
+              {renderTeamFormation(awayLineupRaw, awayTeam, 'away')}
             </View>
                 )}
 
             {/* Home Team (Bottom - attacking up) */}
                 {homeTeam && (
             <View style={styles.teamFormation}>
-              {renderFormationRow(homeTeam.starters.forwards)}
-              {renderFormationRow(homeTeam.starters.midfielders)}
-              {renderFormationRow(homeTeam.starters.defenders)}
-              {renderFormationRow(homeTeam.starters.goalkeeper)}
+              {renderTeamFormation(homeLineupRaw, homeTeam, 'home')}
             </View>
                 )}
 
@@ -3360,38 +3691,50 @@ export default function MatchDetailsScreen() {
             <Text style={[styles.leagueName, { color: isDark ? '#9ca3af' : '#6B7280' }]}>{match.league}</Text>
             <Text style={[styles.matchDate, { color: isDark ? '#ffffff' : '#18223A' }]}>{match.date}</Text>
           </View>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={() => {
-              if (matchData?.fixture?.id) {
-                toggleFavorite('match', {
-                  id: matchData.fixture.id,
-                  homeTeam: {
-                    name: matchData.teams.home.name,
-                    logo: matchData.teams.home.logo,
-                  },
-                  awayTeam: {
-                    name: matchData.teams.away.name,
-                    logo: matchData.teams.away.logo,
-                  },
-                  date: matchData.fixture.date,
-                  status: matchData.fixture.status?.short || '',
-                  statusLong: matchData.fixture.status?.long || '',
-                  goals: {
-                    home: matchData.goals.home,
-                    away: matchData.goals.away,
-                  },
-                  betsCount: 0, // Will be updated if available
-                });
-              }
-            }}
-          >
-            <MaterialCommunityIcons
-              name={matchData?.fixture?.id && isFavorite('match', matchData.fixture.id) ? 'star' : 'star-outline'}
-              size={24}
-              color={matchData?.fixture?.id && isFavorite('match', matchData.fixture.id) ? '#22c55e' : (isDark ? '#ffffff' : '#18223A')}
-            />
-          </TouchableOpacity>
+          <View style={styles.headerRightButtons}>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => setShareModalVisible(true)}
+            >
+              <MaterialCommunityIcons
+                name="share-variant"
+                size={24}
+                color={isDark ? '#ffffff' : '#18223A'}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.headerButton}
+              onPress={() => {
+                if (matchData?.fixture?.id) {
+                  toggleFavorite('match', {
+                    id: matchData.fixture.id,
+                    homeTeam: {
+                      name: matchData.teams.home.name,
+                      logo: matchData.teams.home.logo,
+                    },
+                    awayTeam: {
+                      name: matchData.teams.away.name,
+                      logo: matchData.teams.away.logo,
+                    },
+                    date: matchData.fixture.date,
+                    status: matchData.fixture.status?.short || '',
+                    statusLong: matchData.fixture.status?.long || '',
+                    goals: {
+                      home: matchData.goals.home,
+                      away: matchData.goals.away,
+                    },
+                    betsCount: 0, // Will be updated if available
+                  });
+                }
+              }}
+            >
+              <MaterialCommunityIcons
+                name={matchData?.fixture?.id && isFavorite('match', matchData.fixture.id) ? 'star' : 'star-outline'}
+                size={24}
+                color={matchData?.fixture?.id && isFavorite('match', matchData.fixture.id) ? '#22c55e' : (isDark ? '#ffffff' : '#18223A')}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Score Section */}
@@ -3521,6 +3864,28 @@ export default function MatchDetailsScreen() {
         {/* Fallback for any unhandled tab */}
         {!['details', 'predictions', 'summary', 'lineups', 'stats', 'h2h', 'table', 'power', 'commentary', 'settings'].includes(selectedTab) && renderPlaceholderTab()}
     </ScrollView>
+
+      {/* Share Modal */}
+      <ShareModal
+        visible={shareModalVisible}
+        onClose={() => setShareModalVisible(false)}
+        shareUrl={`fypfootballui://match/${id}`}
+        matchData={matchData ? {
+          matchId: id || String(matchData.fixture.id), // Include match ID for storage key
+          league: matchData.league.name,
+          leagueLogo: matchData.league.logo,
+          country: matchData.league.country,
+          homeTeam: matchData.teams.home.name,
+          awayTeam: matchData.teams.away.name,
+          matchTime: new Date(matchData.fixture.date).toLocaleTimeString('en-US', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: true 
+          }),
+          homeLogo: matchData.teams.home.logo,
+          awayLogo: matchData.teams.away.logo,
+        } : undefined}
+      />
     </View>
   );
 }
@@ -3543,6 +3908,10 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     padding: 4,
+  },
+  headerRightButtons: {
+    flexDirection: 'row',
+    gap: 8,
   },
   headerCenter: {
     alignItems: 'center',
@@ -4881,6 +5250,9 @@ const styles = StyleSheet.create({
   predictionButtonSelected: {
     backgroundColor: '#22c55e',
   },
+  predictionButtonDisabled: {
+    opacity: 0.35,
+  },
   predictionButtonText: {
     fontSize: 15,
     fontFamily: 'Montserrat_700Bold',
@@ -5001,6 +5373,9 @@ const styles = StyleSheet.create({
   },
   oddsTableCellSelected: {
     backgroundColor: '#22c55e',
+  },
+  oddsTableCellDisabled: {
+    opacity: 0.35,
   },
   oddsTableCellText: {
     fontSize: 12,

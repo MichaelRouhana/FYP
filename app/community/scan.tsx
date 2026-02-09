@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Alert,
   Dimensions,
@@ -24,6 +24,9 @@ export default function QRScannerScreen() {
   const { theme, isDark } = useTheme();
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  // Expo camera can fire the scan callback multiple times before state updates.
+  // This ref is a synchronous lock to guarantee we handle only one scan at a time.
+  const scanLockRef = useRef(false);
 
   const handleBack = () => {
     router.back();
@@ -34,7 +37,9 @@ export default function QRScannerScreen() {
   };
 
   const handleBarCodeScanned = async ({ data }: { data: string }) => {
-    if (scanned) return; // Prevent multiple scans
+    // Prevent multiple scans (ref lock is immediate; state is async)
+    if (scanLockRef.current || scanned) return;
+    scanLockRef.current = true;
     setScanned(true);
 
     // The QR code contains a plain string (invite code), not JSON
@@ -43,6 +48,7 @@ export default function QRScannerScreen() {
     if (!inviteCode) {
       Alert.alert('Invalid QR Code', 'The scanned QR code is empty.');
       setScanned(false);
+      scanLockRef.current = false;
       return;
     }
 
@@ -69,6 +75,7 @@ export default function QRScannerScreen() {
       const errorMessage = error.response?.data?.message || error.message || 'Failed to join community';
       Alert.alert('Error', errorMessage);
       setScanned(false);
+      scanLockRef.current = false;
     }
   };
 
@@ -174,7 +181,10 @@ export default function QRScannerScreen() {
             {scanned && (
               <TouchableOpacity
                 style={[styles.scanAgainButton, { backgroundColor: theme.colors.primary }]}
-                onPress={() => setScanned(false)}
+                onPress={() => {
+                  scanLockRef.current = false;
+                  setScanned(false);
+                }}
               >
                 <Text style={[styles.scanAgainText, { color: theme.colors.primaryText }]}>
                   Scan Again
